@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+
+generator client {
+  provider  = "prisma-client-js"
+  engineType = "binary"
+  binaryTargets = ["native", "darwin-arm64", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url      = env("DATABASE_URL")
+}
+        
+
+model Team {
+  id        Int     @id @default(autoincrement())
+  apiId     String? @unique
+  name      String
+  shortName String?
+  country   String?
+
+  homeFixtures Fixture[]           @relation("HomeTeamFixtures")
+  awayFixtures Fixture[]           @relation("AwayTeamFixtures")
+  players      Player[]
+  seasonStats  PlayerSeasonStats[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Fixture {
+  id     Int      @id @default(autoincrement())
+  apiId  String?  @unique
+  date   DateTime
+  season String
+  league String?
+  status String // e.g. SCHEDULED, FINISHED
+
+  homeTeamId Int
+  awayTeamId Int
+
+  homeTeam Team @relation("HomeTeamFixtures", fields: [homeTeamId], references: [id])
+  awayTeam Team @relation("AwayTeamFixtures", fields: [awayTeamId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+}
+
+model Player {
+  id          Int     @id @default(autoincrement())
+  apiId       String? @unique
+  name        String
+  position    String?
+  shirtNumber Int?
+
+  teamId Int
+  team   Team @relation(fields: [teamId], references: [id])
+
+  seasonStats PlayerSeasonStats[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PlayerSeasonStats {
+  id Int @id @default(autoincrement())
+
+  playerId Int
+  teamId   Int
+  season   String
+  league   String
+
+  appearances    Int @default(0)
+  minutes        Int @default(0)
+  goals          Int @default(0)
+  assists        Int @default(0)
+  fouls          Int @default(0)
+  shots          Int @default(0)
+  shotsOnTarget  Int @default(0)
+  yellowCards    Int @default(0)
+  redCards       Int @default(0)
+
+  player Player @relation(fields: [playerId], references: [id])
+  team   Team   @relation(fields: [teamId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([playerId, teamId, season, league])
+  @@index([teamId, season, league])
+}
+
+model ApiFetchLog {
+  id        Int      @id @default(autoincrement())
+  resource  String // e.g. "fixtures", "playerSeasonStats"
+  fetchedAt DateTime @default(now())
+  success   Boolean  @default(true)
+  message   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([resource, fetchedAt])
+}
