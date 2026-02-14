@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Football Stats | Today's Fixtures",
+  title: "Football Stats | The Builder Room",
   description: "View today's football fixtures and player statistics",
 };
 

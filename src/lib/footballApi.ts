@@ -269,7 +269,7 @@ export async function fetchTodayFixtures(
   const leagueNameToId: Record<string, number> = {
     "La Liga": 140,
     "Scottish Championship": 179,
-    "FA Cup": 2,
+    "FA Cup": 45, // English FA Cup
     "Premier League": 39,
   };
 

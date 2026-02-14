@@ -22,7 +22,7 @@ const SORT_OPTIONS: { value: PlayerSortKey; label: string }[] = [
 
 export function TodayFixturesDashboard({ fixtures }: Props) {
   // API-Football league IDs: La Liga, Scottish Championship, English FA Cup
-  const ALLOWED_LEAGUE_IDS = [140, 179, 2]; // La Liga, Scottish Championship, FA Cup (England)
+  const ALLOWED_LEAGUE_IDS = [140, 179, 45]; // La Liga, Scottish Championship, FA Cup (England)
   const filteredFixtures = fixtures
     .filter(
       (fixture) =>

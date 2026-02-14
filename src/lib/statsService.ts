@@ -180,16 +180,19 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
   if (teamsNeedingStats.length > 0) {
     console.log(`[statsService] Player stats missing for teams: ${teamsNeedingStats.join(", ")}. Fetching from API...`);
     
-    // Try to get league ID from the league name (common leagues)
-    // For La Liga, the league ID is typically 140
+    // Prefer fixture.leagueId from DB (set when we store fixtures). Fallback: league name -> id for API calls.
     const leagueIdMap: Record<string, number> = {
       "La Liga": 140,
+      "Scottish Championship": 179,
+      "FA Cup": 45,
       "Premier League": 39,
       "Serie A": 135,
       "Bundesliga": 78,
       "Ligue 1": 61,
     };
-    const leagueId = fixture.league ? leagueIdMap[fixture.league] : undefined;
+    const leagueId =
+      fixture.leagueId ??
+      (fixture.league ? leagueIdMap[fixture.league] : undefined);
 
     // Fetch stats for each team that needs them
     await Promise.allSettled(
@@ -286,7 +289,10 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
 
   let teams = Array.from(byTeam.values());
 
-  // If any team has no players, use mocked data so the UI can be previewed
+  // With free API plan the /players endpoint often returns empty; we can show mock data for UI preview.
+  // Set USE_MOCK_PLAYERS_FALLBACK=false (or unset) after upgrading to use real player data only.
+  const useMockFallback = process.env.USE_MOCK_PLAYERS_FALLBACK !== "false";
+
   const mockPlayersForTeam = (
     teamId: number,
     teamName: string,
@@ -308,20 +314,28 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
   const homeTeamData = teams.find((t) => t.teamId === fixture.homeTeamId);
   const awayTeamData = teams.find((t) => t.teamId === fixture.awayTeamId);
 
-  if (!homeTeamData?.players.length && !awayTeamData?.players.length) {
-    teams = [
-      mockPlayersForTeam(fixture.homeTeamId, fixture.homeTeam.name, fixture.homeTeam.shortName, 9000),
-      mockPlayersForTeam(fixture.awayTeamId, fixture.awayTeam.name, fixture.awayTeam.shortName, 9100),
-    ];
+  if (useMockFallback) {
+    if (!homeTeamData?.players.length && !awayTeamData?.players.length) {
+      teams = [
+        mockPlayersForTeam(fixture.homeTeamId, fixture.homeTeam.name, fixture.homeTeam.shortName, 9000),
+        mockPlayersForTeam(fixture.awayTeamId, fixture.awayTeam.name, fixture.awayTeam.shortName, 9100),
+      ];
+    } else {
+      let offset = 9200;
+      teams = [
+        homeTeamData && homeTeamData.players.length > 0
+          ? homeTeamData
+          : mockPlayersForTeam(fixture.homeTeamId, fixture.homeTeam.name, fixture.homeTeam.shortName, (offset += 100)),
+        awayTeamData && awayTeamData.players.length > 0
+          ? awayTeamData
+          : mockPlayersForTeam(fixture.awayTeamId, fixture.awayTeam.name, fixture.awayTeam.shortName, (offset += 100)),
+      ];
+    }
   } else {
-    let offset = 9200;
+    // Real data only: show only teams that have players from the API (no mock fallback)
     teams = [
-      homeTeamData && homeTeamData.players.length > 0
-        ? homeTeamData
-        : mockPlayersForTeam(fixture.homeTeamId, fixture.homeTeam.name, fixture.homeTeam.shortName, (offset += 100)),
-      awayTeamData && awayTeamData.players.length > 0
-        ? awayTeamData
-        : mockPlayersForTeam(fixture.awayTeamId, fixture.awayTeam.name, fixture.awayTeam.shortName, (offset += 100)),
+      homeTeamData ?? { teamId: fixture.homeTeamId, teamName: fixture.homeTeam.name, teamShortName: fixture.homeTeam.shortName, players: [] },
+      awayTeamData ?? { teamId: fixture.awayTeamId, teamName: fixture.awayTeam.name, teamShortName: fixture.awayTeam.shortName, players: [] },
     ];
   }
 
