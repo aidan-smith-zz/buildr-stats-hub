@@ -69,9 +69,6 @@ export default async function Home() {
             See the stats before you build
           </p>
         </div>
-        <h2 className="mb-6 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-          Today&apos;s Fixtures
-        </h2>
         <TodayFixturesDashboard fixtures={fixtures} />
       </main>
     </div>

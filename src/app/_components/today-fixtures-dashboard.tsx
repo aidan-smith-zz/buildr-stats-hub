@@ -192,7 +192,7 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
             <div className="flex flex-col items-center gap-3">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-600 dark:border-neutral-700 dark:border-t-neutral-400"></div>
               <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                Loading stats…
+                Loading stats...
               </p>
             </div>
           </div>

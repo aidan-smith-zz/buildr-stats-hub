@@ -2,9 +2,11 @@ import { prisma } from "@/lib/prisma";
 import {
   fetchPlayerSeasonStatsByTeam,
   getPlayerExternalId,
-  getTeamExternalId,
   type RawPlayerSeasonStats,
 } from "@/lib/footballApi";
+
+/** Fixture including leagueId (schema has it; Prisma payload may omit until client is regenerated) */
+type FixtureWithLeagueId = { leagueId?: number | null; league?: string | null };
 
 export type FixtureSummary = {
   id: number;
@@ -51,12 +53,12 @@ async function fetchAndStorePlayerStats(
   league: string | null,
   leagueId?: number,
 ): Promise<void> {
-  console.log(`[statsService] Fetching player stats for team ${teamId} (apiId: ${teamApiId}), league: ${league} (no season filter - free plan limitation)`);
+  console.log(`[statsService] Fetching player stats for team ${teamId} (apiId: ${teamApiId}), season: ${season}, league: ${league}`);
   
   try {
     const rawStats = await fetchPlayerSeasonStatsByTeam({
       teamExternalId: teamApiId,
-      // Don't pass season - free plan doesn't support it
+      season,
       leagueId: leagueId,
     });
 
@@ -82,9 +84,8 @@ async function fetchAndStorePlayerStats(
           },
         });
 
-        // Upsert player season stats
-        // Use season from fixture (not from API response) since we're not filtering by season
-        const leagueName = raw.league || league || "Unknown";
+        // Upsert player season stats - use fixture's league name so queries by fixture.league find these rows
+        const leagueName = league || raw.league || "Unknown";
         const seasonStr = String(season); // Use season from fixture parameter
         
         // Check if stats already exist
@@ -159,6 +160,7 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     return null;
   }
 
+  const fixtureWithLeagueId = fixture as FixtureWithLeagueId;
   const teamIds = [fixture.homeTeamId, fixture.awayTeamId];
   const leagueFilter = fixture.league ? { league: fixture.league } : {};
 
@@ -191,7 +193,7 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
       "Ligue 1": 61,
     };
     const leagueId =
-      fixture.leagueId ??
+      fixtureWithLeagueId.leagueId ??
       (fixture.league ? leagueIdMap[fixture.league] : undefined);
 
     // Fetch stats for each team that needs them
@@ -227,7 +229,7 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
       player: true,
       team: true,
     },
-    orderBy: [{ teamId: "asc" }, { minutes: "desc" }], // Removed fouls sorting - requires upgraded API plan
+    orderBy: [{ teamId: "asc" }, { minutes: "desc" }],
   });
 
   const byTeam = new Map<
@@ -273,7 +275,7 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     date: fixture.date,
     status: fixture.status,
     league: fixture.league,
-    leagueId: fixture.leagueId,
+    leagueId: fixtureWithLeagueId.leagueId ?? null,
     season: fixture.season,
     homeTeam: {
       id: fixture.homeTeam.id,
