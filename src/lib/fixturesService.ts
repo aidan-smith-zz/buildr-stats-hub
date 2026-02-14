@@ -29,6 +29,25 @@ function toDateOnlyIso(date: Date) {
 }
 
 /**
+ * Clear in-memory cache and delete today's fixtures and fetch log from the DB.
+ * Next call to getOrRefreshTodayFixtures() will refetch from the API (with leagueId etc).
+ */
+export async function clearTodayFixturesCacheAndData(now: Date = new Date()): Promise<void> {
+  const dayStart = startOfDayUtc(now);
+  const dayEnd = endOfDayUtc(now);
+  const dateKey = toDateOnlyIso(now);
+
+  globalForFixtures.todayFixturesPromise = undefined;
+
+  await prisma.$transaction([
+    prisma.fixture.deleteMany({ where: { date: { gte: dayStart, lte: dayEnd } } }),
+    prisma.apiFetchLog.deleteMany({ where: { resource: `fixtures:${dateKey}` } }),
+  ]);
+
+  console.log(`[fixturesService] Cleared cache and deleted fixtures + fetch log for ${dateKey}`);
+}
+
+/**
  * Fetch today's fixtures from DB or refresh from API if stale/missing.
  */
 export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise<FixtureSummary[]> {
@@ -104,6 +123,11 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
       let processedCount = 0;
       let errorCount = 0;
       
+      if (rawFixtures.length > 0) {
+        const sample = rawFixtures[0];
+        console.log(`[fixturesService] First raw fixture leagueId:`, sample.leagueId, "league:", sample.league);
+      }
+
       for (let batchStart = 0; batchStart < rawFixtures.length; batchStart += BATCH_SIZE) {
         const batch = rawFixtures.slice(batchStart, batchStart + BATCH_SIZE);
         
@@ -112,19 +136,23 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
           batch.map(async (raw) => {
             try {
               // Upsert teams first (these are independent operations)
+              // Use team country when present, otherwise league country (same for both teams in a fixture)
+              const homeCountry = raw.homeTeam.country ?? raw.leagueCountry ?? null;
+              const awayCountry = raw.awayTeam.country ?? raw.leagueCountry ?? null;
+
               const [homeTeam, awayTeam] = await Promise.all([
                 prisma.team.upsert({
                   where: { apiId: getTeamExternalId(raw.homeTeam) },
                   update: {
                     name: raw.homeTeam.name,
                     shortName: raw.homeTeam.shortName,
-                    country: raw.homeTeam.country,
+                    country: homeCountry,
                   },
                   create: {
                     apiId: getTeamExternalId(raw.homeTeam),
                     name: raw.homeTeam.name,
                     shortName: raw.homeTeam.shortName,
-                    country: raw.homeTeam.country,
+                    country: homeCountry,
                   },
                 }),
                 prisma.team.upsert({
@@ -132,36 +160,33 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
                   update: {
                     name: raw.awayTeam.name,
                     shortName: raw.awayTeam.shortName,
-                    country: raw.awayTeam.country,
+                    country: awayCountry,
                   },
                   create: {
                     apiId: getTeamExternalId(raw.awayTeam),
                     name: raw.awayTeam.name,
                     shortName: raw.awayTeam.shortName,
-                    country: raw.awayTeam.country,
+                    country: awayCountry,
                   },
                 }),
               ]);
               
               // Then upsert fixture
+              const fixtureData = {
+                date: new Date(raw.date),
+                season: String(raw.season ?? ""),
+                league: raw.league ?? null,
+                leagueId: raw.leagueId ?? null,
+                status: raw.status ?? "UNKNOWN",
+                homeTeamId: homeTeam.id,
+                awayTeamId: awayTeam.id,
+              };
               await prisma.fixture.upsert({
                 where: { apiId: getFixtureExternalId(raw) },
-                update: {
-                  date: new Date(raw.date),
-                  season: String(raw.season ?? ""),
-                  league: raw.league ?? null,
-                  status: raw.status ?? "UNKNOWN",
-                  homeTeamId: homeTeam.id,
-                  awayTeamId: awayTeam.id,
-                },
+                update: fixtureData,
                 create: {
                   apiId: getFixtureExternalId(raw),
-                  date: new Date(raw.date),
-                  season: String(raw.season ?? ""),
-                  league: raw.league ?? null,
-                  status: raw.status ?? "UNKNOWN",
-                  homeTeamId: homeTeam.id,
-                  awayTeamId: awayTeam.id,
+                  ...fixtureData,
                 },
               });
               
@@ -220,26 +245,25 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
   return refreshPromise;
 }
 
-/**
- * Map Prisma fixture to FixtureSummary for dashboard
- */
+type FixtureWithTeams = Fixture & { leagueId?: number | null; homeTeam: Team; awayTeam: Team };
 
-  function mapFixtureToSummary(f: Fixture & { homeTeam: Team; awayTeam: Team }): FixtureSummary {
-    return {
-      id: f.id,
-      date: f.date,
-      status: f.status,
-      league: f.league,
-      season: f.season,
-      homeTeam: {
-        id: f.homeTeam.id,
-        name: f.homeTeam.name,
-        shortName: f.homeTeam.shortName,
-      },
-      awayTeam: {
-        id: f.awayTeam.id,
-        name: f.awayTeam.name,
-        shortName: f.awayTeam.shortName,
-      },
-    };
-  }
+function mapFixtureToSummary(f: FixtureWithTeams): FixtureSummary {
+  return {
+    id: f.id,
+    date: f.date,
+    status: f.status,
+    league: f.league,
+    leagueId: f.leagueId ?? null,
+    season: f.season,
+    homeTeam: {
+      id: f.homeTeam.id,
+      name: f.homeTeam.name,
+      shortName: f.homeTeam.shortName,
+    },
+    awayTeam: {
+      id: f.awayTeam.id,
+      name: f.awayTeam.name,
+      shortName: f.awayTeam.shortName,
+    },
+  };
+}

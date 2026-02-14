@@ -7,25 +7,43 @@ type Props = {
   fixtures: FixtureSummary[];
 };
 
+type PlayerSortKey = keyof FixtureStatsResponse["teams"][number]["players"][number];
+const SORT_OPTIONS: { value: PlayerSortKey; label: string }[] = [
+  { value: "minutes", label: "Minutes played" },
+  { value: "goals", label: "Goals" },
+  { value: "assists", label: "Assists" },
+  { value: "yellowCards", label: "Yellow cards" },
+  { value: "redCards", label: "Red cards" },
+  { value: "fouls", label: "Fouls" },
+  { value: "shots", label: "Shots" },
+  { value: "shotsOnTarget", label: "Shots on target" },
+  { value: "appearances", label: "Appearances" },
+];
+
 export function TodayFixturesDashboard({ fixtures }: Props) {
-  // Filter fixtures to only show La Liga
-  const laLigaFixtures = fixtures.filter(
-    (fixture) => fixture.league?.toLowerCase().includes("la liga")
-  );
-  
+  // API-Football league IDs: La Liga, Scottish Championship, English FA Cup
+  const ALLOWED_LEAGUE_IDS = [140, 179, 2]; // La Liga, Scottish Championship, FA Cup (England)
+  const filteredFixtures = fixtures
+    .filter(
+      (fixture) =>
+        fixture.leagueId != null && ALLOWED_LEAGUE_IDS.includes(fixture.leagueId),
+    )
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
   const [selectedId, setSelectedId] = useState<string>(
-    laLigaFixtures[0] ? String(laLigaFixtures[0].id) : "",
+    filteredFixtures[0] ? String(filteredFixtures[0].id) : "",
   );
   const [stats, setStats] = useState<FixtureStatsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<PlayerSortKey>("minutes");
 
-  // Update selectedId if current selection is not in La Liga fixtures
+  // Update selectedId if current selection is not in filtered list
   useEffect(() => {
-    if (selectedId && !laLigaFixtures.some(f => String(f.id) === selectedId)) {
-      setSelectedId(laLigaFixtures[0] ? String(laLigaFixtures[0].id) : "");
+    if (selectedId && !filteredFixtures.some(f => String(f.id) === selectedId)) {
+      setSelectedId(filteredFixtures[0] ? String(filteredFixtures[0].id) : "");
     }
-  }, [laLigaFixtures, selectedId]);
+  }, [filteredFixtures, selectedId]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -73,17 +91,15 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
     };
   }, [selectedId]);
 
-  if (laLigaFixtures.length === 0) {
+  if (filteredFixtures.length === 0) {
     return (
       <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center dark:border-neutral-800 dark:bg-neutral-900">
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          No La Liga fixtures found for today.
+          No fixtures found for today for the selected leagues.
         </p>
       </div>
     );
   }
-
-  const selectedFixture = laLigaFixtures.find(f => String(f.id) === selectedId);
 
   return (
     <div className="space-y-6">
@@ -101,10 +117,18 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
           value={selectedId}
           onChange={(event) => setSelectedId(event.target.value)}
         >
-          {laLigaFixtures.map((fixture) => {
-            const label = `${
-              fixture.homeTeam.shortName ?? fixture.homeTeam.name
-            } vs ${fixture.awayTeam.shortName ?? fixture.awayTeam.name}`;
+          {filteredFixtures.map((fixture) => {
+            const d = new Date(fixture.date);
+            const dateStr = d.toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+            });
+            const koTime = d.toLocaleTimeString("en-GB", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            });
+            const label = `${fixture.homeTeam.shortName ?? fixture.homeTeam.name} vs ${fixture.awayTeam.shortName ?? fixture.awayTeam.name} · ${dateStr} · ${koTime}`;
 
             return (
               <option key={fixture.id} value={fixture.id}>
@@ -114,46 +138,6 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
           })}
         </select>
       </div>
-
-      {/* Selected Fixture Info */}
-      {selectedFixture && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <div className="text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                {selectedFixture.league ?? "League"}
-              </div>
-              <div className="flex items-center gap-2 text-lg font-semibold text-neutral-900 dark:text-neutral-50 sm:text-xl">
-                <span>{selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name}</span>
-                <span className="text-neutral-400">vs</span>
-                <span>{selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name}</span>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 text-right text-xs text-neutral-600 dark:text-neutral-400 sm:text-sm">
-              <div className="space-y-0.5">
-                <div>
-                  {new Date(selectedFixture.date).toLocaleDateString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </div>
-                <div className="font-medium text-neutral-900 dark:text-neutral-50">
-                  {new Date(selectedFixture.date).toLocaleTimeString("en-US", {
-                    hour: "numeric",
-                    minute: "2-digit",
-                    hour12: true,
-                  })}
-                </div>
-              </div>
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2 py-1 font-medium dark:bg-neutral-800">
-                <span className="h-1.5 w-1.5 rounded-full bg-neutral-400 dark:bg-neutral-500"></span>
-                {selectedFixture.status}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Stats Section */}
       <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-8">
@@ -176,25 +160,39 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
 
         {!loading && !error && stats && (
           <div className="space-y-6">
-            <header className="border-b border-neutral-200 pb-4 dark:border-neutral-800">
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                Season Statistics
-              </h2>
-              <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                {stats.fixture.league ?? "League"} · Season {stats.fixture.season} · Sorted by minutes played
-              </p>
+            <header className="flex flex-col gap-3 border-b border-neutral-200 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 dark:border-neutral-800">
+              <div>
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                  Player Statistics
+                </h2>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                  {stats.fixture.league ?? "League"} · Season {stats.fixture.season}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="stats-sort" className="whitespace-nowrap text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  Sort by
+                </label>
+                <select
+                  id="stats-sort"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as PlayerSortKey)}
+                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-500/20 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+                >
+                  {SORT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </header>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               {stats.teams.map((team) => {
-                const maxScore =
-                  team.players.length === 0
-                    ? 0
-                    : Math.max(
-                        ...team.players.map(
-                          (p) => p.goals * 4 + p.assists * 3 + p.shots,
-                        ),
-                      );
+                const sortedPlayers = [...team.players].sort(
+                  (a, b) => (Number(b[sortBy]) ?? 0) - (Number(a[sortBy]) ?? 0)
+                );
 
                 return (
                   <div
@@ -205,17 +203,17 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
                       {team.teamShortName ?? team.teamName}
                     </h3>
                     <div className="flex max-h-96 flex-col gap-2 overflow-y-auto pr-2">
-                      {team.players.length === 0 ? (
+                      {sortedPlayers.length === 0 ? (
                         <div className="rounded-lg border border-neutral-200 bg-white p-4 text-center dark:border-neutral-800 dark:bg-neutral-900">
                           <p className="text-sm text-neutral-500 dark:text-neutral-400">
                             No player statistics available for this team.
                           </p>
                         </div>
                       ) : (
-                        team.players.map((player) => {
-                          const score =
-                            player.goals * 4 + player.assists * 3 + player.shots;
-                          const isTop = maxScore > 0 && score === maxScore;
+                        sortedPlayers.map((player, index) => {
+                          const isTop = index === 0;
+                          const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? sortBy;
+                          const sortValue = player[sortBy];
 
                           return (
                             <div
@@ -252,31 +250,13 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
                                     <span className="mx-1 text-neutral-400">A</span>
                                   </div>
                                   <div className="text-xs text-neutral-600 dark:text-neutral-400">
-                                    {player.shots} Sh · {player.shotsOnTarget} SoT · {player.minutes} MP
+                                    {player.minutes} MP
                                   </div>
                                 </div>
                               </div>
-                              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-200 pt-2 text-xs text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
-                                <div className="flex items-center gap-1">
-                                  <span className="font-medium">SoT:</span>
-                                  <span>{player.shotsOnTarget}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="font-medium">Fouls:</span>
-                                  <span>{player.fouls}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="font-medium">YC:</span>
-                                  <span>{player.yellowCards}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="font-medium">RC:</span>
-                                  <span>{player.redCards}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="font-medium">Apps:</span>
-                                  <span>{player.appearances}</span>
-                                </div>
+                              <div className="mt-3 border-t border-neutral-200 pt-2 text-xs text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
+                                <span className="font-medium">{sortLabel}:</span>{" "}
+                                <span className="text-neutral-900 dark:text-neutral-50">{Number(sortValue) ?? 0}</span>
                               </div>
                             </div>
                           );

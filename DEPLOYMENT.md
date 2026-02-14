@@ -17,7 +17,8 @@ Pick one and create a database:
 - **[Neon](https://neon.tech)** – Free tier. Create project → copy connection string.
 - **[Vercel Postgres](https://vercel.com/storage/postgres)** – Create from Vercel dashboard if you prefer.
 
-Use the **direct** connection string (not the pooler) for `DATABASE_URL` unless you hit connection limits.
+- **On Vercel:** use the **pooler** connection string (Supabase: port **6543**, "Transaction" pooler) and append `?pgbouncer=true` to `DATABASE_URL` to avoid "prepared statement" errors.
+- **Locally:** the direct connection (port 5432) is fine unless you hit connection limits.
 
 ---
 
@@ -56,7 +57,7 @@ npm run build
 
    | Name                   | Value                                      | Environments   |
    |------------------------|--------------------------------------------|----------------|
-   | `DATABASE_URL`         | `postgresql://USER:PASSWORD@HOST:5432/DB...` | Production, Preview |
+   | `DATABASE_URL`         | Pooler URL, e.g. `postgresql://...@HOST:6543/postgres?pgbouncer=true` (Supabase: use port 6543) | Production, Preview |
    | `FOOTBALL_API_BASE_URL` | `https://v3.football.api-sports.io`      | Production, Preview |
    | `FOOTBALL_API_KEY`    | Your API-Football key                      | Production, Preview |
 
@@ -135,7 +136,8 @@ You can run a custom script in a one-off job (e.g. “Run Command” or a deploy
   All Prisma usage is in server code (API routes, server components, `server-only` modules). Do not import `prisma` or `PrismaClient` in client components.
 
 - **DB connection errors in production**  
-  - Check `DATABASE_URL` in Vercel (no extra spaces, correct encoding for special chars in the password).  
+  - Use the **Supabase pooler** URL (port **6543**) as `DATABASE_URL` on Vercel, and append `?pgbouncer=true`.  
+  - Check no extra spaces and that the password is URL-encoded in `DATABASE_URL`.  
   - If you hit connection limits, switch to a **connection pooler** URL (e.g. Supabase “Transaction” pooler or Neon pooler) and use that as `DATABASE_URL`.
 
 - **Migrations out of sync**  

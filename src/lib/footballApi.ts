@@ -19,6 +19,8 @@ export type RawFixture = {
   id: string | number;
   date: string;
   league?: string;
+  leagueId?: number;
+  leagueCountry?: string;
   season?: string | number;
   status?: string;
   homeTeam: {
@@ -223,10 +225,11 @@ export async function fetchTodayFixtures(
       id: number;
       name: string;
       season: number;
+      country?: string;
     };
     teams: {
-      home: { id: number; name: string };
-      away: { id: number; name: string };
+      home: { id: number; name: string; code?: string; country?: string };
+      away: { id: number; name: string; code?: string; country?: string };
     };
   };
 
@@ -262,21 +265,49 @@ export async function fetchTodayFixtures(
   
   console.log(`[footballApi] Fetched ${fixtures.length} fixtures for date ${params.date}${params.leagueId ? `, league ${params.leagueId}` : ''}${params.season ? `, season ${params.season}` : ''}`);
 
-  return fixtures.map((f) => ({
+  // Fallback: API-Football league name -> id for our filtered leagues (in case API omits league.id)
+  const leagueNameToId: Record<string, number> = {
+    "La Liga": 140,
+    "Scottish Championship": 179,
+    "FA Cup": 2,
+    "Premier League": 39,
+  };
+
+  const first = fixtures[0] as ApiFootballFixture | undefined;
+  if (first) {
+    const rawLeagueId = (first as { league?: { id?: unknown } }).league?.id;
+    console.log(`[footballApi] First fixture league:`, { name: first.league?.name, rawId: rawLeagueId, type: typeof rawLeagueId });
+  }
+
+  return fixtures.map((f) => {
+    const raw = f as { league?: { id?: unknown; name?: string }; leagueId?: unknown };
+    let rawLeagueId = raw.league?.id ?? raw.leagueId;
+    if ((rawLeagueId === undefined || rawLeagueId === null) && raw.league?.name) {
+      rawLeagueId = leagueNameToId[raw.league.name] ?? undefined;
+    }
+    const leagueId = rawLeagueId !== undefined && rawLeagueId !== null ? Number(rawLeagueId) : undefined;
+    return {
     id: f.fixture.id,
     date: f.fixture.date,
     league: f.league.name,
+    leagueId,
+    leagueCountry: f.league.country ?? undefined,
     season: f.league.season,
     status: f.fixture.status.short,
     homeTeam: {
       id: f.teams.home.id,
       name: f.teams.home.name,
+      shortName: f.teams.home.code ?? undefined,
+      country: f.teams.home.country ?? undefined,
     },
     awayTeam: {
       id: f.teams.away.id,
       name: f.teams.away.name,
+      shortName: f.teams.away.code ?? undefined,
+      country: f.teams.away.country ?? undefined,
     },
-  }));
+  };
+  });
 }
 
 /**

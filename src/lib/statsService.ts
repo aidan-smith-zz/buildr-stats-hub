@@ -11,6 +11,7 @@ export type FixtureSummary = {
   date: Date;
   status: string;
   league: string | null;
+  leagueId: number | null;
   season: string;
   homeTeam: { id: number; name: string; shortName: string | null };
   awayTeam: { id: number; name: string; shortName: string | null };
@@ -269,6 +270,7 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     date: fixture.date,
     status: fixture.status,
     league: fixture.league,
+    leagueId: fixture.leagueId,
     season: fixture.season,
     homeTeam: {
       id: fixture.homeTeam.id,

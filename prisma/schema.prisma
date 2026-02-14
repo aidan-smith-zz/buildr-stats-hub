@@ -34,12 +34,13 @@ model Team {
 }
 
 model Fixture {
-  id     Int      @id @default(autoincrement())
-  apiId  String?  @unique
-  date   DateTime
-  season String
-  league String?
-  status String // e.g. SCHEDULED, FINISHED
+  id       Int      @id @default(autoincrement())
+  apiId    String?  @unique
+  date     DateTime
+  season   String
+  league   String?
+  leagueId Int?     // API-Football league id, for filtering
+  status   String   // e.g. SCHEDULED, FINISHED
 
   homeTeamId Int
   awayTeamId Int
