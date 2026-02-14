@@ -14,16 +14,15 @@ export default async function Home() {
     console.error("[Home] Failed to load fixtures:", err);
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-        <main className="mx-auto min-h-screen max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-        <header className="mb-10 text-center sm:mb-16">
-  <h1 className="bg-gradient-to-r from-neutral-900 to-neutral-700 bg-clip-text text-4xl font-bold tracking-tight text-transparent dark:from-neutral-50 dark:to-neutral-300 sm:text-5xl lg:text-6xl">
-    BetBuilderAnalytics
-  </h1>
-
-  <h2 className="mt-3 bg-gradient-to-r from-neutral-700 to-neutral-500 bg-clip-text text-lg italic tracking-wide text-transparent dark:from-neutral-300 dark:to-neutral-400 sm:text-xl">
-    See the statistics before you build.
-  </h2>
-</header>
+        <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
+              BetBuilderAnalytics
+            </h1>
+            <p className="mt-1 text-sm font-medium tracking-wide text-neutral-600 dark:text-neutral-400 sm:text-base">
+              See the stats before you build
+            </p>
+          </div>
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-950/30">
             <p className="font-medium text-amber-900 dark:text-amber-200">
               Could not load fixtures
@@ -61,16 +60,18 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      <main className="mx-auto min-h-screen max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-      <header className="mb-10 text-center sm:mb-16">
-  <h1 className="bg-gradient-to-r from-neutral-900 to-neutral-700 bg-clip-text text-4xl font-bold tracking-tight text-transparent dark:from-neutral-50 dark:to-neutral-300 sm:text-5xl lg:text-6xl">
-    BetBuilderAnalytics
-  </h1>
-
-  <h2 className="mt-3 bg-gradient-to-r from-neutral-700 to-neutral-500 bg-clip-text text-lg italic tracking-wide text-transparent dark:from-neutral-300 dark:to-neutral-400 sm:text-xl">
-  See the statistics before you build.  </h2>
-</header>
-
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
+            BetBuilderAnalytics
+          </h1>
+          <p className="mt-1 text-sm font-medium tracking-wide text-neutral-600 dark:text-neutral-400 sm:text-base">
+            See the stats before you build
+          </p>
+        </div>
+        <h2 className="mb-6 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
+          Today&apos;s Fixtures
+        </h2>
         <TodayFixturesDashboard fixtures={fixtures} />
       </main>
     </div>
