@@ -139,6 +139,52 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
         </select>
       </div>
 
+      {/* Fixture details tile */}
+      {(() => {
+        const selectedFixture = filteredFixtures.find((f) => String(f.id) === selectedId);
+        if (!selectedFixture) return null;
+
+        const koDate = new Date(selectedFixture.date);
+        const koTime = koDate.toLocaleTimeString("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+        // Use kick-off time: if KO is in the past, game has started (stored status can be stale from fetch)
+        const isNotStarted = koDate > new Date();
+        const statusLabel = isNotStarted ? "Not started" : "Started";
+
+        return (
+          <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <span className="font-medium text-neutral-900 dark:text-neutral-50">
+                {selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name}
+              </span>
+              <span className="text-neutral-400">vs</span>
+              <span className="font-medium text-neutral-900 dark:text-neutral-50">
+                {selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name}
+              </span>
+              <span className="text-neutral-300 dark:text-neutral-600">·</span>
+              <span className="text-neutral-600 dark:text-neutral-400">{koTime}</span>
+              <span className="text-neutral-300 dark:text-neutral-600">·</span>
+              <span className="text-neutral-600 dark:text-neutral-400">
+                {selectedFixture.league ?? "League"}
+              </span>
+              <span className="text-neutral-300 dark:text-neutral-600">·</span>
+              <span
+                className={
+                  isNotStarted
+                    ? "font-medium text-amber-600 dark:text-amber-400"
+                    : "font-medium text-green-500 dark:text-green-400"
+                }
+              >
+                {statusLabel}
+              </span>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Stats Section */}
       <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-8">
         {loading && (
@@ -163,10 +209,10 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
             <header className="flex flex-col gap-3 border-b border-neutral-200 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 dark:border-neutral-800">
               <div>
                 <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                  Player Statistics
+                  Season Statistics
                 </h2>
                 <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                  {stats.fixture.league ?? "League"} · Season {stats.fixture.season}
+                   Season {stats.fixture.season}
                 </p>
               </div>
               <div className="flex items-center gap-2">
