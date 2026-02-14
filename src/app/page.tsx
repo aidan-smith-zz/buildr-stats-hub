@@ -17,11 +17,11 @@ export default async function Home() {
         <main className="mx-auto min-h-screen max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <header className="mb-10 text-center sm:mb-16">
   <h1 className="bg-gradient-to-r from-neutral-900 to-neutral-700 bg-clip-text text-4xl font-bold tracking-tight text-transparent dark:from-neutral-50 dark:to-neutral-300 sm:text-5xl lg:text-6xl">
-    The Builder Room
+    BetBuilderAnalytics
   </h1>
 
   <h2 className="mt-3 bg-gradient-to-r from-neutral-700 to-neutral-500 bg-clip-text text-lg italic tracking-wide text-transparent dark:from-neutral-300 dark:to-neutral-400 sm:text-xl">
-    your data-driven approach
+    See the statistics before you build.
   </h2>
 </header>
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-950/30">
@@ -64,12 +64,11 @@ export default async function Home() {
       <main className="mx-auto min-h-screen max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       <header className="mb-10 text-center sm:mb-16">
   <h1 className="bg-gradient-to-r from-neutral-900 to-neutral-700 bg-clip-text text-4xl font-bold tracking-tight text-transparent dark:from-neutral-50 dark:to-neutral-300 sm:text-5xl lg:text-6xl">
-    The Builder Room
+    BetBuilderAnalytics
   </h1>
 
   <h2 className="mt-3 bg-gradient-to-r from-neutral-700 to-neutral-500 bg-clip-text text-lg italic tracking-wide text-transparent dark:from-neutral-300 dark:to-neutral-400 sm:text-xl">
-    your data-driven picks for today's fixtures
-  </h2>
+  See the statistics before you build.  </h2>
 </header>
 
         <TodayFixturesDashboard fixtures={fixtures} />
