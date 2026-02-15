@@ -35,11 +35,11 @@ export default function RootLayout({
               alt="statsBuilder"
               width={140}
               height={44}
-              className="h-9 w-auto object-contain sm:h-10"
+              className="h-9 w-auto object-contain sm:h-10 dark:invert"
               priority
             />
             <span className="-ml-1.5 text-base font-medium tracking-tight text-neutral-700 dark:text-neutral-200 sm:text-lg">
-              statsBuildr
+              statsBuilder
             </span>
           </div>
         </header>
