@@ -1,3 +1,4 @@
+import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { prisma } from "@/lib/prisma";
 import {
   fetchTodayFixtures,
@@ -7,6 +8,8 @@ import {
 } from "@/lib/footballApi";
 import type { FixtureSummary } from "@/lib/statsService";
 import type { Fixture, Team } from "@prisma/client";
+
+export { REQUIRED_LEAGUE_IDS };
 
 /**
  * Global in-memory cache to prevent duplicate API calls per day
@@ -140,12 +143,21 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
     let message: string | undefined;
 
     try {
-      // Fetch all fixtures for the date (no filters - gets all leagues and seasons)
-      console.log(`[fixturesService] Fetching all fixtures for ${dateKey} (no filters)`);
-      rawFixtures = await fetchTodayFixtures({
-        date: dateKey,
-        // No leagueId or season - gets all fixtures for the date
+      // Fetch only the required leagues (one API call per league)
+      console.log(`[fixturesService] Fetching fixtures for ${dateKey} for leagues: ${REQUIRED_LEAGUE_IDS.join(", ")}`);
+      const results = await Promise.all(
+        REQUIRED_LEAGUE_IDS.map((leagueId) =>
+          fetchTodayFixtures({ date: dateKey, leagueId })
+        )
+      );
+      const seen = new Set<string>();
+      rawFixtures = results.flat().filter((raw) => {
+        const key = getFixtureExternalId(raw);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
       });
+      rawFixtures.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       console.log(`[fixturesService] Received ${rawFixtures.length} fixtures from API`);
 
       // Process fixtures in batches to avoid timeout and improve performance

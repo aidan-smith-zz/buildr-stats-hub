@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import type { FixtureSummary, FixtureStatsResponse } from "@/lib/statsService";
 
 type Props = {
@@ -20,12 +21,10 @@ const SORT_OPTIONS: { value: PlayerSortKey; label: string }[] = [
 ];
 
 export function TodayFixturesDashboard({ fixtures }: Props) {
-  // API-Football league IDs: La Liga, Scottish Championship, English FA Cup
-  const ALLOWED_LEAGUE_IDS = [140, 179, 45]; // La Liga, Scottish Championship, FA Cup (England)
   const filteredFixtures = fixtures
     .filter(
       (fixture) =>
-        fixture.leagueId != null && ALLOWED_LEAGUE_IDS.includes(fixture.leagueId),
+        fixture.leagueId != null && (REQUIRED_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId),
     )
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
