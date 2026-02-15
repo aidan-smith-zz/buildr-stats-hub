@@ -29,16 +29,16 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased`}
       >
         <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:border-neutral-800 dark:bg-neutral-950/95 dark:supports-[backdrop-filter]:bg-neutral-950/80 sm:px-6">
-          <div className="mx-auto flex max-w-4xl items-center">
+          <div className="mx-auto flex max-w-4xl items-center overflow-visible">
             <Image
               src="/logo.png"
               alt="statsBuilder"
               width={140}
               height={44}
-              className="h-9 w-auto object-contain sm:h-10 dark:invert"
+              className="h-9 w-auto shrink-0 object-contain sm:h-10 dark:invert"
               priority
             />
-            <span className="-ml-1.5 text-base font-medium tracking-tight text-neutral-700 dark:text-neutral-200 sm:text-lg">
+            <span className="ml-2 shrink-0 text-base font-medium tracking-tight text-neutral-800 dark:text-neutral-100 sm:text-lg">
               statsBuilder
             </span>
           </div>
