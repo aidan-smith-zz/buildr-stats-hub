@@ -32,12 +32,15 @@ export default function RootLayout({
           <div className="mx-auto flex max-w-4xl items-center">
             <Image
               src="/logo.png"
-              alt="Bet Builder Analytics"
+              alt="statsBuilder"
               width={140}
               height={44}
               className="h-9 w-auto object-contain sm:h-10"
               priority
             />
+            <span className="-ml-1.5 text-base font-medium tracking-tight text-neutral-700 dark:text-neutral-200 sm:text-lg">
+              statsBuilder
+            </span>
           </div>
         </header>
         {children}

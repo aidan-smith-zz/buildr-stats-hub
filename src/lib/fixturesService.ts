@@ -32,30 +32,29 @@ function toDateOnlyIso(date: Date) {
 }
 
 /**
- * Remove fixtures and player data that are not from today. Keeps the DB focused on today's fixtures only.
+ * Remove fixtures and fetch logs that are not from today. Keeps the fixture list focused on today only.
+ * PlayerSeasonStats are NOT pruned here so that cached stats stay in the DB and fixture stats load fast
+ * when returning to the site (otherwise every visit would wipe stats and trigger slow API refetches).
  */
 export async function pruneDataOlderThanToday(now: Date = new Date()): Promise<void> {
   const dayStart = startOfDayUtc(now);
   const dayEnd = endOfDayUtc(now);
   const dateKey = toDateOnlyIso(now);
 
-  const [fixturesDeleted, playerStatsDeleted, logsDeleted] = await prisma.$transaction(async (tx) => {
+  const [fixturesDeleted, logsDeleted] = await prisma.$transaction(async (tx) => {
     const fixturesResult = await tx.fixture.deleteMany({
       where: {
         OR: [{ date: { lt: dayStart } }, { date: { gt: dayEnd } }],
       },
     });
-    const playerStatsResult = await tx.playerSeasonStats.deleteMany({});
     const logsResult = await tx.apiFetchLog.deleteMany({
       where: { resource: { not: `fixtures:${dateKey}` } },
     });
-    return [fixturesResult.count, playerStatsResult.count, logsResult.count];
+    return [fixturesResult.count, logsResult.count];
   });
 
-  if (fixturesDeleted > 0 || playerStatsDeleted > 0 || logsDeleted > 0) {
-    console.log(
-      `[fixturesService] Pruned: ${fixturesDeleted} old fixtures, ${playerStatsDeleted} player season stats, ${logsDeleted} old fetch logs`
-    );
+  if (fixturesDeleted > 0 || logsDeleted > 0) {
+    console.log(`[fixturesService] Pruned: ${fixturesDeleted} old fixtures, ${logsDeleted} old fetch logs`);
   }
 }
 
