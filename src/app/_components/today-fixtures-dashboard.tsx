@@ -296,6 +296,10 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
                           const isTop = index === 0;
                           const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? sortBy;
                           const sortValue = player[sortBy];
+                          const numValue = Number(sortValue) ?? 0;
+                          const minutes = player.minutes ?? 0;
+                          const per90 = minutes > 0 ? (numValue / minutes) * 90 : 0;
+                          const per90Label = `${sortLabel}/90`;
 
                           return (
                             <div
@@ -326,15 +330,15 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
                                 </div>
                                 <div className="flex flex-shrink-0 flex-col items-end gap-1 text-right">
                                   <div className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                                    <span className="text-neutral-900 dark:text-neutral-50">{player.goals}</span>
-                                    <span className="mx-1 text-neutral-400">G</span>
-                                    <span className="text-neutral-900 dark:text-neutral-50">{player.assists}</span>
-                                    <span className="mx-1 text-neutral-400">A</span>
+                                    <span className="text-neutral-900 dark:text-neutral-50">
+                                      {minutes > 0 ? per90.toFixed(2) : "0.00"}
+                                    </span>
+                                    <span className="ml-1 text-neutral-400">{per90Label}</span>
                                   </div>
                                 </div>
                               </div>
                               <div className="mt-3 border-t border-neutral-200 pt-2 text-xs text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
-                                <span className="font-medium">{sortLabel}:</span>{" "}
+                                <span className="font-medium">Total {sortLabel}:</span>{" "}
                                 <span className="text-neutral-900 dark:text-neutral-50">{Number(sortValue) ?? 0}</span>
                               </div>
                             </div>

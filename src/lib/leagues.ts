@@ -1,2 +1,2 @@
-/** League IDs we care about: La Liga, Scottish Championship, FA Cup, Premier League */
-export const REQUIRED_LEAGUE_IDS = [140, 179, 45, 39] as const;
+/** League IDs: Premier League, UCL, UEL, SPFL (Scottish), FA Cup */
+export const REQUIRED_LEAGUE_IDS = [39, 2, 3, 179, 45] as const;

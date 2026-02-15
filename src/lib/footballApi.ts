@@ -199,6 +199,40 @@ async function request<T>(path: string, searchParams?: Record<string, string | n
   return json.response;
 }
 
+/** Request one page of results; returns response and paging so callers can paginate. */
+async function requestPage<T>(
+  path: string,
+  searchParams: Record<string, string | number | undefined>,
+): Promise<{ response: T[]; paging: { current: number; total: number }; results: number }> {
+  if (!FOOTBALL_API_BASE_URL || !FOOTBALL_API_KEY) {
+    throw new Error("Football API is not configured. Set FOOTBALL_API_BASE_URL and FOOTBALL_API_KEY.");
+  }
+  const url = new URL(path, FOOTBALL_API_BASE_URL);
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  }
+  const res = await fetch(url.toString(), {
+    headers: { "x-apisports-key": FOOTBALL_API_KEY },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`[footballApi] ${res.status} ${res.statusText}: ${text}`);
+  }
+  const json = (await res.json()) as ApiFootballResponse<T>;
+  const errorsArray = json.errors ? (Array.isArray(json.errors) ? json.errors : [json.errors]) : [];
+  if (errorsArray.length > 0) {
+    const errorMessages = errorsArray.map((e: unknown) => typeof e === "string" ? e : JSON.stringify(e)).join("; ");
+    if (errorMessages.toLowerCase().includes("plan")) return { response: [], paging: { current: 1, total: 0 }, results: 0 };
+    throw new Error(`[footballApi] API errors: ${JSON.stringify(json.errors)}`);
+  }
+  return {
+    response: json.response ?? [],
+    paging: json.paging ?? { current: 1, total: 0 },
+    results: json.results ?? 0,
+  };
+}
+
 /**
  * Fetch today's fixtures from API-Football.
  * Endpoint: /fixtures?date=YYYY-MM-DD
@@ -267,10 +301,14 @@ export async function fetchTodayFixtures(
 
   // Fallback: API-Football league name -> id for our filtered leagues (in case API omits league.id)
   const leagueNameToId: Record<string, number> = {
-    "La Liga": 140,
-    "Scottish Championship": 179,
-    "FA Cup": 45, // English FA Cup
     "Premier League": 39,
+    "UEFA Champions League": 2,
+    "UEFA Europa League": 3,
+    "Champions League": 2,
+    "Europa League": 3,
+    "Scottish Championship": 179,
+    "Scottish Premiership": 179,
+    "FA Cup": 45,
   };
 
   const first = fixtures[0] as ApiFootballFixture | undefined;
@@ -348,24 +386,29 @@ export async function fetchPlayerSeasonStatsByTeam(
     }>;
   };
 
-  const queryParams: Record<string, string | number> = {
+  const baseParams: Record<string, string | number> = {
     team: params.teamExternalId,
   };
-  
-  // Only add optional parameters if provided (free plan may not support season)
-  if (params.season !== undefined) {
-    queryParams.season = params.season;
-  }
-  if (params.leagueId !== undefined) {
-    queryParams.league = params.leagueId;
-  }
-  
-  const players = await request<ApiFootballPlayer>(path, queryParams);
+  if (params.season !== undefined) baseParams.season = params.season;
+  if (params.leagueId !== undefined) baseParams.league = params.leagueId;
 
+  // API-Football returns 20 results per page; fetch all pages
+  const allPlayers: ApiFootballPlayer[] = [];
+  let page = 1;
+  let totalPages = 1;
+  do {
+    const { response, paging } = await requestPage<ApiFootballPlayer>(path, { ...baseParams, page });
+    allPlayers.push(...(response ?? []));
+    totalPages = paging.total || 1;
+    page++;
+  } while (page <= totalPages);
+
+  const players = allPlayers;
   if (!players || players.length === 0) {
-    console.log(`[footballApi] No players returned for team ${params.teamExternalId}${params.season ? `, season ${params.season}` : ''}`);
+    console.log(`[footballApi] No players returned for team ${params.teamExternalId}${params.season ? `, season ${params.season}` : ""}`);
     return [];
   }
+  console.log(`[footballApi] Fetched ${players.length} players (${totalPages} page(s)) for team ${params.teamExternalId}`);
 
   // Map API-Football response to our RawPlayerSeasonStats format.
   // API-Football sometimes uses different keys (e.g. games.appearances vs games.appearences).

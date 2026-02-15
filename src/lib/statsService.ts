@@ -56,88 +56,96 @@ async function fetchAndStorePlayerStats(
   console.log(`[statsService] Fetching player stats for team ${teamId} (apiId: ${teamApiId}), season: ${season}, league: ${league}`);
   
   try {
-    const rawStats = await fetchPlayerSeasonStatsByTeam({
+    let rawStats = await fetchPlayerSeasonStatsByTeam({
       teamExternalId: teamApiId,
       season,
       leagueId: leagueId,
     });
 
-    console.log(`[statsService] Received ${rawStats.length} player stats from API for team ${teamId}`);
+    const before = rawStats.length;
+    rawStats = rawStats.filter((raw) => {
+      const s = raw.stats;
+      return (
+        (s.appearances ?? 0) > 0 ||
+        (s.minutes ?? 0) > 0 ||
+        (s.goals ?? 0) > 0 ||
+        (s.assists ?? 0) > 0 ||
+        (s.fouls ?? 0) > 0 ||
+        (s.shots ?? 0) > 0 ||
+        (s.shotsOnTarget ?? 0) > 0 ||
+        (s.yellowCards ?? 0) > 0 ||
+        (s.redCards ?? 0) > 0
+      );
+    });
+    if (before > rawStats.length) {
+      console.log(`[statsService] Skipped ${before - rawStats.length} players with zero stats for team ${teamId}`);
+    }
+    console.log(`[statsService] Storing ${rawStats.length} player stats for team ${teamId}`);
 
-    // Process and store each player's stats
-    for (const raw of rawStats) {
-      try {
-        // Upsert player first
-        const player = await prisma.player.upsert({
-          where: { apiId: getPlayerExternalId(raw.player) },
-          update: {
-            name: raw.player.name,
-            position: raw.player.position ?? null,
-            shirtNumber: raw.player.shirtNumber ?? null,
-          },
-          create: {
-            apiId: getPlayerExternalId(raw.player),
-            name: raw.player.name,
-            position: raw.player.position ?? null,
-            shirtNumber: raw.player.shirtNumber ?? null,
-            teamId: teamId,
-          },
-        });
+    const leagueNameBase = league || "Unknown";
+    const BATCH_SIZE = 10;
 
-        // Upsert player season stats - use fixture's league name so queries by fixture.league find these rows
-        const leagueName = league || raw.league || "Unknown";
-        const seasonStr = String(season); // Use season from fixture parameter
-        
-        // Check if stats already exist
-        const existing = await prisma.playerSeasonStats.findFirst({
-          where: {
+    async function storeOne(raw: RawPlayerSeasonStats): Promise<void> {
+      const player = await prisma.player.upsert({
+        where: { apiId: getPlayerExternalId(raw.player) },
+        update: {
+          name: raw.player.name,
+          position: raw.player.position ?? null,
+          shirtNumber: raw.player.shirtNumber ?? null,
+        },
+        create: {
+          apiId: getPlayerExternalId(raw.player),
+          name: raw.player.name,
+          position: raw.player.position ?? null,
+          shirtNumber: raw.player.shirtNumber ?? null,
+          teamId: teamId,
+        },
+      });
+      const leagueName = leagueNameBase || raw.league || "Unknown";
+      const seasonStr = String(season);
+      const existing = await prisma.playerSeasonStats.findFirst({
+        where: {
+          playerId: player.id,
+          teamId: teamId,
+          season: seasonStr,
+          league: leagueName,
+        },
+      });
+      const data = {
+        appearances: raw.stats.appearances ?? 0,
+        minutes: raw.stats.minutes ?? 0,
+        goals: raw.stats.goals ?? 0,
+        assists: raw.stats.assists ?? 0,
+        fouls: raw.stats.fouls ?? 0,
+        shots: raw.stats.shots ?? 0,
+        shotsOnTarget: raw.stats.shotsOnTarget ?? 0,
+        yellowCards: raw.stats.yellowCards ?? 0,
+        redCards: raw.stats.redCards ?? 0,
+      };
+      if (existing) {
+        await prisma.playerSeasonStats.update({ where: { id: existing.id }, data });
+      } else {
+        await prisma.playerSeasonStats.create({
+          data: {
             playerId: player.id,
             teamId: teamId,
             season: seasonStr,
             league: leagueName,
+            ...data,
           },
         });
-
-        if (existing) {
-          // Update existing stats
-          await prisma.playerSeasonStats.update({
-            where: { id: existing.id },
-            data: {
-              appearances: raw.stats.appearances ?? 0,
-              minutes: raw.stats.minutes ?? 0,
-              goals: raw.stats.goals ?? 0,
-              assists: raw.stats.assists ?? 0,
-              fouls: raw.stats.fouls ?? 0,
-              shots: raw.stats.shots ?? 0,
-              shotsOnTarget: raw.stats.shotsOnTarget ?? 0,
-              yellowCards: raw.stats.yellowCards ?? 0,
-              redCards: raw.stats.redCards ?? 0,
-            },
-          });
-        } else {
-          // Create new stats
-          await prisma.playerSeasonStats.create({
-            data: {
-              playerId: player.id,
-              teamId: teamId,
-              season: seasonStr,
-              league: leagueName,
-              appearances: raw.stats.appearances ?? 0,
-              minutes: raw.stats.minutes ?? 0,
-              goals: raw.stats.goals ?? 0,
-              assists: raw.stats.assists ?? 0,
-              fouls: raw.stats.fouls ?? 0,
-              shots: raw.stats.shots ?? 0,
-              shotsOnTarget: raw.stats.shotsOnTarget ?? 0,
-              yellowCards: raw.stats.yellowCards ?? 0,
-              redCards: raw.stats.redCards ?? 0,
-            },
-          });
-        }
-      } catch (error) {
-        console.error(`[statsService] Error storing player stats:`, error);
-        // Continue with next player
       }
+    }
+
+    for (let i = 0; i < rawStats.length; i += BATCH_SIZE) {
+      const batch = rawStats.slice(i, i + BATCH_SIZE);
+      await Promise.allSettled(
+        batch.map((raw) =>
+          storeOne(raw).catch((err) => {
+            console.error(`[statsService] Error storing player stats:`, err);
+          })
+        )
+      );
     }
 
     console.log(`[statsService] Successfully stored player stats for team ${teamId}`);
@@ -164,33 +172,35 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
   const teamIds = [fixture.homeTeamId, fixture.awayTeamId];
   const leagueFilter = fixture.league ? { league: fixture.league } : {};
 
-  // Check if player stats exist for both teams
-  const existingStats = await prisma.playerSeasonStats.findMany({
+  // Require at least this many players per team; otherwise refetch (fixes partial data from pagination or errors)
+  const MIN_PLAYERS_PER_TEAM = 11;
+  const counts = await prisma.playerSeasonStats.groupBy({
+    by: ["teamId"],
     where: {
       teamId: { in: teamIds },
       season: fixture.season,
       ...leagueFilter,
     },
-    select: { teamId: true },
-    distinct: ["teamId"],
+    _count: { id: true },
   });
+  const countByTeam = new Map(counts.map((c) => [c.teamId, c._count.id]));
+  const teamsNeedingStats = teamIds.filter((tid) => (countByTeam.get(tid) ?? 0) < MIN_PLAYERS_PER_TEAM);
 
-  const teamsWithStats = new Set(existingStats.map(s => s.teamId));
-  const teamsNeedingStats = teamIds.filter(id => !teamsWithStats.has(id));
-
-  // Fetch and store stats for teams that don't have them yet
   if (teamsNeedingStats.length > 0) {
-    console.log(`[statsService] Player stats missing for teams: ${teamsNeedingStats.join(", ")}. Fetching from API...`);
+    console.log(
+      `[statsService] Refetching player stats for teams: ${teamsNeedingStats.join(", ")} (counts: ${teamIds.map((t) => countByTeam.get(t) ?? 0).join(", ")})`
+    );
     
     // Prefer fixture.leagueId from DB (set when we store fixtures). Fallback: league name -> id for API calls.
     const leagueIdMap: Record<string, number> = {
-      "La Liga": 140,
-      "Scottish Championship": 179,
-      "FA Cup": 45,
       "Premier League": 39,
-      "Serie A": 135,
-      "Bundesliga": 78,
-      "Ligue 1": 61,
+      "UEFA Champions League": 2,
+      "UEFA Europa League": 3,
+      "Champions League": 2,
+      "Europa League": 3,
+      "Scottish Championship": 179,
+      "Scottish Premiership": 179,
+      "FA Cup": 45,
     };
     const leagueId =
       fixtureWithLeagueId.leagueId ??
