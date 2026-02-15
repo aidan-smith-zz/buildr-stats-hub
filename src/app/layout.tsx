@@ -39,7 +39,7 @@ export default function RootLayout({
               priority
             />
             <span className="-ml-1.5 text-base font-medium tracking-tight text-neutral-700 dark:text-neutral-200 sm:text-lg">
-              statsBuilder
+              statsBuildr
             </span>
           </div>
         </header>
