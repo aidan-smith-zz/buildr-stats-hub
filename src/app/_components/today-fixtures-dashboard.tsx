@@ -35,6 +35,21 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<PlayerSortKey>("goals");
+  const [expandedTeamIds, setExpandedTeamIds] = useState<Set<number>>(new Set());
+
+  // Reset accordion when fixture changes
+  useEffect(() => {
+    setExpandedTeamIds(new Set());
+  }, [selectedId]);
+
+  const toggleTeam = (teamId: number) => {
+    setExpandedTeamIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(teamId)) next.delete(teamId);
+      else next.add(teamId);
+      return next;
+    });
+  };
 
   // Update selectedId if current selection is not in filtered list
   useEffect(() => {
@@ -238,15 +253,38 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
                   (a, b) => (Number(b[sortBy]) ?? 0) - (Number(a[sortBy]) ?? 0)
                 );
 
+                const isExpanded = expandedTeamIds.has(team.teamId);
+                const playerCount = sortedPlayers.length;
+
                 return (
                   <div
                     key={team.teamId}
-                    className="flex flex-col rounded-lg border border-neutral-200 bg-neutral-50/50 p-5 dark:border-neutral-800 dark:bg-neutral-900/50"
+                    className="flex flex-col rounded-lg border border-neutral-200 bg-neutral-50/50 dark:border-neutral-800 dark:bg-neutral-900/50"
                   >
-                    <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
-                      {team.teamShortName ?? team.teamName}
-                    </h3>
-                    <div className="flex max-h-96 flex-col gap-2 overflow-y-auto pr-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleTeam(team.teamId)}
+                      className="flex w-full items-center justify-between gap-2 px-5 py-4 text-left transition-colors hover:bg-neutral-100/80 dark:hover:bg-neutral-800/50"
+                      aria-expanded={isExpanded}
+                    >
+                      <span className="text-sm font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+                        {team.teamShortName ?? team.teamName}
+                      </span>
+                      <span className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                        {playerCount} player{playerCount !== 1 ? "s" : ""}
+                        <svg
+                          className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </span>
+                    </button>
+                    {isExpanded && (
+                    <div className="flex max-h-96 flex-col gap-2 overflow-y-auto border-t border-neutral-200 px-5 pb-5 pt-2 dark:border-neutral-800">
                       {sortedPlayers.length === 0 ? (
                         <div className="rounded-lg border border-neutral-200 bg-white p-4 text-center dark:border-neutral-800 dark:bg-neutral-900">
                           <p className="text-sm text-neutral-500 dark:text-neutral-400">
@@ -304,6 +342,7 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
                         })
                       )}
                     </div>
+                    )}
                   </div>
                 );
               })}
