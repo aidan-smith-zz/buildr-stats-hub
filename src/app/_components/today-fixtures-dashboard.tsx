@@ -9,15 +9,14 @@ type Props = {
 
 type PlayerSortKey = keyof FixtureStatsResponse["teams"][number]["players"][number];
 const SORT_OPTIONS: { value: PlayerSortKey; label: string }[] = [
-  { value: "minutes", label: "Minutes played" },
   { value: "goals", label: "Goals" },
   { value: "assists", label: "Assists" },
+  { value: "appearances", label: "Appearances" },
   { value: "yellowCards", label: "Yellow cards" },
   { value: "redCards", label: "Red cards" },
   { value: "fouls", label: "Fouls" },
   { value: "shots", label: "Shots" },
   { value: "shotsOnTarget", label: "Shots on target" },
-  { value: "appearances", label: "Appearances" },
 ];
 
 export function TodayFixturesDashboard({ fixtures }: Props) {
@@ -36,7 +35,7 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
   const [stats, setStats] = useState<FixtureStatsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<PlayerSortKey>("minutes");
+  const [sortBy, setSortBy] = useState<PlayerSortKey>("goals");
 
   // Update selectedId if current selection is not in filtered list
   useEffect(() => {
@@ -294,9 +293,6 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
                                     <span className="mx-1 text-neutral-400">G</span>
                                     <span className="text-neutral-900 dark:text-neutral-50">{player.assists}</span>
                                     <span className="mx-1 text-neutral-400">A</span>
-                                  </div>
-                                  <div className="text-xs text-neutral-600 dark:text-neutral-400">
-                                    {player.minutes} MP
                                   </div>
                                 </div>
                               </div>

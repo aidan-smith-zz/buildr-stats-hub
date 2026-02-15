@@ -253,12 +253,15 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     }
 
     const group = byTeam.get(row.teamId)!;
+    // If API stored 0 appearances but player has minutes, show at least 1
+    const appearances =
+      row.appearances > 0 ? row.appearances : row.minutes > 0 ? 1 : 0;
     group.players.push({
       playerId: row.playerId,
       name: row.player.name,
       position: row.player.position ?? null,
       shirtNumber: row.player.shirtNumber ?? null,
-      appearances: row.appearances,
+      appearances,
       minutes: row.minutes,
       goals: row.goals,
       assists: row.assists,

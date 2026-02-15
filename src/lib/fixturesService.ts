@@ -29,6 +29,34 @@ function toDateOnlyIso(date: Date) {
 }
 
 /**
+ * Remove fixtures and player data that are not from today. Keeps the DB focused on today's fixtures only.
+ */
+export async function pruneDataOlderThanToday(now: Date = new Date()): Promise<void> {
+  const dayStart = startOfDayUtc(now);
+  const dayEnd = endOfDayUtc(now);
+  const dateKey = toDateOnlyIso(now);
+
+  const [fixturesDeleted, playerStatsDeleted, logsDeleted] = await prisma.$transaction(async (tx) => {
+    const fixturesResult = await tx.fixture.deleteMany({
+      where: {
+        OR: [{ date: { lt: dayStart } }, { date: { gt: dayEnd } }],
+      },
+    });
+    const playerStatsResult = await tx.playerSeasonStats.deleteMany({});
+    const logsResult = await tx.apiFetchLog.deleteMany({
+      where: { resource: { not: `fixtures:${dateKey}` } },
+    });
+    return [fixturesResult.count, playerStatsResult.count, logsResult.count];
+  });
+
+  if (fixturesDeleted > 0 || playerStatsDeleted > 0 || logsDeleted > 0) {
+    console.log(
+      `[fixturesService] Pruned: ${fixturesDeleted} old fixtures, ${playerStatsDeleted} player season stats, ${logsDeleted} old fetch logs`
+    );
+  }
+}
+
+/**
  * Clear in-memory cache and delete today's fixtures and fetch log from the DB.
  * Next call to getOrRefreshTodayFixtures() will refetch from the API (with leagueId etc).
  */
@@ -56,6 +84,8 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
   const dateKey = toDateOnlyIso(now);
 
   console.log(`[fixturesService] getOrRefreshTodayFixtures called for date: ${dateKey}`);
+
+  await pruneDataOlderThanToday(now);
 
   // 1️⃣ Check if fixtures exist in DB and last fetch was today
   const [existingFixtures, lastFetchLog] = await Promise.all([

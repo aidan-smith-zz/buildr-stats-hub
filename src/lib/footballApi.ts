@@ -367,12 +367,24 @@ export async function fetchPlayerSeasonStatsByTeam(
     return [];
   }
 
-  // Map API-Football response to our RawPlayerSeasonStats format
-  // Note: You may need to adjust this based on your API-Football plan's response structure
+  // Map API-Football response to our RawPlayerSeasonStats format.
+  // API-Football sometimes uses different keys (e.g. games.appearances vs games.appearences).
+  function getAppearances(stat: { games?: Record<string, unknown> }, minutes: number): number {
+    const g = stat.games;
+    if (g && typeof g === "object") {
+      const v = (g.appearances ?? g.appearences) as unknown;
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+    }
+    // Fallback: if player has minutes, assume at least 1 appearance
+    return minutes > 0 ? 1 : 0;
+  }
+
   return players.flatMap((p) =>
     p.statistics
       .filter((stat: any) => stat.team.id === Number(params.teamExternalId))
-      .map((stat: any) => ({
+      .map((stat: any) => {
+        const minutes = stat.games?.minutes ?? 0;
+        return {
         player: {
           id: p.player.id,
           name: p.player.name,
@@ -386,17 +398,18 @@ export async function fetchPlayerSeasonStatsByTeam(
         season: params.season ?? "Unknown", // Season will be set from fixture when storing
         league: String(params.leagueId ?? ""),
         stats: {
-          appearances: stat.games.appearances ?? 0,
-          minutes: stat.games.minutes ?? 0,
-          goals: stat.goals.total ?? 0,
-          assists: stat.goals.assists ?? 0,
-          yellowCards: stat.cards.yellow ?? 0,
-          redCards: stat.cards.red ?? 0,
+          appearances: getAppearances(stat, minutes),
+          minutes,
+          goals: stat.goals?.total ?? 0,
+          assists: stat.goals?.assists ?? 0,
+          yellowCards: stat.cards?.yellow ?? 0,
+          redCards: stat.cards?.red ?? 0,
           fouls: stat.fouls?.committed ?? 0,
           shots: stat.shots?.total ?? 0,
           shotsOnTarget: stat.shots?.on ?? 0,
         },
-      })),
+      };
+      }),
   );
 }
 
