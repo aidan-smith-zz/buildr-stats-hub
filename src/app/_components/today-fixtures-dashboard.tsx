@@ -75,6 +75,30 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<PlayerSortKey>("goals");
   const [expandedTeamIds, setExpandedTeamIds] = useState<Set<number>>(new Set());
+  const [shareLabel, setShareLabel] = useState<"Share" | "Copied!" | "Shared!">("Share");
+
+  const handleShare = async () => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const title = "Football stats | statsBuildr";
+    const text = "Check today's fixtures and player stats before you build your bet.";
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title, url, text });
+        setShareLabel("Shared!");
+      } else {
+        await navigator.clipboard?.writeText(url);
+        setShareLabel("Copied!");
+      }
+    } catch {
+      try {
+        await navigator.clipboard?.writeText(url);
+        setShareLabel("Copied!");
+      } catch {
+        setShareLabel("Share");
+      }
+    }
+    setTimeout(() => setShareLabel("Share"), 2000);
+  };
 
   // Reset accordion when fixture changes
   useEffect(() => {
@@ -395,6 +419,19 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
                   </div>
                 );
               })}
+            </div>
+
+            <div className="border-t border-neutral-200 pt-4 dark:border-neutral-800">
+              <p className="mb-2 text-xs text-neutral-500 dark:text-neutral-400">
+                Share these stats with a mate
+              </p>
+              <button
+                type="button"
+                onClick={handleShare}
+                className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                {shareLabel}
+              </button>
             </div>
           </div>
         )}

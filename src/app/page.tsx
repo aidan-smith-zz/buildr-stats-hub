@@ -14,15 +14,7 @@ export default async function Home() {
     console.error("[Home] Failed to load fixtures:", err);
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-        <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
-              Bet Builder Analytics
-            </h1>
-            <p className="mt-1 text-sm font-medium tracking-wide text-neutral-600 dark:text-neutral-400 sm:text-base">
-              See the stats before you build
-            </p>
-          </div>
+        <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-950/30">
             <p className="font-medium text-amber-900 dark:text-amber-200">
               Could not load fixtures
@@ -60,15 +52,8 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
-            Bet Builder Analytics
-          </h1>
-          <p className="mt-1 text-sm font-medium tracking-wide text-neutral-600 dark:text-neutral-400 sm:text-base">
-            See the stats before you build
-          </p>
-        </div>
+      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <h1 className="sr-only">statsBuildr – today&apos;s fixtures and player stats</h1>
         <TodayFixturesDashboard fixtures={fixtures} />
       </main>
     </div>
