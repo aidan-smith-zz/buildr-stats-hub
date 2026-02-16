@@ -423,7 +423,7 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
 
             <div className="border-t border-neutral-200 pt-4 dark:border-neutral-800">
               <p className="mb-2 text-xs text-neutral-500 dark:text-neutral-400">
-                Share these stats with a mate
+                Share these stats:
               </p>
               <button
                 type="button"
