@@ -18,17 +18,27 @@ const globalForFixtures = globalThis as unknown as {
   todayFixturesPromise?: { dateKey: string; promise: Promise<FixtureSummary[]> };
 };
 
-/** Helpers to get start/end of day in UTC */
-function startOfDayUtc(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+/** Timezone for "today" (FA Cup, Premier League etc. are UK-focused) */
+const FIXTURES_TIMEZONE = "Europe/London";
+
+/** Today's date (YYYY-MM-DD) in the fixtures timezone so we request the right calendar day */
+function getTodayDateKey(now: Date = new Date()): string {
+  return now.toLocaleDateString("en-CA", { timeZone: FIXTURES_TIMEZONE });
 }
 
-function endOfDayUtc(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
+/** Start/end of the given date (YYYY-MM-DD) in UTC for DB queries */
+function dayBoundsUtc(dateKey: string) {
+  const dayStart = new Date(`${dateKey}T00:00:00.000Z`);
+  const dayEnd = new Date(`${dateKey}T23:59:59.999Z`);
+  return { dayStart, dayEnd };
 }
 
-function toDateOnlyIso(date: Date) {
-  return date.toISOString().slice(0, 10);
+/** Current season year for API (e.g. 2024 for 2024-25). European season runs Aug–May. */
+function getCurrentSeasonYear(now: Date = new Date()): number {
+  const dateKey = getTodayDateKey(now);
+  const year = parseInt(dateKey.slice(0, 4), 10);
+  const month = parseInt(dateKey.slice(5, 7), 10);
+  return month >= 8 ? year : year - 1;
 }
 
 /**
@@ -37,9 +47,8 @@ function toDateOnlyIso(date: Date) {
  * when returning to the site (otherwise every visit would wipe stats and trigger slow API refetches).
  */
 export async function pruneDataOlderThanToday(now: Date = new Date()): Promise<void> {
-  const dayStart = startOfDayUtc(now);
-  const dayEnd = endOfDayUtc(now);
-  const dateKey = toDateOnlyIso(now);
+  const dateKey = getTodayDateKey(now);
+  const { dayStart, dayEnd } = dayBoundsUtc(dateKey);
 
   const [fixturesDeleted, logsDeleted] = await prisma.$transaction(async (tx) => {
     const fixturesResult = await tx.fixture.deleteMany({
@@ -63,9 +72,8 @@ export async function pruneDataOlderThanToday(now: Date = new Date()): Promise<v
  * Next call to getOrRefreshTodayFixtures() will refetch from the API (with leagueId etc).
  */
 export async function clearTodayFixturesCacheAndData(now: Date = new Date()): Promise<void> {
-  const dayStart = startOfDayUtc(now);
-  const dayEnd = endOfDayUtc(now);
-  const dateKey = toDateOnlyIso(now);
+  const dateKey = getTodayDateKey(now);
+  const { dayStart, dayEnd } = dayBoundsUtc(dateKey);
 
   globalForFixtures.todayFixturesPromise = undefined;
 
@@ -81,11 +89,10 @@ export async function clearTodayFixturesCacheAndData(now: Date = new Date()): Pr
  * Fetch today's fixtures from DB or refresh from API if stale/missing.
  */
 export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise<FixtureSummary[]> {
-  const dayStart = startOfDayUtc(now);
-  const dayEnd = endOfDayUtc(now);
-  const dateKey = toDateOnlyIso(now);
+  const dateKey = getTodayDateKey(now);
+  const { dayStart, dayEnd } = dayBoundsUtc(dateKey);
 
-  console.log(`[fixturesService] getOrRefreshTodayFixtures called for date: ${dateKey}`);
+  console.log(`[fixturesService] getOrRefreshTodayFixtures called for date: ${dateKey} (${FIXTURES_TIMEZONE})`);
 
   await pruneDataOlderThanToday(now);
 
@@ -109,29 +116,23 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
     isToday: lastFetchLog.fetchedAt >= dayStart,
   } : 'none');
 
+  // When we have 0 fixtures, clear today's fetch log so we always refetch from API (avoids stale "success" state)
+  if (existingFixtures.length === 0) {
+    globalForFixtures.todayFixturesPromise = undefined;
+    await prisma.apiFetchLog.deleteMany({ where: { resource: `fixtures:${dateKey}` } });
+    console.log(`[fixturesService] No fixtures for today - cleared fetch log and in-memory cache, will fetch from API`);
+  }
+
   // Only use cache if we have fixtures AND last fetch was today
-  // If we have 0 fixtures, refetch even if there's a fetch log (might have been an error or wrong filters)
   if (lastFetchLog && lastFetchLog.fetchedAt >= dayStart && existingFixtures.length > 0) {
     console.log(`[fixturesService] Returning cached fixtures (last fetch was today, ${existingFixtures.length} fixtures found)`);
     return existingFixtures.map(mapFixtureToSummary);
   }
-  
-  if (lastFetchLog && lastFetchLog.fetchedAt >= dayStart && existingFixtures.length === 0) {
-    console.log(`[fixturesService] Cache exists but 0 fixtures found - forcing refetch for debugging`);
-  } else {
-    console.log(`[fixturesService] Cache expired or no fixtures, proceeding to fetch from API`);
-  }
 
-  // 2️⃣ If another refresh is in progress, return the shared promise
-  // BUT: If we have 0 fixtures, clear the cache and force a new fetch
-  if (globalForFixtures.todayFixturesPromise?.dateKey === dateKey) {
-    if (existingFixtures.length === 0) {
-      console.log(`[fixturesService] Clearing existing refresh promise cache (0 fixtures found)`);
-      globalForFixtures.todayFixturesPromise = undefined;
-    } else {
-      console.log(`[fixturesService] Returning existing refresh promise for ${dateKey}`);
-      return globalForFixtures.todayFixturesPromise.promise;
-    }
+  // If another refresh is in progress and we have fixtures, return the shared promise
+  if (globalForFixtures.todayFixturesPromise?.dateKey === dateKey && existingFixtures.length > 0) {
+    console.log(`[fixturesService] Returning existing refresh promise for ${dateKey}`);
+    return globalForFixtures.todayFixturesPromise.promise;
   }
 
   // 3️⃣ Fetch fresh fixtures from API
@@ -144,9 +145,11 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
     try {
       // Fetch only the required leagues (one API call per league)
       console.log(`[fixturesService] Fetching fixtures for ${dateKey} for leagues: ${REQUIRED_LEAGUE_IDS.join(", ")}`);
+      const season = getCurrentSeasonYear(now);
+      console.log(`[fixturesService] Using season: ${season}`);
       const results = await Promise.all(
         REQUIRED_LEAGUE_IDS.map((leagueId) =>
-          fetchTodayFixtures({ date: dateKey, leagueId })
+          fetchTodayFixtures({ date: dateKey, leagueId, season, timezone: FIXTURES_TIMEZONE })
         )
       );
       const seen = new Set<string>();

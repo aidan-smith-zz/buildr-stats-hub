@@ -174,26 +174,32 @@ async function request<T>(path: string, searchParams?: Record<string, string | n
     });
   }
 
-  // Handle errors - can be array or object
-  if (errorsArray.length > 0) {
-      // Check if error is about plan limitations (e.g., free plan doesn't support this date/season)
-      const errorMessages = errorsArray.map((e: any) => 
-        typeof e === 'string' ? e : e.plan || e.message || JSON.stringify(e)
-      ).join('; ');
-      
-      const isPlanLimitation = errorMessages.toLowerCase().includes('free plan') || 
-                               errorMessages.toLowerCase().includes('plan') ||
-                               errorMessages.toLowerCase().includes('do not have access');
-      
-      if (isPlanLimitation) {
-        console.error(`[footballApi] ⚠️ API plan limitation detected: ${errorMessages}`);
-        console.error(`[footballApi] Your free plan does not support this date/season. Please use a supported date range or upgrade your plan.`);
-        // Return empty array instead of throwing
-        return [];
-      }
-      
-      console.error(`[footballApi] API errors:`, json.errors);
-      throw new Error(`[footballApi] API errors: ${JSON.stringify(json.errors)}`);
+  // Handle errors - API sometimes returns errors: {} (empty object); treat as no errors
+  const hasRealErrors =
+    errorsArray.length > 0 &&
+    errorsArray.some((e: unknown) => {
+      if (typeof e === "string") return e.length > 0;
+      if (e && typeof e === "object") return Object.keys(e).length > 0;
+      return false;
+    });
+
+  if (hasRealErrors) {
+    const errorMessages = errorsArray
+      .map((e: unknown) =>
+        typeof e === "string" ? e : (e as { plan?: string; message?: string })?.plan ?? (e as { message?: string })?.message ?? JSON.stringify(e)
+      )
+      .join("; ");
+    const isPlanLimitation =
+      errorMessages.toLowerCase().includes("free plan") ||
+      errorMessages.toLowerCase().includes("plan") ||
+      errorMessages.toLowerCase().includes("do not have access");
+
+    if (isPlanLimitation) {
+      console.error(`[footballApi] ⚠️ API plan limitation: ${errorMessages}`);
+      return [];
+    }
+    console.error(`[footballApi] API errors:`, json.errors);
+    throw new Error(`[footballApi] API errors: ${JSON.stringify(json.errors)}`);
   }
 
   return json.response;
