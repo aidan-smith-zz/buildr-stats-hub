@@ -4,14 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:webpack": "next dev --webpack",
     "build": "prisma generate && next build",
     "start": "next start",
     "postinstall": "prisma generate",
     "lint": "eslint",
-    "clear-fixtures": "npx tsx scripts/clear-fixtures.ts"
+    "clear-fixtures": "npx tsx scripts/clear-fixtures.ts",
+    "db:migrate": "PRISMA_SKIP_UPDATE_CHECK=1 npx prisma migrate dev",
+    "db:reset": "PRISMA_SKIP_UPDATE_CHECK=1 npx prisma migrate reset"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^6.9.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
@@ -23,7 +26,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
-    "prisma": "^5.22.0",
+    "prisma": "^6.9.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

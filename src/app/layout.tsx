@@ -16,6 +16,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Football Stats | Bet Builder Analytics",
   description: "View today's football fixtures and player statistics",
+  icons: {
+    icon: [
+      { url: "/logo.png?v=2", type: "image/png", sizes: "32x32" },
+      { url: "/logo.png?v=2", type: "image/png", sizes: "any" },
+    ],
+    apple: "/logo.png?v=2",
+  },
 };
 
 export default function RootLayout({

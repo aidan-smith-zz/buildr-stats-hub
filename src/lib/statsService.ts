@@ -15,8 +15,8 @@ export type FixtureSummary = {
   league: string | null;
   leagueId: number | null;
   season: string;
-  homeTeam: { id: number; name: string; shortName: string | null };
-  awayTeam: { id: number; name: string; shortName: string | null };
+  homeTeam: { id: number; name: string; shortName: string | null; crestUrl: string | null };
+  awayTeam: { id: number; name: string; shortName: string | null; crestUrl: string | null };
 };
 
 export type FixtureStatsResponse = {
@@ -194,6 +194,11 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     // Prefer fixture.leagueId from DB (set when we store fixtures). Fallback: league name -> id for API calls.
     const leagueIdMap: Record<string, number> = {
       "Premier League": 39,
+      "Championship": 40,
+      "English League Championship": 40,
+      "EFL Championship": 40,
+      "The Championship": 40,
+      "English Championship": 40,
       "UEFA Champions League": 2,
       "UEFA Europa League": 3,
       "Champions League": 2,
@@ -294,11 +299,13 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
       id: fixture.homeTeam.id,
       name: fixture.homeTeam.name,
       shortName: fixture.homeTeam.shortName,
+      crestUrl: (fixture.homeTeam as { crestUrl?: string | null }).crestUrl ?? null,
     },
     awayTeam: {
       id: fixture.awayTeam.id,
       name: fixture.awayTeam.name,
       shortName: fixture.awayTeam.shortName,
+      crestUrl: (fixture.awayTeam as { crestUrl?: string | null }).crestUrl ?? null,
     },
   };
 

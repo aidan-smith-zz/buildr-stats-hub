@@ -20,6 +20,44 @@ const SORT_OPTIONS: { value: PlayerSortKey; label: string }[] = [
   { value: "shotsOnTarget", label: "Shots on target" },
 ];
 
+function TeamCrestOrShirt({ crestUrl, alt }: { crestUrl: string | null; alt: string }) {
+  const size = 40;
+  if (crestUrl) {
+    return (
+      <img
+        src={crestUrl}
+        alt={alt}
+        width={size}
+        height={size}
+        className="h-10 w-10 object-contain"
+      />
+    );
+  }
+  return (
+    <span
+      className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-sm bg-black text-white"
+      title={alt}
+      aria-label={alt}
+    >
+      <ShirtIcon className="h-7 w-7" />
+    </span>
+  );
+}
+
+function ShirtIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      {/* Plain football shirt / jersey shape: body + neck + sleeves */}
+      <path d="M12 2.5a1.5 1.5 0 0 0-1.5 1.5v1.2L8 6.5v2l-2 1.5v11h12v-11l-2-1.5v-2l-2.5-2.5V4a1.5 1.5 0 0 0-1.5-1.5zM6 8h2v11H6V8zm10 0h2v11h-2V8z" />
+    </svg>
+  );
+}
+
 export function TodayFixturesDashboard({ fixtures }: Props) {
   const filteredFixtures = fixtures
     .filter(
@@ -220,13 +258,19 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
         {!loading && !error && stats && (
           <div className="space-y-6">
             <header className="flex flex-col gap-3 border-b border-neutral-200 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 dark:border-neutral-800">
-              <div>
-                <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                  Season Statistics
-                </h2>
-                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                   Season {stats.fixture.season}
-                </p>
+              <div className="flex flex-1 flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                    Season Statistics
+                  </h2>
+                  <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                    Season {stats.fixture.season}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <TeamCrestOrShirt crestUrl={stats.fixture.homeTeam.crestUrl} alt={stats.fixture.homeTeam.shortName ?? stats.fixture.homeTeam.name} />
+                  <TeamCrestOrShirt crestUrl={stats.fixture.awayTeam.crestUrl} alt={stats.fixture.awayTeam.shortName ?? stats.fixture.awayTeam.name} />
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <label htmlFor="stats-sort" className="whitespace-nowrap text-sm font-medium text-neutral-700 dark:text-neutral-300">

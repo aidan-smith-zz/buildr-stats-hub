@@ -239,6 +239,29 @@ async function requestPage<T>(
   };
 }
 
+type ApiFootballTeamResponse = {
+  team: {
+    id: number;
+    name: string;
+    code?: string;
+    country?: string;
+    logo?: string;
+  };
+};
+
+/**
+ * Fetch team details by API id. Returns the team's logo (crest) URL or null.
+ * Endpoint: /teams?id={teamId}
+ */
+export async function fetchTeamLogo(teamApiId: string | number): Promise<string | null> {
+  const path = "/teams";
+  const response = await request<ApiFootballTeamResponse>(path, { id: String(teamApiId) });
+  if (!response?.length) return null;
+  const first = response[0];
+  const logo = (first as ApiFootballTeamResponse)?.team?.logo;
+  return typeof logo === "string" && logo.length > 0 ? logo : null;
+}
+
 /**
  * Fetch today's fixtures from API-Football.
  * Endpoint: /fixtures?date=YYYY-MM-DD
@@ -308,6 +331,11 @@ export async function fetchTodayFixtures(
   // Fallback: API-Football league name -> id for our filtered leagues (in case API omits league.id)
   const leagueNameToId: Record<string, number> = {
     "Premier League": 39,
+    "Championship": 40,
+    "English League Championship": 40,
+    "EFL Championship": 40,
+    "The Championship": 40,
+    "English Championship": 40,
     "UEFA Champions League": 2,
     "UEFA Europa League": 3,
     "Champions League": 2,

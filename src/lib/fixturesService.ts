@@ -26,11 +26,13 @@ function getTodayDateKey(now: Date = new Date()): string {
   return now.toLocaleDateString("en-CA", { timeZone: FIXTURES_TIMEZONE });
 }
 
-/** Start/end of the given date (YYYY-MM-DD) in UTC for DB queries */
+/** Start/end of the given date (YYYY-MM-DD) in UTC for DB queries. Includes up to 00:59 next day UTC so "tonight" kickoffs dated as next day by the API still show. */
 function dayBoundsUtc(dateKey: string) {
   const dayStart = new Date(`${dateKey}T00:00:00.000Z`);
   const dayEnd = new Date(`${dateKey}T23:59:59.999Z`);
-  return { dayStart, dayEnd };
+  const nextDayStr = new Date(dayEnd.getTime() + 1).toISOString().slice(0, 10);
+  const spilloverEnd = new Date(`${nextDayStr}T00:59:59.999Z`);
+  return { dayStart, dayEnd, spilloverEnd };
 }
 
 /** Current season year for API (e.g. 2024 for 2024-25). European season runs Aug–May. */
@@ -48,12 +50,12 @@ function getCurrentSeasonYear(now: Date = new Date()): number {
  */
 export async function pruneDataOlderThanToday(now: Date = new Date()): Promise<void> {
   const dateKey = getTodayDateKey(now);
-  const { dayStart, dayEnd } = dayBoundsUtc(dateKey);
+  const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
 
   const [fixturesDeleted, logsDeleted] = await prisma.$transaction(async (tx) => {
     const fixturesResult = await tx.fixture.deleteMany({
       where: {
-        OR: [{ date: { lt: dayStart } }, { date: { gt: dayEnd } }],
+        OR: [{ date: { lt: dayStart } }, { date: { gt: spilloverEnd } }],
       },
     });
     const logsResult = await tx.apiFetchLog.deleteMany({
@@ -73,12 +75,12 @@ export async function pruneDataOlderThanToday(now: Date = new Date()): Promise<v
  */
 export async function clearTodayFixturesCacheAndData(now: Date = new Date()): Promise<void> {
   const dateKey = getTodayDateKey(now);
-  const { dayStart, dayEnd } = dayBoundsUtc(dateKey);
+  const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
 
   globalForFixtures.todayFixturesPromise = undefined;
 
   await prisma.$transaction([
-    prisma.fixture.deleteMany({ where: { date: { gte: dayStart, lte: dayEnd } } }),
+    prisma.fixture.deleteMany({ where: { date: { gte: dayStart, lte: spilloverEnd } } }),
     prisma.apiFetchLog.deleteMany({ where: { resource: `fixtures:${dateKey}` } }),
   ]);
 
@@ -90,7 +92,7 @@ export async function clearTodayFixturesCacheAndData(now: Date = new Date()): Pr
  */
 export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise<FixtureSummary[]> {
   const dateKey = getTodayDateKey(now);
-  const { dayStart, dayEnd } = dayBoundsUtc(dateKey);
+  const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
 
   console.log(`[fixturesService] getOrRefreshTodayFixtures called for date: ${dateKey} (${FIXTURES_TIMEZONE})`);
 
@@ -99,7 +101,7 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
   // 1️⃣ Check if fixtures exist in DB and last fetch was today
   const [existingFixtures, lastFetchLog] = await Promise.all([
     prisma.fixture.findMany({
-      where: { date: { gte: dayStart, lte: dayEnd } },
+      where: { date: { gte: dayStart, lte: spilloverEnd } },
       orderBy: { date: "asc" },
       include: { homeTeam: true, awayTeam: true },
     }),
@@ -161,6 +163,12 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
       });
       rawFixtures.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       console.log(`[fixturesService] Received ${rawFixtures.length} fixtures from API`);
+      const byLeague = rawFixtures.reduce<Record<number, number>>((acc, raw) => {
+        const id = raw.leagueId ?? 0;
+        acc[id] = (acc[id] ?? 0) + 1;
+        return acc;
+      }, {});
+      console.log(`[fixturesService] By league:`, byLeague, "(40 = Championship)");
 
       // Process fixtures in batches to avoid timeout and improve performance
       const BATCH_SIZE = 50;
@@ -264,9 +272,9 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
       }
     }
 
-    // Return whatever is in DB after refresh
+    // Return whatever is in DB after refresh (include spillover for "tonight" games)
     const refreshedFixtures = await prisma.fixture.findMany({
-      where: { date: { gte: dayStart, lte: dayEnd } },
+      where: { date: { gte: dayStart, lte: spilloverEnd } },
       orderBy: { date: "asc" },
       include: { homeTeam: true, awayTeam: true },
     });
@@ -303,11 +311,13 @@ function mapFixtureToSummary(f: FixtureWithTeams): FixtureSummary {
       id: f.homeTeam.id,
       name: f.homeTeam.name,
       shortName: f.homeTeam.shortName,
+      crestUrl: (f.homeTeam as { crestUrl?: string | null }).crestUrl ?? null,
     },
     awayTeam: {
       id: f.awayTeam.id,
       name: f.awayTeam.name,
       shortName: f.awayTeam.shortName,
+      crestUrl: (f.awayTeam as { crestUrl?: string | null }).crestUrl ?? null,
     },
   };
 }

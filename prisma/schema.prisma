@@ -23,6 +23,7 @@ model Team {
   name      String
   shortName String?
   country   String?
+  crestUrl  String? // Team logo/crest URL from API-Football (media.api-sports.io)
 
   homeFixtures Fixture[]           @relation("HomeTeamFixtures")
   awayFixtures Fixture[]           @relation("AwayTeamFixtures")
