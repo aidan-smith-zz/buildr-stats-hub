@@ -274,7 +274,7 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
               </div>
               <div className="flex items-center gap-2">
                 <label htmlFor="stats-sort" className="whitespace-nowrap text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                  Sort by
+                  View by
                 </label>
                 <select
                   id="stats-sort"
