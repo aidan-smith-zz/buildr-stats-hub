@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "PlayerSeasonStats" ADD COLUMN IF NOT EXISTS "tackles" INTEGER NOT NULL DEFAULT 0;

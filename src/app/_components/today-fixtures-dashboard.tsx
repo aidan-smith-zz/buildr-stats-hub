@@ -13,6 +13,7 @@ const SORT_OPTIONS: { value: PlayerSortKey; label: string }[] = [
   { value: "goals", label: "Goals" },
   { value: "assists", label: "Assists" },
   { value: "appearances", label: "Appearances" },
+  { value: "tackles", label: "Tackles" },
   { value: "yellowCards", label: "Yellow cards" },
   { value: "redCards", label: "Red cards" },
   { value: "fouls", label: "Fouls" },
@@ -261,7 +262,7 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
               <div className="flex flex-1 flex-wrap items-center justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                    Season Statistics
+                    Player Statistics
                   </h2>
                   <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                     Season {stats.fixture.season}

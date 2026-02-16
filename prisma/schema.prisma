@@ -86,6 +86,7 @@ model PlayerSeasonStats {
   fouls          Int @default(0)
   shots          Int @default(0)
   shotsOnTarget  Int @default(0)
+  tackles        Int @default(0)
   yellowCards    Int @default(0)
   redCards       Int @default(0)
 

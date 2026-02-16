@@ -62,6 +62,7 @@ export type RawPlayerSeasonStats = {
     fouls?: number;
     shots?: number;
     shotsOnTarget?: number;
+    tackles?: number;
   };
 };
 
@@ -417,6 +418,7 @@ export async function fetchPlayerSeasonStatsByTeam(
       cards: { yellow?: number; red?: number };
       shots: { total?: number; on?: number };
       fouls: { committed?: number };
+      tackles?: { total?: number };
     }>;
   };
 
@@ -456,11 +458,41 @@ export async function fetchPlayerSeasonStatsByTeam(
     return minutes > 0 ? 1 : 0;
   }
 
+  const firstStat = players[0]?.statistics?.[0];
+  if (firstStat && typeof firstStat === "object") {
+    console.log("[footballApi] Player statistics keys (check for tackles):", Object.keys(firstStat).join(", "));
+  }
+
+  function getTacklesFromStat(stat: Record<string, unknown>): number {
+    // Prefer explicit tackles (number or { total: number })
+    const t = stat.tackles;
+    if (t != null) {
+      if (typeof t === "number" && Number.isFinite(t)) return t;
+      if (typeof t === "object" && t !== null && "total" in t) return Number((t as { total?: number }).total) || 0;
+    }
+    // Any key containing "tackle" (API may use tackles_total, total_tackles, etc.)
+    for (const [key, value] of Object.entries(stat)) {
+      if (/tackle/i.test(key) && value != null) {
+        if (typeof value === "number" && Number.isFinite(value)) return value;
+        if (typeof value === "object" && value !== null && "total" in value) return Number((value as { total?: number }).total) || 0;
+      }
+    }
+    // Some APIs use games.tackles or similar nested under "games"
+    const games = stat.games as Record<string, unknown> | undefined;
+    if (games && typeof games === "object") {
+      const gt = games.tackles ?? games.tackles_total;
+      if (typeof gt === "number" && Number.isFinite(gt)) return gt;
+      if (gt && typeof gt === "object" && "total" in gt) return Number((gt as { total?: number }).total) || 0;
+    }
+    return 0;
+  }
+
   return players.flatMap((p) =>
     p.statistics
       .filter((stat: any) => stat.team.id === Number(params.teamExternalId))
       .map((stat: any) => {
         const minutes = stat.games?.minutes ?? 0;
+        const tackles = getTacklesFromStat(stat as Record<string, unknown>);
         return {
         player: {
           id: p.player.id,
@@ -484,6 +516,7 @@ export async function fetchPlayerSeasonStatsByTeam(
           fouls: stat.fouls?.committed ?? 0,
           shots: stat.shots?.total ?? 0,
           shotsOnTarget: stat.shots?.on ?? 0,
+          tackles: Number(tackles) || 0,
         },
       };
       }),
