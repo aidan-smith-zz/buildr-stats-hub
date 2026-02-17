@@ -21,26 +21,36 @@ const SORT_OPTIONS: { value: PlayerSortKey; label: string }[] = [
   { value: "shotsOnTarget", label: "Shots on target" },
 ];
 
-function TeamCrestOrShirt({ crestUrl, alt }: { crestUrl: string | null; alt: string }) {
-  const size = 40;
+function TeamCrestOrShirt({
+  crestUrl,
+  alt,
+  size = "md",
+}: {
+  crestUrl: string | null;
+  alt: string;
+  size?: "sm" | "md";
+}) {
+  const px = size === "sm" ? 24 : 40;
+  const sizeClass = size === "sm" ? "h-6 w-6" : "h-10 w-10";
+  const iconClass = size === "sm" ? "h-4 w-4" : "h-7 w-7";
   if (crestUrl) {
     return (
       <img
         src={crestUrl}
         alt={alt}
-        width={size}
-        height={size}
-        className="h-10 w-10 object-contain"
+        width={px}
+        height={px}
+        className={`${sizeClass} flex-shrink-0 object-contain`}
       />
     );
   }
   return (
     <span
-      className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-sm bg-black text-white"
+      className={`inline-flex ${sizeClass} flex-shrink-0 items-center justify-center rounded-sm bg-black text-white`}
       title={alt}
       aria-label={alt}
     >
-      <ShirtIcon className="h-7 w-7" />
+      <ShirtIcon className={iconClass} />
     </span>
   );
 }
@@ -74,7 +84,7 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<PlayerSortKey>("goals");
-  const [expandedTeamIds, setExpandedTeamIds] = useState<Set<number>>(new Set());
+  const [activeTab, setActiveTab] = useState<"home" | "away">("home");
   const [shareLabel, setShareLabel] = useState<"Share" | "Copied!" | "Shared!">("Share");
 
   const handleShare = async () => {
@@ -100,19 +110,10 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
     setTimeout(() => setShareLabel("Share"), 2000);
   };
 
-  // Reset accordion when fixture changes
+  // Reset to home tab when fixture changes
   useEffect(() => {
-    setExpandedTeamIds(new Set());
+    setActiveTab("home");
   }, [selectedId]);
-
-  const toggleTeam = (teamId: number) => {
-    setExpandedTeamIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(teamId)) next.delete(teamId);
-      else next.add(teamId);
-      return next;
-    });
-  };
 
   // Update selectedId if current selection is not in filtered list
   useEffect(() => {
@@ -215,10 +216,26 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
         </select>
       </div>
 
-      {/* Fixture details tile */}
-      {(() => {
+      {/* Match Info tile – blank until stats have loaded, then shows match info + crests */}
+      {selectedId && (() => {
         const selectedFixture = filteredFixtures.find((f) => String(f.id) === selectedId);
         if (!selectedFixture) return null;
+
+        const showContent = !loading && !error && stats;
+        if (!showContent) {
+          return (
+            <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900 min-h-[4rem] flex items-center justify-center">
+              {loading ? (
+                <div className="flex flex-col items-center gap-3 py-4">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-600 dark:border-neutral-700 dark:border-t-neutral-400" />
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400">Loading stats...</p>
+                </div>
+              ) : (
+                <span className="sr-only">Match info will appear when stats have loaded</span>
+              )}
+            </div>
+          );
+        }
 
         const koDate = new Date(selectedFixture.date);
         const koTime = koDate.toLocaleTimeString("en-GB", {
@@ -226,76 +243,62 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
           minute: "2-digit",
           hour12: false,
         });
-        // Use kick-off time: if KO is in the past, game has started (stored status can be stale from fetch)
         const isNotStarted = koDate > new Date();
         const statusLabel = isNotStarted ? "Not started" : "Started";
 
         return (
           <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              <span className="font-medium text-neutral-900 dark:text-neutral-50">
-                {selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name}
-              </span>
-              <span className="text-neutral-400">vs</span>
-              <span className="font-medium text-neutral-900 dark:text-neutral-50">
-                {selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name}
-              </span>
-              <span className="text-neutral-300 dark:text-neutral-600">·</span>
-              <span className="text-neutral-600 dark:text-neutral-400">{koTime}</span>
-              <span className="text-neutral-300 dark:text-neutral-600">·</span>
-              <span className="text-neutral-600 dark:text-neutral-400">
-                {selectedFixture.league ?? "League"}
-              </span>
-              <span className="text-neutral-300 dark:text-neutral-600">·</span>
-              <span
-                className={
-                  isNotStarted
-                    ? "font-medium text-amber-600 dark:text-amber-400"
-                    : "font-medium text-green-500 dark:text-green-400"
-                }
-              >
-                {statusLabel}
-              </span>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-3">
+                <TeamCrestOrShirt crestUrl={stats!.fixture.homeTeam.crestUrl} alt={stats!.fixture.homeTeam.shortName ?? stats!.fixture.homeTeam.name} />
+                <TeamCrestOrShirt crestUrl={stats!.fixture.awayTeam.crestUrl} alt={stats!.fixture.awayTeam.shortName ?? stats!.fixture.awayTeam.name} />
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <span className="font-medium text-neutral-900 dark:text-neutral-50">
+                  {selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name}
+                </span>
+                <span className="text-neutral-400">vs</span>
+                <span className="font-medium text-neutral-900 dark:text-neutral-50">
+                  {selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name}
+                </span>
+                <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                <span className="text-neutral-600 dark:text-neutral-400">{koTime}</span>
+                <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                <span className="text-neutral-600 dark:text-neutral-400">
+                  {selectedFixture.league ?? "League"}
+                </span>
+                <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                <span
+                  className={
+                    isNotStarted
+                      ? "font-medium text-amber-600 dark:text-amber-400"
+                      : "font-medium text-green-500 dark:text-green-400"
+                  }
+                >
+                  {statusLabel}
+                </span>
+              </div>
             </div>
           </div>
         );
       })()}
 
-      {/* Stats Section */}
+      {/* Stats Section – only show when loaded (stats) or when error / empty state */}
       <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-8">
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="flex flex-col items-center gap-3">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-600 dark:border-neutral-700 dark:border-t-neutral-400"></div>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                Loading stats...
-              </p>
-            </div>
-          </div>
-        )}
-
-        {!loading && error && (
+        {loading ? null : error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/50">
             <p className="text-sm font-medium text-red-800 dark:text-red-400">{error}</p>
           </div>
-        )}
-
-        {!loading && !error && stats && (
+        ) : stats ? (
           <div className="space-y-6">
             <header className="flex flex-col gap-3 border-b border-neutral-200 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 dark:border-neutral-800">
-              <div className="flex flex-1 flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                    Player Statistics
-                  </h2>
-                  <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                    Season {stats.fixture.season}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <TeamCrestOrShirt crestUrl={stats.fixture.homeTeam.crestUrl} alt={stats.fixture.homeTeam.shortName ?? stats.fixture.homeTeam.name} />
-                  <TeamCrestOrShirt crestUrl={stats.fixture.awayTeam.crestUrl} alt={stats.fixture.awayTeam.shortName ?? stats.fixture.awayTeam.name} />
-                </div>
+              <div>
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                  Player Statistics
+                </h2>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                  Season {stats.fixture.season}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <label htmlFor="stats-sort" className="whitespace-nowrap text-sm font-medium text-neutral-700 dark:text-neutral-300">
@@ -316,109 +319,120 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
               </div>
             </header>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              {stats.teams.map((team) => {
+            {/* Home / Away tabs – stats.teams order is [home, away] */}
+            <div className="border-b border-neutral-200 dark:border-neutral-800">
+              <div className="flex gap-1" role="tablist" aria-label="Team">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "home"}
+                  onClick={() => setActiveTab("home")}
+                  className={`rounded-t-lg border border-b-0 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === "home"
+                      ? "border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+                      : "border-transparent bg-neutral-100/50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:bg-neutral-800/50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
+                  }`}
+                >
+                  {stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "away"}
+                  onClick={() => setActiveTab("away")}
+                  className={`rounded-t-lg border border-b-0 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === "away"
+                      ? "border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+                      : "border-transparent bg-neutral-100/50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:bg-neutral-800/50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
+                  }`}
+                >
+                  {stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
+                </button>
+              </div>
+            </div>
+            <div className="flex max-h-[28rem] flex-col gap-2 overflow-y-auto rounded-b-lg border border-neutral-200 border-t-0 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
+              {(() => {
+                const teamIndex = activeTab === "home" ? 0 : 1;
+                const team = stats.teams[teamIndex];
+                if (!team) return null;
                 const sortedPlayers = [...team.players].sort(
                   (a, b) => (Number(b[sortBy]) ?? 0) - (Number(a[sortBy]) ?? 0)
                 );
+                const teamCrestUrl =
+                  team.teamId === stats.fixture.homeTeam.id
+                    ? stats.fixture.homeTeam.crestUrl
+                    : stats.fixture.awayTeam.crestUrl;
+                const teamCrestAlt = team.teamShortName ?? team.teamName;
 
-                const isExpanded = expandedTeamIds.has(team.teamId);
-                const playerCount = sortedPlayers.length;
-
-                return (
-                  <div
-                    key={team.teamId}
-                    className="flex flex-col rounded-lg border border-neutral-200 bg-neutral-50/50 dark:border-neutral-800 dark:bg-neutral-900/50"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleTeam(team.teamId)}
-                      className="flex w-full items-center justify-between gap-2 px-5 py-4 text-left transition-colors hover:bg-neutral-100/80 dark:hover:bg-neutral-800/50"
-                      aria-expanded={isExpanded}
-                    >
-                      <span className="text-sm font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
-                        {team.teamShortName ?? team.teamName}
-                      </span>
-                      <span className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
-                        {playerCount} player{playerCount !== 1 ? "s" : ""}
-                        <svg
-                          className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </span>
-                    </button>
-                    {isExpanded && (
-                    <div className="flex max-h-96 flex-col gap-2 overflow-y-auto border-t border-neutral-200 px-5 pb-5 pt-2 dark:border-neutral-800">
-                      {sortedPlayers.length === 0 ? (
-                        <div className="rounded-lg border border-neutral-200 bg-white p-4 text-center dark:border-neutral-800 dark:bg-neutral-900">
-                          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                            No player statistics available for this team.
-                          </p>
-                        </div>
-                      ) : (
-                        sortedPlayers.map((player, index) => {
-                          const isTop = index === 0;
-                          const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? sortBy;
-                          const sortValue = player[sortBy];
-                          const numValue = Number(sortValue) ?? 0;
-                          const minutes = player.minutes ?? 0;
-                          const per90 = minutes > 0 ? (numValue / minutes) * 90 : 0;
-                          const per90Label = `${sortLabel}/90`;
-
-                          return (
-                            <div
-                              key={player.playerId}
-                              className={`group rounded-lg border px-4 py-3 transition-all hover:shadow-sm ${
-                                isTop
-                                  ? "border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/30"
-                                  : "border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <h4 className="font-semibold text-neutral-900 dark:text-neutral-50">
-                                      {player.name}
-                                    </h4>
-                                    {isTop && (
-                                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
-                                        Top
-                                      </span>
-                                    )}
-                                  </div>
-                                  {player.position && (
-                                    <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-                                      {player.position}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="flex flex-shrink-0 flex-col items-end gap-1 text-right">
-                                  <div className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                                    <span className="text-neutral-900 dark:text-neutral-50">
-                                      {minutes > 0 ? per90.toFixed(2) : "0.00"}
-                                    </span>
-                                    <span className="ml-1 text-neutral-400">{per90Label}</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="mt-3 border-t border-neutral-200 pt-2 text-xs text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
-                                <span className="font-medium">Total {sortLabel}:</span>{" "}
-                                <span className="text-neutral-900 dark:text-neutral-50">{Number(sortValue) ?? 0}</span>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
+                if (sortedPlayers.length === 0) {
+                  return (
+                    <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center dark:border-neutral-800 dark:bg-neutral-900">
+                      <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                        No player statistics available for this team.
+                      </p>
                     </div>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                }
+                return sortedPlayers.map((player, index) => {
+                  const isTop = index === 0;
+                  const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? sortBy;
+                  const sortValue = player[sortBy];
+                  const numValue = Number(sortValue) ?? 0;
+                  const minutes = player.minutes ?? 0;
+                  const per90 = minutes > 0 ? (numValue / minutes) * 90 : 0;
+                  const per90Label = `${sortLabel}/90min`;
+
+                  return (
+                    <div
+                      key={player.playerId}
+                      className={`group rounded-lg border px-4 py-3 transition-all hover:shadow-sm ${
+                        isTop
+                          ? "border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/30"
+                          : "border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex flex-1 min-w-0 items-start gap-3">
+                          <TeamCrestOrShirt
+                            crestUrl={teamCrestUrl}
+                            alt={teamCrestAlt}
+                            size="sm"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-neutral-900 dark:text-neutral-50">
+                                {player.name}
+                              </h4>
+                              {isTop && (
+                                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+                                  Top
+                                </span>
+                              )}
+                            </div>
+                            {player.position && (
+                              <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                                {player.position}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-shrink-0 flex-col items-end gap-1 text-right">
+                          <div className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                            <span className="text-neutral-900 dark:text-neutral-50">
+                              {minutes > 0 ? per90.toFixed(2) : "0.00"}
+                            </span>
+                            <span className="ml-1 text-neutral-400">{per90Label}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 border-t border-neutral-200 pt-2 text-xs text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
+                        <span className="font-medium">Total {sortLabel}:</span>{" "}
+                        <span className="text-neutral-900 dark:text-neutral-50">{Number(sortValue) ?? 0}</span>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
 
             <div className="border-t border-neutral-200 pt-4 dark:border-neutral-800">
@@ -434,9 +448,7 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
               </button>
             </div>
           </div>
-        )}
-
-        {!loading && !error && !stats && (
+        ) : (
           <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-8 text-center dark:border-neutral-800 dark:bg-neutral-900/50">
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
               Select a fixture above to view season statistics for both teams.
