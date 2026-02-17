@@ -37,10 +37,9 @@ export async function refreshTeamCrests(): Promise<{ updated: number; failed: nu
       if (logoUrl) updated++;
     } catch (err) {
       failed++;
-      console.error(`[crestsService] Failed to fetch crest for team ${team.id} (apiId ${apiId}):`, err);
+      console.error("[crestsService] Failed to fetch crest");
     }
   }
 
-  console.log(`[crestsService] Crest refresh done: ${updated} updated, ${failed} failed (${teams.length} teams in chosen leagues)`);
   return { updated, failed };
 }

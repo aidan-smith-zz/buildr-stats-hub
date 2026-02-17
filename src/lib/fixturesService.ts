@@ -64,9 +64,6 @@ export async function pruneDataOlderThanToday(now: Date = new Date()): Promise<v
     return [fixturesResult.count, logsResult.count];
   });
 
-  if (fixturesDeleted > 0 || logsDeleted > 0) {
-    console.log(`[fixturesService] Pruned: ${fixturesDeleted} old fixtures, ${logsDeleted} old fetch logs`);
-  }
 }
 
 /**
@@ -84,7 +81,6 @@ export async function clearTodayFixturesCacheAndData(now: Date = new Date()): Pr
     prisma.apiFetchLog.deleteMany({ where: { resource: `fixtures:${dateKey}` } }),
   ]);
 
-  console.log(`[fixturesService] Cleared cache and deleted fixtures + fetch log for ${dateKey}`);
 }
 
 /**
@@ -93,8 +89,6 @@ export async function clearTodayFixturesCacheAndData(now: Date = new Date()): Pr
 export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise<FixtureSummary[]> {
   const dateKey = getTodayDateKey(now);
   const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
-
-  console.log(`[fixturesService] getOrRefreshTodayFixtures called for date: ${dateKey} (${FIXTURES_TIMEZONE})`);
 
   await pruneDataOlderThanToday(now);
 
@@ -111,44 +105,28 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
     }),
   ]);
 
-  console.log(`[fixturesService] Found ${existingFixtures.length} existing fixtures in DB`);
-  console.log(`[fixturesService] Last fetch log:`, lastFetchLog ? {
-    fetchedAt: lastFetchLog.fetchedAt,
-    dayStart: dayStart,
-    isToday: lastFetchLog.fetchedAt >= dayStart,
-  } : 'none');
-
   // When we have 0 fixtures, clear today's fetch log so we always refetch from API (avoids stale "success" state)
   if (existingFixtures.length === 0) {
     globalForFixtures.todayFixturesPromise = undefined;
     await prisma.apiFetchLog.deleteMany({ where: { resource: `fixtures:${dateKey}` } });
-    console.log(`[fixturesService] No fixtures for today - cleared fetch log and in-memory cache, will fetch from API`);
   }
 
   // Only use cache if we have fixtures AND last fetch was today
   if (lastFetchLog && lastFetchLog.fetchedAt >= dayStart && existingFixtures.length > 0) {
-    console.log(`[fixturesService] Returning cached fixtures (last fetch was today, ${existingFixtures.length} fixtures found)`);
     return existingFixtures.map(mapFixtureToSummary);
   }
 
   // If another refresh is in progress and we have fixtures, return the shared promise
   if (globalForFixtures.todayFixturesPromise?.dateKey === dateKey && existingFixtures.length > 0) {
-    console.log(`[fixturesService] Returning existing refresh promise for ${dateKey}`);
     return globalForFixtures.todayFixturesPromise.promise;
   }
 
-  // 3️⃣ Fetch fresh fixtures from API
-  console.log(`[fixturesService] Creating new refresh promise for ${dateKey}`);
   const refreshPromise = (async (): Promise<FixtureSummary[]> => {
-    console.log(`[fixturesService] Refresh promise EXECUTING - about to call API`);
     let rawFixtures: RawFixture[] = [];
     let message: string | undefined;
 
     try {
-      // Fetch only the required leagues (one API call per league)
-      console.log(`[fixturesService] Fetching fixtures for ${dateKey} for leagues: ${REQUIRED_LEAGUE_IDS.join(", ")}`);
       const season = getCurrentSeasonYear(now);
-      console.log(`[fixturesService] Using season: ${season}`);
       const results = await Promise.all(
         REQUIRED_LEAGUE_IDS.map((leagueId) =>
           fetchTodayFixtures({ date: dateKey, leagueId, season, timezone: FIXTURES_TIMEZONE })
@@ -162,23 +140,9 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
         return true;
       });
       rawFixtures.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      console.log(`[fixturesService] Received ${rawFixtures.length} fixtures from API`);
-      const byLeague = rawFixtures.reduce<Record<number, number>>((acc, raw) => {
-        const id = raw.leagueId ?? 0;
-        acc[id] = (acc[id] ?? 0) + 1;
-        return acc;
-      }, {});
-      console.log(`[fixturesService] By league:`, byLeague, "(40 = Championship)");
 
       // Process fixtures in batches to avoid timeout and improve performance
       const BATCH_SIZE = 50;
-      let processedCount = 0;
-      let errorCount = 0;
-      
-      if (rawFixtures.length > 0) {
-        const sample = rawFixtures[0];
-        console.log(`[fixturesService] First raw fixture leagueId:`, sample.leagueId, "league:", sample.league);
-      }
 
       for (let batchStart = 0; batchStart < rawFixtures.length; batchStart += BATCH_SIZE) {
         const batch = rawFixtures.slice(batchStart, batchStart + BATCH_SIZE);
@@ -241,11 +205,8 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
                   ...fixtureData,
                 },
               });
-              
-              processedCount++;
-            } catch (fixtureError) {
-              errorCount++;
-              console.error(`[fixturesService] Error processing fixture:`, fixtureError);
+            } catch {
+              // Continue with other fixtures
             }
           })
         );
@@ -260,15 +221,14 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
         },
       });
     } catch (err) {
-      console.error("[getOrRefreshTodayFixtures] Error refreshing fixtures", err);
       message = err instanceof Error ? err.message : "Unknown error";
 
       try {
         await prisma.apiFetchLog.create({
           data: { resource: `fixtures:${dateKey}`, success: false, message },
         });
-      } catch (logError) {
-        console.error("[fixturesService] Failed to create error log:", logError);
+      } catch {
+        // Ignore log write failure
       }
     }
 
@@ -283,11 +243,8 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
   })();
 
   globalForFixtures.todayFixturesPromise = { dateKey, promise: refreshPromise };
-  console.log(`[fixturesService] Stored refresh promise in cache and returning it`);
-  
-  // Ensure the promise starts executing immediately
-  refreshPromise.catch((error) => {
-    console.error(`[fixturesService] Refresh promise error:`, error);
+
+  refreshPromise.catch(() => {
     // Clear the failed promise so it can be retried
     if (globalForFixtures.todayFixturesPromise?.dateKey === dateKey) {
       globalForFixtures.todayFixturesPromise = undefined;

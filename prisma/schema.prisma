@@ -25,13 +25,39 @@ model Team {
   country   String?
   crestUrl  String? // Team logo/crest URL from API-Football (media.api-sports.io)
 
-  homeFixtures Fixture[]           @relation("HomeTeamFixtures")
-  awayFixtures Fixture[]           @relation("AwayTeamFixtures")
-  players      Player[]
-  seasonStats  PlayerSeasonStats[]
+  homeFixtures     Fixture[]           @relation("HomeTeamFixtures")
+  awayFixtures     Fixture[]           @relation("AwayTeamFixtures")
+  players          Player[]
+  seasonStats     PlayerSeasonStats[]
+  teamSeasonStats  TeamSeasonStats[]
+  fixtureTeamStats FixtureTeamStats[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model TeamSeasonStats {
+  id        Int   @id @default(autoincrement())
+  teamId    Int
+  season    String
+  league    String
+  leagueId  Int?  // API-Football league id
+
+  minutesPlayed Int   @default(0)
+  goalsFor      Int   @default(0)
+  goalsAgainst  Int   @default(0)
+  xgFor         Float?
+  corners       Int   @default(0)
+  yellowCards   Int   @default(0)
+  redCards      Int   @default(0)
+
+  team Team @relation(fields: [teamId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, season, league])
+  @@index([teamId, season, league])
 }
 
 model Fixture {
@@ -46,13 +72,35 @@ model Fixture {
   homeTeamId Int
   awayTeamId Int
 
-  homeTeam Team @relation("HomeTeamFixtures", fields: [homeTeamId], references: [id])
-  awayTeam Team @relation("AwayTeamFixtures", fields: [awayTeamId], references: [id])
+  homeTeam   Team   @relation("HomeTeamFixtures", fields: [homeTeamId], references: [id])
+  awayTeam   Team   @relation("AwayTeamFixtures", fields: [awayTeamId], references: [id])
+  teamStats  FixtureTeamStats[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([date])
+}
+
+model FixtureTeamStats {
+  id        Int  @id @default(autoincrement())
+  fixtureId Int
+  teamId    Int
+
+  goals       Int   @default(0)
+  xg          Float?
+  corners     Int   @default(0)
+  yellowCards Int   @default(0)
+  redCards    Int   @default(0)
+
+  fixture Fixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  team    Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([fixtureId, teamId])
+  @@index([fixtureId])
 }
 
 model Player {

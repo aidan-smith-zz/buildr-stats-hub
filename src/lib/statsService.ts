@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import {
+  fetchFixtureStatistics,
   fetchPlayerSeasonStatsByTeam,
+  fetchTeamFixturesWithGoals,
   getPlayerExternalId,
   type RawPlayerSeasonStats,
 } from "@/lib/footballApi";
@@ -17,6 +19,14 @@ export type FixtureSummary = {
   season: string;
   homeTeam: { id: number; name: string; shortName: string | null; crestUrl: string | null };
   awayTeam: { id: number; name: string; shortName: string | null; crestUrl: string | null };
+};
+
+export type TeamStatsPer90 = {
+  xgPer90: number | null;
+  goalsPer90: number;
+  concededPer90: number;
+  cornersPer90: number;
+  cardsPer90: number;
 };
 
 export type FixtureStatsResponse = {
@@ -42,7 +52,101 @@ export type FixtureStatsResponse = {
       redCards: number;
     }[];
   }[];
+  teamStats?: {
+    home: TeamStatsPer90;
+    away: TeamStatsPer90;
+  };
 };
+
+const TEAM_STATS_TIMEZONE = "Europe/London";
+
+/** Start of today in UTC for "already fetched today" check (same calendar day in London). */
+function getTeamStatsDayStart(now: Date = new Date()): Date {
+  const dateKey = now.toLocaleDateString("en-CA", { timeZone: TEAM_STATS_TIMEZONE });
+  return new Date(`${dateKey}T00:00:00.000Z`);
+}
+
+const MAX_FIXTURES_PER_SEASON = 38;
+
+/**
+ * Aggregate team stats for this season only: goals/conceded from fixtures list,
+ * corners/cards/xG from fixture statistics (up to 38 fixtures per team).
+ * Cached once per day per team/season/league.
+ */
+async function ensureTeamSeasonStatsCornersAndCards(
+  teamId: number,
+  teamApiId: string,
+  season: string,
+  leagueKey: string,
+  leagueId: number,
+): Promise<void> {
+  const resource = `teamSeasonCorners:${teamId}:${season}:${leagueKey}`;
+  const dayStart = getTeamStatsDayStart();
+
+  const lastLog = await prisma.apiFetchLog.findFirst({
+    where: { resource, success: true },
+    orderBy: { fetchedAt: "desc" },
+  });
+  if (lastLog && lastLog.fetchedAt >= dayStart) {
+    return;
+  }
+
+  const { fixtureIds, goalsFor, goalsAgainst, played } = await fetchTeamFixturesWithGoals(teamApiId, season, leagueId);
+  const minutesPlayed = played * 90;
+
+  let corners = 0;
+  let yellowCards = 0;
+  let redCards = 0;
+  let xgSum = 0;
+  let xgCount = 0;
+
+  const limit = Math.min(fixtureIds.length, MAX_FIXTURES_PER_SEASON);
+  for (let i = 0; i < limit; i++) {
+    const stat = await fetchFixtureStatistics(fixtureIds[i], teamApiId);
+    if (stat) {
+      corners += stat.corners;
+      yellowCards += stat.yellowCards;
+      redCards += stat.redCards;
+      if (stat.xg != null) {
+        xgSum += stat.xg;
+        xgCount++;
+      }
+    }
+  }
+  const xgFor = xgCount > 0 ? xgSum : null;
+
+  await prisma.teamSeasonStats.upsert({
+    where: {
+      teamId_season_league: { teamId, season, league: leagueKey },
+    },
+    create: {
+      teamId,
+      season,
+      league: leagueKey,
+      leagueId,
+      minutesPlayed,
+      goalsFor,
+      goalsAgainst,
+      xgFor,
+      corners,
+      yellowCards,
+      redCards,
+    },
+    update: {
+      minutesPlayed,
+      goalsFor,
+      goalsAgainst,
+      xgFor,
+      corners,
+      yellowCards,
+      redCards,
+    },
+  });
+
+  await prisma.apiFetchLog.create({
+    data: { resource, success: true },
+  });
+}
 
 /**
  * Fetch and store player season stats for a team from the API
@@ -54,8 +158,6 @@ async function fetchAndStorePlayerStats(
   league: string | null,
   leagueId?: number,
 ): Promise<void> {
-  console.log(`[statsService] Fetching player stats for team ${teamId} (apiId: ${teamApiId}), season: ${season}, league: ${league}`);
-  
   try {
     let rawStats = await fetchPlayerSeasonStatsByTeam({
       teamExternalId: teamApiId,
@@ -79,11 +181,6 @@ async function fetchAndStorePlayerStats(
         (s.redCards ?? 0) > 0
       );
     });
-    if (before > rawStats.length) {
-      console.log(`[statsService] Skipped ${before - rawStats.length} players with zero stats for team ${teamId}`);
-    }
-    console.log(`[statsService] Storing ${rawStats.length} player stats for team ${teamId}`);
-
     const leagueNameBase = league || "Unknown";
     const BATCH_SIZE = 10;
 
@@ -145,15 +242,14 @@ async function fetchAndStorePlayerStats(
       await Promise.allSettled(
         batch.map((raw) =>
           storeOne(raw).catch((err) => {
-            console.error(`[statsService] Error storing player stats:`, err);
+            console.error("[statsService] Error storing player stats");
           })
         )
       );
     }
 
-    console.log(`[statsService] Successfully stored player stats for team ${teamId}`);
   } catch (error) {
-    console.error(`[statsService] Error fetching player stats for team ${teamId}:`, error);
+    console.error("[statsService] Error fetching player stats");
     throw error;
   }
 }
@@ -190,10 +286,6 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
   const teamsNeedingStats = teamIds.filter((tid) => (countByTeam.get(tid) ?? 0) < MIN_PLAYERS_PER_TEAM);
 
   if (teamsNeedingStats.length > 0) {
-    console.log(
-      `[statsService] Refetching player stats for teams: ${teamsNeedingStats.join(", ")} (counts: ${teamIds.map((t) => countByTeam.get(t) ?? 0).join(", ")})`
-    );
-    
     // Prefer fixture.leagueId from DB (set when we store fixtures). Fallback: league name -> id for API calls.
     const leagueIdMap: Record<string, number> = {
       "Premier League": 39,
@@ -228,12 +320,57 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
               leagueId,
             );
           } catch (error) {
-            console.error(`[statsService] Failed to fetch stats for team ${teamId}:`, error);
+            console.error("[statsService] Failed to fetch stats for team");
             // Continue even if one team fails
           }
         }
       })
     );
+  }
+
+  // Ensure season-level team stats for both teams (once per day per team/season/league)
+  const leagueIdForTeamStats =
+    fixtureWithLeagueId.leagueId ??
+    (fixture.league
+      ? {
+          "Premier League": 39,
+          Championship: 40,
+          "English League Championship": 40,
+          "EFL Championship": 40,
+          "The Championship": 40,
+          "English Championship": 40,
+          "UEFA Champions League": 2,
+          "UEFA Europa League": 3,
+          "Champions League": 2,
+          "Europa League": 3,
+          "Scottish Championship": 179,
+          "Scottish Premiership": 179,
+          "FA Cup": 45,
+        }[fixture.league]
+      : undefined);
+
+  const leagueKeyForTeamStats = fixture.league ?? "Unknown";
+  if (leagueIdForTeamStats != null) {
+    await Promise.allSettled([
+      fixture.homeTeam.apiId
+        ? ensureTeamSeasonStatsCornersAndCards(
+            fixture.homeTeamId,
+            fixture.homeTeam.apiId,
+            fixture.season,
+            leagueKeyForTeamStats,
+            leagueIdForTeamStats,
+          )
+        : Promise.resolve(),
+      fixture.awayTeam.apiId
+        ? ensureTeamSeasonStatsCornersAndCards(
+            fixture.awayTeamId,
+            fixture.awayTeam.apiId,
+            fixture.season,
+            leagueKeyForTeamStats,
+            leagueIdForTeamStats,
+          )
+        : Promise.resolve(),
+    ]);
   }
 
   // Now fetch the stats (either existing or newly stored)
@@ -365,9 +502,48 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     ];
   }
 
+  const leagueFilterForTeamStats = fixture.league ? { league: fixture.league } : {};
+  const teamSeasonRows = await prisma.teamSeasonStats.findMany({
+    where: {
+      teamId: { in: [fixture.homeTeamId, fixture.awayTeamId] },
+      season: fixture.season,
+      ...leagueFilterForTeamStats,
+    },
+  });
+
+  const homeRow = teamSeasonRows.find((r) => r.teamId === fixture.homeTeamId);
+  const awayRow = teamSeasonRows.find((r) => r.teamId === fixture.awayTeamId);
+
+  /** Season totals (this season only) -> average per match. */
+  function rowToPerMatch(row: typeof homeRow): TeamStatsPer90 {
+    if (!row) {
+      return { xgPer90: null, goalsPer90: 0, concededPer90: 0, cornersPer90: 0, cardsPer90: 0 };
+    }
+    const matches = row.minutesPlayed > 0 ? row.minutesPlayed / 90 : 0;
+    if (matches <= 0) {
+      return { xgPer90: null, goalsPer90: 0, concededPer90: 0, cornersPer90: 0, cardsPer90: 0 };
+    }
+    return {
+      xgPer90: row.xgFor != null ? row.xgFor / matches : null,
+      goalsPer90: row.goalsFor / matches,
+      concededPer90: row.goalsAgainst / matches,
+      cornersPer90: row.corners / matches,
+      cardsPer90: (row.yellowCards + row.redCards) / matches,
+    };
+  }
+
+  const teamStats: FixtureStatsResponse["teamStats"] =
+    homeRow || awayRow
+      ? {
+          home: rowToPerMatch(homeRow),
+          away: rowToPerMatch(awayRow),
+        }
+      : undefined;
+
   return {
     fixture: fixtureSummary,
     teams,
+    teamStats,
   };
 }
 

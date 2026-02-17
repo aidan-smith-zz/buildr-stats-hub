@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 
 /**
  * Clears the database completely for a fresh start.
- * Deletes: PlayerSeasonStats → Player → Fixture → Team → ApiFetchLog
+ * Deletes: PlayerSeasonStats → Player → TeamSeasonStats → FixtureTeamStats → Fixture → Team → ApiFetchLog
  *
  * Usage: npx tsx scripts/clear-database.ts
  */
@@ -12,9 +12,11 @@ async function clearDatabase() {
   try {
     console.log("Clearing database completely...");
 
-    const [stats, players, fixtures, teams, logs] = await prisma.$transaction([
+    const [stats, players, teamSeasonStats, fixtureTeamStats, fixtures, teams, logs] = await prisma.$transaction([
       prisma.playerSeasonStats.deleteMany({}),
       prisma.player.deleteMany({}),
+      prisma.teamSeasonStats.deleteMany({}),
+      prisma.fixtureTeamStats.deleteMany({}),
       prisma.fixture.deleteMany({}),
       prisma.team.deleteMany({}),
       prisma.apiFetchLog.deleteMany({}),
@@ -22,6 +24,8 @@ async function clearDatabase() {
 
     console.log(`  PlayerSeasonStats: ${stats.count}`);
     console.log(`  Players: ${players.count}`);
+    console.log(`  TeamSeasonStats: ${teamSeasonStats.count}`);
+    console.log(`  FixtureTeamStats: ${fixtureTeamStats.count}`);
     console.log(`  Fixtures: ${fixtures.count}`);
     console.log(`  Teams: ${teams.count}`);
     console.log(`  ApiFetchLog: ${logs.count}`);

@@ -105,10 +105,6 @@ async function request<T>(path: string, searchParams?: Record<string, string | n
     }
   }
 
-  console.log(`[footballApi] Making API request to: ${url.toString()}`);
-  console.log(`[footballApi] Request parameters:`, Object.fromEntries(url.searchParams.entries()));
-
-  // API-Football uses x-apisports-key header
   const res = await fetch(url.toString(), {
     headers: {
       "x-apisports-key": FOOTBALL_API_KEY,
@@ -116,64 +112,14 @@ async function request<T>(path: string, searchParams?: Record<string, string | n
     cache: "no-store",
   });
 
-  console.log(`[footballApi] Response status: ${res.status} ${res.statusText}`);
-
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[footballApi] API Error: ${res.status} ${res.statusText}: ${text}`);
-    throw new Error(`[footballApi] ${res.status} ${res.statusText}: ${text}`);
+    await res.text(); // consume body
+    console.error("[footballApi] API error:", res.status);
+    throw new Error(`[footballApi] ${res.status} ${res.statusText}`);
   }
 
   const json = (await res.json()) as ApiFootballResponse<T>;
-  
   const errorsArray = json.errors ? (Array.isArray(json.errors) ? json.errors : [json.errors]) : [];
-  
-  console.log(`[footballApi] API response summary:`, {
-    get: json.get,
-    results: json.results,
-    responseLength: json.response?.length || 0,
-    hasErrors: errorsArray.length > 0,
-    errors: errorsArray,
-    parameters: json.parameters,
-    paging: json.paging,
-  });
-  
-  if (json.response && json.response.length > 0) {
-    console.log(`[footballApi] First fixture sample:`, JSON.stringify(json.response[0], null, 2));
-    // Log league information from the response
-    const leagueMap = new Map<number, { name: string; season: number; count: number }>();
-    json.response.forEach((f: any) => {
-      const leagueId = f.league?.id;
-      if (leagueId) {
-        if (!leagueMap.has(leagueId)) {
-          leagueMap.set(leagueId, {
-            name: f.league?.name || 'Unknown',
-            season: f.league?.season || 0,
-            count: 0
-          });
-        }
-        leagueMap.get(leagueId)!.count++;
-      }
-    });
-    console.log(`[footballApi] Leagues in response (${leagueMap.size} unique):`);
-    Array.from(leagueMap.entries()).forEach(([id, info]) => {
-      console.log(`  - League ID ${id}: "${info.name}" (season ${info.season}) - ${info.count} fixture(s)`);
-    });
-  } else {
-    console.log(`[footballApi] No fixtures in response. This could mean:`);
-    console.log(`  - No fixtures scheduled for this date`);
-    console.log(`  - League ID or season filter is incorrect`);
-    console.log(`  - API returned empty results`);
-    console.log(`[footballApi] Request URL was: ${url.toString()}`);
-    console.log(`[footballApi] Response parameters from API:`, json.parameters);
-    console.log(`[footballApi] Full API response structure:`, {
-      get: json.get,
-      results: json.results,
-      paging: json.paging,
-      hasResponse: !!json.response,
-      responseLength: json.response?.length || 0
-    });
-  }
 
   // Handle errors - API sometimes returns errors: {} (empty object); treat as no errors
   const hasRealErrors =
@@ -196,10 +142,10 @@ async function request<T>(path: string, searchParams?: Record<string, string | n
       errorMessages.toLowerCase().includes("do not have access");
 
     if (isPlanLimitation) {
-      console.error(`[footballApi] ⚠️ API plan limitation: ${errorMessages}`);
+      console.error("[footballApi] API plan limitation");
       return [];
     }
-    console.error(`[footballApi] API errors:`, json.errors);
+    console.error("[footballApi] API error");
     throw new Error(`[footballApi] API errors: ${JSON.stringify(json.errors)}`);
   }
 
@@ -271,9 +217,7 @@ export async function fetchTodayFixtures(
   params: TodayFixturesParams,
 ): Promise<RawFixture[]> {
   const path = "/fixtures";
-  
-  console.log(`[footballApi] Fetching fixtures for date: ${params.date}${params.leagueId ? `, league: ${params.leagueId}` : ''}${params.season ? `, season: ${params.season}` : ''}`);
-  
+
   // Validate date format
   if (!/^\d{4}-\d{2}-\d{2}$/.test(params.date)) {
     throw new Error(`Invalid date format: ${params.date}. Expected YYYY-MM-DD`);
@@ -304,30 +248,12 @@ export async function fetchTodayFixtures(
   };
   
   // Only add optional parameters if they're provided
-  if (params.leagueId !== undefined) {
-    queryParams.league = params.leagueId;
-    console.log(`[footballApi] Adding league filter: ${params.leagueId}`);
-  } else {
-    // This is expected when querying all leagues (diagnostic/test calls)
-    console.log(`[footballApi] No league filter specified - fetching fixtures for all leagues`);
-  }
-  if (params.season !== undefined) {
-    queryParams.season = params.season;
-    console.log(`[footballApi] Adding season filter: ${params.season}`);
-  }
-  if (params.timezone !== undefined) {
-    queryParams.timezone = params.timezone;
-  }
-  
-  console.log(`[footballApi] Final queryParams:`, queryParams);
+  if (params.leagueId !== undefined) queryParams.league = params.leagueId;
+  if (params.season !== undefined) queryParams.season = params.season;
+  if (params.timezone !== undefined) queryParams.timezone = params.timezone;
+
   const fixtures = await request<ApiFootballFixture>(path, queryParams);
-  
-  if (!fixtures || fixtures.length === 0) {
-    console.log(`[footballApi] No fixtures returned for date ${params.date}${params.leagueId ? `, league ${params.leagueId}` : ''}${params.season ? `, season ${params.season}` : ''}`);
-    return [];
-  }
-  
-  console.log(`[footballApi] Fetched ${fixtures.length} fixtures for date ${params.date}${params.leagueId ? `, league ${params.leagueId}` : ''}${params.season ? `, season ${params.season}` : ''}`);
+  if (!fixtures || fixtures.length === 0) return [];
 
   // Fallback: API-Football league name -> id for our filtered leagues (in case API omits league.id)
   const leagueNameToId: Record<string, number> = {
@@ -345,12 +271,6 @@ export async function fetchTodayFixtures(
     "Scottish Premiership": 179,
     "FA Cup": 45,
   };
-
-  const first = fixtures[0] as ApiFootballFixture | undefined;
-  if (first) {
-    const rawLeagueId = (first as { league?: { id?: unknown } }).league?.id;
-    console.log(`[footballApi] First fixture league:`, { name: first.league?.name, rawId: rawLeagueId, type: typeof rawLeagueId });
-  }
 
   return fixtures.map((f) => {
     const raw = f as { league?: { id?: unknown; name?: string }; leagueId?: unknown };
@@ -440,11 +360,7 @@ export async function fetchPlayerSeasonStatsByTeam(
   } while (page <= totalPages);
 
   const players = allPlayers;
-  if (!players || players.length === 0) {
-    console.log(`[footballApi] No players returned for team ${params.teamExternalId}${params.season ? `, season ${params.season}` : ""}`);
-    return [];
-  }
-  console.log(`[footballApi] Fetched ${players.length} players (${totalPages} page(s)) for team ${params.teamExternalId}`);
+  if (!players || players.length === 0) return [];
 
   // Map API-Football response to our RawPlayerSeasonStats format.
   // API-Football sometimes uses different keys (e.g. games.appearances vs games.appearences).
@@ -456,11 +372,6 @@ export async function fetchPlayerSeasonStatsByTeam(
     }
     // Fallback: if player has minutes, assume at least 1 appearance
     return minutes > 0 ? 1 : 0;
-  }
-
-  const firstStat = players[0]?.statistics?.[0];
-  if (firstStat && typeof firstStat === "object") {
-    console.log("[footballApi] Player statistics keys (check for tackles):", Object.keys(firstStat).join(", "));
   }
 
   function getTacklesFromStat(stat: Record<string, unknown>): number {
@@ -521,6 +432,145 @@ export async function fetchPlayerSeasonStatsByTeam(
       };
       }),
   );
+}
+
+export type TeamFixturesWithGoals = {
+  fixtureIds: number[];
+  goalsFor: number;
+  goalsAgainst: number;
+  played: number;
+};
+
+/**
+ * Fetch fixtures for a team in a league/season (this season only). Returns fixture IDs and
+ * goals for/against from each fixture's score. GET /fixtures?team=&season=&league=
+ */
+export async function fetchTeamFixturesWithGoals(
+  teamApiId: string | number,
+  season: string | number,
+  leagueId: string | number,
+): Promise<TeamFixturesWithGoals> {
+  const path = "/fixtures";
+  const searchParams: Record<string, string | number> = {
+    team: teamApiId,
+    season: String(season),
+    league: leagueId,
+  };
+
+  type ApiFixtureItem = {
+    fixture?: { id?: number };
+    league?: unknown;
+    teams?: { home?: { id?: number }; away?: { id?: number } };
+    goals?: { home?: number | null; away?: number | null };
+  };
+  try {
+    const response = await request<ApiFixtureItem>(path, searchParams);
+    if (!response?.length) return { fixtureIds: [], goalsFor: 0, goalsAgainst: 0, played: 0 };
+
+    const teamIdNum = Number(teamApiId);
+    let goalsFor = 0;
+    let goalsAgainst = 0;
+    const fixtureIds: number[] = [];
+
+    for (const f of response) {
+      const id = f.fixture?.id;
+      if (typeof id === "number") fixtureIds.push(id);
+      const homeId = f.teams?.home?.id;
+      const awayId = f.teams?.away?.id;
+      const homeGoals = f.goals?.home ?? 0;
+      const awayGoals = f.goals?.away ?? 0;
+      if (homeId === teamIdNum) {
+        goalsFor += homeGoals;
+        goalsAgainst += awayGoals;
+      } else if (awayId === teamIdNum) {
+        goalsFor += awayGoals;
+        goalsAgainst += homeGoals;
+      }
+    }
+
+    return {
+      fixtureIds,
+      goalsFor,
+      goalsAgainst,
+      played: fixtureIds.length,
+    };
+  } catch {
+    console.error("[footballApi] fetchTeamFixturesWithGoals error");
+    return { fixtureIds: [], goalsFor: 0, goalsAgainst: 0, played: 0 };
+  }
+}
+
+/** Stats for one team in one fixture (from GET /fixtures/statistics). */
+export type RawFixtureTeamStats = {
+  goals: number;
+  xg: number | null;
+  corners: number;
+  yellowCards: number;
+  redCards: number;
+};
+
+/**
+ * Fetch fixture statistics for one team from API-Football.
+ * GET /fixtures/statistics?fixture={fixtureApiId}&team={teamApiId}
+ * Response has statistics array of { type: string, value: number | string }.
+ */
+export async function fetchFixtureStatistics(
+  fixtureApiId: string | number,
+  teamApiId: string | number,
+): Promise<RawFixtureTeamStats | null> {
+  const path = "/fixtures/statistics";
+  const searchParams: Record<string, string | number> = {
+    fixture: fixtureApiId,
+    team: teamApiId,
+  };
+
+  type ApiFixtureStatItem = { type: string; value: number | string | null };
+  type ApiFixtureStatsResponse = {
+    team: { id: number; name: string };
+    statistics: ApiFixtureStatItem[];
+  };
+
+  try {
+    const response = await request<ApiFixtureStatsResponse>(path, searchParams);
+    if (!response?.length) return null;
+
+    const raw = response[0] as ApiFixtureStatsResponse;
+    const stats = raw.statistics ?? [];
+    const byType = new Map<string, number>();
+    for (const s of stats) {
+      const v = s.value;
+      const num = typeof v === "number" ? v : typeof v === "string" ? parseFloat(v) : NaN;
+      if (!Number.isNaN(num)) byType.set(s.type, num);
+    }
+
+    function get(key: string): number {
+      const exact = byType.get(key);
+      if (exact !== undefined) return exact;
+      const lower = key.toLowerCase();
+      for (const [t, val] of byType) {
+        if (t.toLowerCase().includes(lower)) return val;
+      }
+      return 0;
+    }
+
+    const goals = get("Goals") || get("Goal");
+    const corners = get("Corner Kicks") || get("Corner");
+    const yellowCards = get("Yellow Cards") || get("Yellow");
+    const redCards = get("Red Cards") || get("Red");
+    let xg: number | null = get("Expected Goals") || get("expected_goals") || null;
+    if (xg === 0) xg = null;
+
+    return {
+      goals,
+      xg: xg != null ? xg : null,
+      corners,
+      yellowCards,
+      redCards,
+    };
+  } catch {
+    console.error("[footballApi] fetchFixtureStatistics error");
+    return null;
+  }
 }
 
 /**
