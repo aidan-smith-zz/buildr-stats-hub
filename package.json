@@ -10,6 +10,7 @@
     "postinstall": "prisma generate",
     "lint": "eslint",
     "clear-fixtures": "npx tsx scripts/clear-fixtures.ts",
+    "warm-today": "npx tsx scripts/warm-today-fixtures.ts",
     "clear-player-stats": "npx tsx scripts/clear-player-stats.ts",
     "clear-team-stats": "npx tsx scripts/clear-team-stats-cache.ts",
     "db:migrate": "PRISMA_SKIP_UPDATE_CHECK=1 npx prisma migrate dev",

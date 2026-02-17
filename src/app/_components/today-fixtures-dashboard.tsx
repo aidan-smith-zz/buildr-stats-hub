@@ -283,95 +283,103 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
         );
       })()}
 
-      {/* Team Stats – this season only, average per match (lightweight) */}
-      {stats?.teamStats && (
+      {/* Full-page error when the stats request fails (both tiles failed to load) */}
+      {selectedId && error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900/50 dark:bg-red-950/50 sm:p-8">
+          <p className="text-sm font-medium text-red-800 dark:text-red-400">{error}</p>
+        </div>
+      )}
+
+      {/* Team Stats – hide completely if request failed or no team stats. Blank while loading. */}
+      {selectedId && !error && (loading || stats?.teamStats) && (
         <section className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-6 p-4">
-          <header className="border-b border-neutral-200 pb-4 dark:border-neutral-800">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-              Team Stats
-            </h2>
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              Season {stats.fixture.season} — average per match
-            </p>
-          </header>
-          <div className="overflow-x-auto rounded-b-lg border border-t-0 border-neutral-200 bg-neutral-50/50 dark:border-neutral-800 dark:bg-neutral-900/50">
-            <table className="w-full min-w-[26rem] text-sm">
-              <thead>
-                <tr className="border-b border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900/80">
-                  <th className="py-3 pl-4 pr-3 text-left text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                    Team
-                  </th>
-                  <th className="py-3 px-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                    xG
-                  </th>
-                  <th className="py-3 px-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                    Goals
-                  </th>
-                  <th className="py-3 px-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                    Conceded
-                  </th>
-                  <th className="py-3 px-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                    Corners
-                  </th>
-                  <th className="py-3 pr-4 pl-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                    Cards
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                <tr className="bg-white transition-colors hover:bg-neutral-50/80 dark:bg-neutral-900/80 dark:hover:bg-neutral-800/50">
-                  <td className="py-3 pl-4 pr-3 font-medium text-neutral-900 dark:text-neutral-50">
-                    {stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
-                  </td>
-                  <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                    {stats.teamStats.home.xgPer90 != null ? stats.teamStats.home.xgPer90.toFixed(2) : "–"}
-                  </td>
-                  <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                    {stats.teamStats.home.goalsPer90.toFixed(2)}
-                  </td>
-                  <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                    {stats.teamStats.home.concededPer90.toFixed(2)}
-                  </td>
-                  <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                    {stats.teamStats.home.cornersPer90.toFixed(2)}
-                  </td>
-                  <td className="py-3 pr-4 pl-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                    {stats.teamStats.home.cardsPer90.toFixed(2)}
-                  </td>
-                </tr>
-                <tr className="bg-white transition-colors hover:bg-neutral-50/80 dark:bg-neutral-900/80 dark:hover:bg-neutral-800/50">
-                  <td className="py-3 pl-4 pr-3 font-medium text-neutral-900 dark:text-neutral-50">
-                    {stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
-                  </td>
-                  <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                    {stats.teamStats.away.xgPer90 != null ? stats.teamStats.away.xgPer90.toFixed(2) : "–"}
-                  </td>
-                  <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                    {stats.teamStats.away.goalsPer90.toFixed(2)}
-                  </td>
-                  <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                    {stats.teamStats.away.concededPer90.toFixed(2)}
-                  </td>
-                  <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                    {stats.teamStats.away.cornersPer90.toFixed(2)}
-                  </td>
-                  <td className="py-3 pr-4 pl-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                    {stats.teamStats.away.cardsPer90.toFixed(2)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          {loading ? null : stats?.teamStats ? (
+            <>
+              <header className="border-b border-neutral-200 pb-4 dark:border-neutral-800">
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                  Team Stats
+                </h2>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                  Season {stats.fixture.season} — average per match
+                </p>
+              </header>
+              <div className="overflow-x-auto rounded-b-lg border border-t-0 border-neutral-200 bg-neutral-50/50 dark:border-neutral-800 dark:bg-neutral-900/50">
+                <table className="w-full min-w-[26rem] text-sm">
+                  <thead>
+                    <tr className="border-b border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900/80">
+                      <th className="py-3 pl-4 pr-3 text-left text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                        Team
+                      </th>
+                      <th className="py-3 px-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                        xG
+                      </th>
+                      <th className="py-3 px-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                        Goals
+                      </th>
+                      <th className="py-3 px-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                        Conceded
+                      </th>
+                      <th className="py-3 px-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                        Corners
+                      </th>
+                      <th className="py-3 pr-4 pl-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                        Cards
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                    <tr className="bg-white transition-colors hover:bg-neutral-50/80 dark:bg-neutral-900/80 dark:hover:bg-neutral-800/50">
+                      <td className="py-3 pl-4 pr-3 font-medium text-neutral-900 dark:text-neutral-50">
+                        {stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
+                      </td>
+                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                        {stats.teamStats.home.xgPer90 != null ? stats.teamStats.home.xgPer90.toFixed(2) : "–"}
+                      </td>
+                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                        {stats.teamStats.home.goalsPer90.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                        {stats.teamStats.home.concededPer90.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                        {stats.teamStats.home.cornersPer90.toFixed(2)}
+                      </td>
+                      <td className="py-3 pr-4 pl-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                        {stats.teamStats.home.cardsPer90.toFixed(2)}
+                      </td>
+                    </tr>
+                    <tr className="bg-white transition-colors hover:bg-neutral-50/80 dark:bg-neutral-900/80 dark:hover:bg-neutral-800/50">
+                      <td className="py-3 pl-4 pr-3 font-medium text-neutral-900 dark:text-neutral-50">
+                        {stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
+                      </td>
+                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                        {stats.teamStats.away.xgPer90 != null ? stats.teamStats.away.xgPer90.toFixed(2) : "–"}
+                      </td>
+                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                        {stats.teamStats.away.goalsPer90.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                        {stats.teamStats.away.concededPer90.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                        {stats.teamStats.away.cornersPer90.toFixed(2)}
+                      </td>
+                      <td className="py-3 pr-4 pl-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                        {stats.teamStats.away.cardsPer90.toFixed(2)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : null}
         </section>
       )}
 
-      {/* Stats Section – only show when loaded (stats) or when error / empty state */}
+      {/* Player Stats – hide completely if request failed or no player data. Blank while loading. */}
+      {!error && (!selectedId || loading || (stats && stats.teams?.some((t) => (t.players?.length ?? 0) > 0))) && (
       <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-8">
-        {loading ? null : error ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/50">
-            <p className="text-sm font-medium text-red-800 dark:text-red-400">{error}</p>
-          </div>
-        ) : stats ? (
+        {loading ? null : stats && stats.teams?.some((t) => (t.players?.length ?? 0) > 0) ? (
           <div className="space-y-6">
             <header className="flex flex-col gap-3 border-b border-neutral-200 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 dark:border-neutral-800">
               <div>
@@ -538,6 +546,7 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }

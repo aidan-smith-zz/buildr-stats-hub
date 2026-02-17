@@ -145,7 +145,7 @@ async function request<T>(path: string, searchParams?: Record<string, string | n
       console.error("[footballApi] API plan limitation");
       return [];
     }
-    console.error("[footballApi] API error");
+    console.error("[footballApi] API error:", errorMessages);
     throw new Error(`[footballApi] API errors: ${JSON.stringify(json.errors)}`);
   }
 
@@ -567,8 +567,9 @@ export async function fetchFixtureStatistics(
       yellowCards,
       redCards,
     };
-  } catch {
-    console.error("[footballApi] fetchFixtureStatistics error");
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[footballApi] fetchFixtureStatistics error:", msg);
     return null;
   }
 }

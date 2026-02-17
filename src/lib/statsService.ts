@@ -68,6 +68,13 @@ function getTeamStatsDayStart(now: Date = new Date()): Date {
 
 const MAX_FIXTURES_PER_SEASON = 38;
 
+/** Delay between fixture-statistics API calls to avoid bursting the provider's per-minute rate limit. Both teams run in parallel, so use ~4s to stay under 30/min. */
+const FIXTURE_STATS_DELAY_MS = Number(process.env.FOOTBALL_API_DELAY_MS) || 4000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Aggregate team stats for this season only: goals/conceded from fixtures list,
  * corners/cards/xG from fixture statistics (up to 38 fixtures per team).
@@ -102,6 +109,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
 
   const limit = Math.min(fixtureIds.length, MAX_FIXTURES_PER_SEASON);
   for (let i = 0; i < limit; i++) {
+    if (i > 0) await sleep(FIXTURE_STATS_DELAY_MS);
     const stat = await fetchFixtureStatistics(fixtureIds[i], teamApiId);
     if (stat) {
       corners += stat.corners;
