@@ -291,7 +291,7 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
               Team Stats
             </h2>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              Season {stats.fixture.season} (this season only) — average per match
+              Season {stats.fixture.season} — average per match
             </p>
           </header>
           <div className="overflow-x-auto rounded-b-lg border border-t-0 border-neutral-200 bg-neutral-50/50 dark:border-neutral-800 dark:bg-neutral-900/50">
