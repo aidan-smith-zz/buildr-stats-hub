@@ -64,7 +64,7 @@ export default function RootLayout({
               className="h-9 w-auto shrink-0 object-contain sm:h-10 dark:invert dark:[mix-blend-mode:screen]"
               priority
             />
-            <span className="ml-2 shrink-0 text-base font-medium tracking-tight text-neutral-800 dark:text-neutral-100 sm:text-lg">
+            <span className="ml-2 shrink-0 text-lg font-medium tracking-tight text-neutral-800 dark:text-neutral-100 sm:text-xl">
               <b>stats</b>Buildr
             </span>
           </div>
