@@ -1,57 +1,46 @@
 /**
- * Warm the cache for today's fixtures by loading stats for each one.
- * Run once in the morning (e.g. after opening the app to load today's fixture list).
- * Stats are cached in the DB, so later visits will be fast.
+ * Warm the cache for today's fixtures by calling the app's warm-today API.
+ * Run once in the morning. Start the app first (npm run dev), then run this script.
  *
  * Usage: npm run warm-today
+ * Optional: BASE_URL=https://your-app.vercel.app npm run warm-today
  */
 
-import { getOrRefreshTodayFixtures } from "@/lib/fixturesService";
-import { prisma } from "@/lib/prisma";
-import { getFixtureStats } from "@/lib/statsService";
-import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 
 async function main() {
-  const now = new Date();
-  console.log(`[warm-today] Loading today's fixtures (${now.toLocaleDateString("en-GB", { timeZone: "Europe/London" })})...`);
+  console.log(`[warm-today] Calling ${BASE_URL}/api/warm-today ...`);
+  console.log("[warm-today] This may take several minutes if fixtures need to be loaded from the API.\n");
 
-  const fixtures = await getOrRefreshTodayFixtures(now);
-  const filtered = fixtures.filter(
-    (f) => f.leagueId != null && (REQUIRED_LEAGUE_IDS as readonly number[]).includes(f.leagueId)
-  );
+  const start = Date.now();
+  const res = await fetch(`${BASE_URL}/api/warm-today`, { cache: "no-store" });
+  const elapsed = ((Date.now() - start) / 1000).toFixed(1);
 
-  if (filtered.length === 0) {
-    console.log("[warm-today] No fixtures for today in the selected leagues. Nothing to warm.");
-    return;
+  if (!res.ok) {
+    const body = await res.text();
+    console.error(`[warm-today] Error ${res.status}:`, body);
+    process.exit(1);
   }
 
-  console.log(`[warm-today] Found ${filtered.length} fixture(s). Loading stats for each (this may take a few minutes due to rate limiting)...\n`);
+  const data = (await res.json()) as {
+    ok: boolean;
+    message?: string;
+    warmed?: number;
+    total?: number;
+    results?: { fixtureId: number; label: string; ok: boolean; elapsedSec: number; error?: string }[];
+  };
 
-  for (let i = 0; i < filtered.length; i++) {
-    const f = filtered[i];
-    const label = `${f.homeTeam.shortName ?? f.homeTeam.name} vs ${f.awayTeam.shortName ?? f.awayTeam.name}`;
-    console.log(`[warm-today] (${i + 1}/${filtered.length}) ${label} ...`);
-    const start = Date.now();
-    try {
-      const stats = await getFixtureStats(f.id);
-      const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-      if (stats) {
-        console.log(`[warm-today]   ✓ done in ${elapsed}s`);
-      } else {
-        console.log(`[warm-today]   ⚠ no stats (${elapsed}s)`);
-      }
-    } catch (err) {
-      console.error(`[warm-today]   ✗ error:`, err instanceof Error ? err.message : err);
+  if (data.message) console.log("[warm-today]", data.message);
+  if (data.results?.length) {
+    for (const r of data.results) {
+      const status = r.ok ? `✓ ${r.elapsedSec.toFixed(1)}s` : `✗ ${r.error ?? "failed"}`;
+      console.log(`[warm-today]   ${r.label}: ${status}`);
     }
   }
-
-  console.log("\n[warm-today] Done. Today's fixtures are warmed; opening the app later will be fast.");
+  console.log(`\n[warm-today] Done in ${elapsed}s. Today's fixtures are warmed.`);
 }
 
-main()
-  .then(() => prisma.$disconnect())
-  .catch((err) => {
-    console.error("[warm-today] Fatal:", err);
-    prisma.$disconnect();
-    process.exit(1);
-  });
+main().catch((err) => {
+  console.error("[warm-today] Fatal:", err instanceof Error ? err.message : err);
+  process.exit(1);
+});
