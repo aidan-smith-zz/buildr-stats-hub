@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FixtureRowLink } from "@/app/_components/fixture-row-link";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
@@ -127,40 +128,39 @@ export function TodayFixturesList({ fixtures, showHero = true }: Props) {
                     const href = `/fixtures/${todayKey}/${slug}/${match}`;
                     const koTime = formatKoTime(new Date(f.date));
                     return (
-                      <li key={f.id}>
-                        <Link
-                          href={href}
-                          className="group flex items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-3 shadow-sm transition-all hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700 sm:gap-4 sm:px-5 sm:py-4"
-                        >
-                          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
-                            <TeamCrest
-                              crestUrl={f.homeTeam.crestUrl}
-                              alt={home}
-                            />
-                            <span className="truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm md:text-base">
-                              {home}
-                            </span>
-                            <span className="shrink-0 text-[10px] font-medium text-neutral-400 dark:text-neutral-500 sm:text-sm">
-                              vs
-                            </span>
-                            <TeamCrest
-                              crestUrl={f.awayTeam.crestUrl}
-                              alt={away}
-                            />
-                            <span className="truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm md:text-base">
-                              {away}
-                            </span>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-                            <span className="hidden text-sm text-neutral-500 dark:text-neutral-400 sm:inline">
-                              {koTime}
-                            </span>
-                            <span className="rounded-lg bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 transition-colors group-hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:group-hover:bg-neutral-700 sm:px-3 sm:py-1.5 sm:text-sm">
-                              View Stats
-                            </span>
-                          </div>
-                        </Link>
-                      </li>
+                      <FixtureRowLink
+                        key={f.id}
+                        href={href}
+                        className="group flex items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-3 shadow-sm transition-all hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700 sm:gap-4 sm:px-5 sm:py-4"
+                      >
+                        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
+                          <TeamCrest
+                            crestUrl={f.homeTeam.crestUrl}
+                            alt={home}
+                          />
+                          <span className="truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm md:text-base">
+                            {home}
+                          </span>
+                          <span className="shrink-0 text-[10px] font-medium text-neutral-400 dark:text-neutral-500 sm:text-sm">
+                            vs
+                          </span>
+                          <TeamCrest
+                            crestUrl={f.awayTeam.crestUrl}
+                            alt={away}
+                          />
+                          <span className="truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm md:text-base">
+                            {away}
+                          </span>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                          <span className="hidden text-sm text-neutral-500 dark:text-neutral-400 sm:inline">
+                            {koTime}
+                          </span>
+                          <span className="rounded-lg bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 transition-colors group-hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:group-hover:bg-neutral-700 sm:px-3 sm:py-1.5 sm:text-sm">
+                            View Stats
+                          </span>
+                        </div>
+                      </FixtureRowLink>
                     );
                   })}
                 </ul>
