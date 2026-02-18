@@ -380,7 +380,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
         );
       })()}
 
-      <div className={hideFixtureSelector ? "[&>*:first-child]:rounded-t-none" : undefined}>
+      <div className="space-y-6">
       {/* Full-page error when the stats request fails (both tiles failed to load) */}
       {selectedId && error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900/50 dark:bg-red-950/50 sm:p-8">
