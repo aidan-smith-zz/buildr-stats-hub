@@ -87,6 +87,18 @@ async function ensureTeamSeasonStatsCornersAndCards(
   leagueKey: string,
   leagueId: number,
 ): Promise<void> {
+  // Skip API if we already have team season stats in DB (source of truth)
+  const existing = await prisma.teamSeasonStats.findFirst({
+    where: {
+      teamId,
+      season,
+      OR: [{ league: leagueKey }, leagueId != null ? { leagueId } : { league: leagueKey }],
+    },
+  });
+  if (existing) {
+    return;
+  }
+
   const resource = `teamSeasonCorners:${teamId}:${season}:${leagueKey}`;
   const dayStart = getTeamStatsDayStart();
 
@@ -510,7 +522,13 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     ];
   }
 
-  const leagueFilterForTeamStats = fixture.league ? { league: fixture.league } : {};
+  // Prefer leagueId so we find the row even when league name string differs (e.g. "Championship" vs "EFL Championship"); fallback to league name
+  const leagueFilterForTeamStats =
+    fixtureWithLeagueId.leagueId != null
+      ? { leagueId: fixtureWithLeagueId.leagueId }
+      : fixture.league
+        ? { league: fixture.league }
+        : {};
   const teamSeasonRows = await prisma.teamSeasonStats.findMany({
     where: {
       teamId: { in: [fixture.homeTeamId, fixture.awayTeamId] },
