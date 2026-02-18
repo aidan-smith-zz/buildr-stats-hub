@@ -6,6 +6,10 @@ import type { FixtureSummary, FixtureStatsResponse } from "@/lib/statsService";
 
 type Props = {
   fixtures: FixtureSummary[];
+  /** When set (e.g. from /fixtures/[date]/[league]/[match]), open with this fixture selected */
+  initialSelectedId?: string | null;
+  /** When true, hide the fixture dropdown and show match details as a header (single-match page) */
+  hideFixtureSelector?: boolean;
 };
 
 type PlayerSortKey = keyof FixtureStatsResponse["teams"][number]["players"][number];
@@ -28,11 +32,11 @@ function TeamCrestOrShirt({
 }: {
   crestUrl: string | null;
   alt: string;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
 }) {
-  const px = size === "sm" ? 24 : 40;
-  const sizeClass = size === "sm" ? "h-6 w-6" : "h-10 w-10";
-  const iconClass = size === "sm" ? "h-4 w-4" : "h-7 w-7";
+  const px = size === "sm" ? 24 : size === "lg" ? 80 : 40;
+  const sizeClass = size === "sm" ? "h-6 w-6" : size === "lg" ? "h-16 w-16 sm:h-20 sm:w-20" : "h-10 w-10";
+  const iconClass = size === "sm" ? "h-4 w-4" : size === "lg" ? "h-12 w-12 sm:h-16 sm:w-16" : "h-7 w-7";
   if (crestUrl) {
     return (
       <img
@@ -69,7 +73,7 @@ function ShirtIcon({ className }: { className?: string }) {
   );
 }
 
-export function TodayFixturesDashboard({ fixtures }: Props) {
+export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtureSelector }: Props) {
   const filteredFixtures = fixtures
     .filter(
       (fixture) =>
@@ -77,9 +81,13 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
     )
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const [selectedId, setSelectedId] = useState<string>(
-    filteredFixtures[0] ? String(filteredFixtures[0].id) : "",
-  );
+  const initialId =
+    initialSelectedId && filteredFixtures.some((f) => String(f.id) === initialSelectedId)
+      ? initialSelectedId
+      : filteredFixtures[0]
+        ? String(filteredFixtures[0].id)
+        : "";
+  const [selectedId, setSelectedId] = useState<string>(initialId);
   const [stats, setStats] = useState<FixtureStatsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +122,13 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
   useEffect(() => {
     setActiveTab("home");
   }, [selectedId]);
+
+  // Sync from URL when initialSelectedId changes (e.g. client nav to another match)
+  useEffect(() => {
+    if (initialSelectedId && filteredFixtures.some((f) => String(f.id) === initialSelectedId)) {
+      setSelectedId(initialSelectedId);
+    }
+  }, [initialSelectedId, filteredFixtures]);
 
   // Update selectedId if current selection is not in filtered list
   useEffect(() => {
@@ -178,53 +193,64 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
     );
   }
 
+  const selectedFixture = selectedId ? filteredFixtures.find((f) => String(f.id) === selectedId) : null;
+  const showMatchContent = selectedFixture && !loading && !error && stats;
+  const isHeaderMode = hideFixtureSelector && selectedFixture;
+
   return (
     <div className="space-y-6">
-      {/* Fixture Selector */}
-      <div className="space-y-2">
-        <label
-          htmlFor="fixture-select"
-          className="block text-sm font-medium text-neutral-700 dark:text-neutral-300"
-        >
-          Select Fixture
-        </label>
-        <select
-          id="fixture-select"
-          className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-3 text-sm text-neutral-900 shadow-sm transition-all hover:border-neutral-400 focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-500/20 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50 dark:hover:border-neutral-600 dark:focus:border-neutral-500"
-          value={selectedId}
-          onChange={(event) => setSelectedId(event.target.value)}
-        >
-          {filteredFixtures.map((fixture) => {
-            const d = new Date(fixture.date);
-            const dateStr = d.toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "short",
-            });
-            const koTime = d.toLocaleTimeString("en-GB", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            });
-            const label = `${fixture.homeTeam.shortName ?? fixture.homeTeam.name} vs ${fixture.awayTeam.shortName ?? fixture.awayTeam.name} · ${dateStr} · ${koTime}`;
+      {!hideFixtureSelector && (
+        <>
+          {/* Fixture Selector – only on pages that list multiple fixtures */}
+          <div className="space-y-2">
+            <label
+              htmlFor="fixture-select"
+              className="block text-sm font-medium text-neutral-700 dark:text-neutral-300"
+            >
+              Select Fixture
+            </label>
+            <select
+              id="fixture-select"
+              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-3 text-sm text-neutral-900 shadow-sm transition-all hover:border-neutral-400 focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-500/20 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50 dark:hover:border-neutral-600 dark:focus:border-neutral-500"
+              value={selectedId}
+              onChange={(event) => setSelectedId(event.target.value)}
+            >
+              {filteredFixtures.map((fixture) => {
+                const d = new Date(fixture.date);
+                const dateStr = d.toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                });
+                const koTime = d.toLocaleTimeString("en-GB", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                });
+                const label = `${fixture.homeTeam.shortName ?? fixture.homeTeam.name} vs ${fixture.awayTeam.shortName ?? fixture.awayTeam.name} · ${dateStr} · ${koTime}`;
 
-            return (
-              <option key={fixture.id} value={fixture.id}>
-                {label}
-              </option>
-            );
-          })}
-        </select>
-      </div>
+                return (
+                  <option key={fixture.id} value={fixture.id}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        </>
+      )}
 
-      {/* Match Info tile – blank until stats have loaded, then shows match info + crests */}
-      {selectedId && (() => {
-        const selectedFixture = filteredFixtures.find((f) => String(f.id) === selectedId);
-        if (!selectedFixture) return null;
-
+      {/* Match details – tile or header (when hideFixtureSelector) */}
+      {selectedId && selectedFixture && (() => {
         const showContent = !loading && !error && stats;
         if (!showContent) {
           return (
-            <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900 min-h-[4rem] flex items-center justify-center">
+            <div
+              className={
+                isHeaderMode
+                  ? "rounded-t-xl border border-b-0 border-neutral-200 bg-white px-4 py-4 dark:border-neutral-800 dark:bg-neutral-900 min-h-[4rem] flex items-center justify-center sm:px-6 sm:py-5"
+                  : "rounded-lg border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900 min-h-[4rem] flex items-center justify-center"
+              }
+            >
               {loading ? (
                 <div className="flex flex-col items-center gap-3 py-4">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-600 dark:border-neutral-700 dark:border-t-neutral-400" />
@@ -238,51 +264,102 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
         }
 
         const koDate = new Date(selectedFixture.date);
+        const now = new Date();
         const koTime = koDate.toLocaleTimeString("en-GB", {
           hour: "2-digit",
           minute: "2-digit",
           hour12: false,
         });
-        const isNotStarted = koDate > new Date();
-        const statusLabel = isNotStarted ? "Not started" : "Started";
+        const isNotStarted = koDate > now;
+        const twoHoursMs = 2 * 60 * 60 * 1000;
+        const isEnded = !isNotStarted && now.getTime() - koDate.getTime() >= twoHoursMs;
+        const statusLabel = isNotStarted ? "Not started" : isEnded ? "Ended" : "Started";
+        const isLive = !isNotStarted && !isEnded;
+
+        const homeName = selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name;
+        const awayName = selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name;
 
         return (
-          <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-3">
-                <TeamCrestOrShirt crestUrl={stats!.fixture.homeTeam.crestUrl} alt={stats!.fixture.homeTeam.shortName ?? stats!.fixture.homeTeam.name} />
-                <TeamCrestOrShirt crestUrl={stats!.fixture.awayTeam.crestUrl} alt={stats!.fixture.awayTeam.shortName ?? stats!.fixture.awayTeam.name} />
+          <header
+            className={
+              isHeaderMode
+                ? `rounded-t-xl rounded-b-none border border-b-0 border-neutral-200 bg-white px-4 py-5 dark:border-neutral-800 dark:bg-neutral-900 sm:px-6 sm:py-6 ${isLive ? "match-live-flash" : ""}`
+                : "rounded-lg border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900"
+            }
+          >
+            {isHeaderMode ? (
+              <div className="flex flex-col items-center gap-3 sm:gap-4">
+                <div className="flex w-full items-center justify-between gap-4">
+                  <TeamCrestOrShirt
+                    crestUrl={stats!.fixture.homeTeam.crestUrl}
+                    alt={homeName}
+                    size="lg"
+                  />
+                  <h1 className="text-center text-xl font-semibold text-neutral-900 dark:text-neutral-50 sm:text-2xl md:text-3xl">
+                    {homeName}
+                    <span className="mx-2 text-neutral-400">vs</span>
+                    {awayName}
+                  </h1>
+                  <TeamCrestOrShirt
+                    crestUrl={stats!.fixture.awayTeam.crestUrl}
+                    alt={awayName}
+                    size="lg"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+                  <span>{koTime}</span>
+                  <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                  <span>{selectedFixture.league ?? "League"}</span>
+                  <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                  <span
+                    className={
+                      isNotStarted
+                        ? "font-medium text-amber-600 dark:text-amber-400"
+                        : isEnded
+                          ? "font-medium text-neutral-500 dark:text-neutral-400"
+                          : "font-medium text-green-500 dark:text-green-400"
+                    }
+                  >
+                    {statusLabel}
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                <span className="font-medium text-neutral-900 dark:text-neutral-50">
-                  {selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name}
-                </span>
-                <span className="text-neutral-400">vs</span>
-                <span className="font-medium text-neutral-900 dark:text-neutral-50">
-                  {selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name}
-                </span>
-                <span className="text-neutral-300 dark:text-neutral-600">·</span>
-                <span className="text-neutral-600 dark:text-neutral-400">{koTime}</span>
-                <span className="text-neutral-300 dark:text-neutral-600">·</span>
-                <span className="text-neutral-600 dark:text-neutral-400">
-                  {selectedFixture.league ?? "League"}
-                </span>
-                <span className="text-neutral-300 dark:text-neutral-600">·</span>
-                <span
-                  className={
-                    isNotStarted
-                      ? "font-medium text-amber-600 dark:text-amber-400"
-                      : "font-medium text-green-500 dark:text-green-400"
-                  }
-                >
-                  {statusLabel}
-                </span>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-3">
+                  <TeamCrestOrShirt crestUrl={stats!.fixture.homeTeam.crestUrl} alt={homeName} />
+                  <TeamCrestOrShirt crestUrl={stats!.fixture.awayTeam.crestUrl} alt={awayName} />
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                  <span className="font-medium text-neutral-900 dark:text-neutral-50">{homeName}</span>
+                  <span className="text-neutral-400">vs</span>
+                  <span className="font-medium text-neutral-900 dark:text-neutral-50">{awayName}</span>
+                  <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                  <span className="text-neutral-600 dark:text-neutral-400">{koTime}</span>
+                  <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                  <span className="text-neutral-600 dark:text-neutral-400">
+                    {selectedFixture.league ?? "League"}
+                  </span>
+                  <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                  <span
+                    className={
+                      isNotStarted
+                        ? "font-medium text-amber-600 dark:text-amber-400"
+                        : isEnded
+                          ? "font-medium text-neutral-500 dark:text-neutral-400"
+                          : "font-medium text-green-500 dark:text-green-400"
+                    }
+                  >
+                    {statusLabel}
+                  </span>
+                </div>
               </div>
-            </div>
-          </div>
+            )}
+          </header>
         );
       })()}
 
+      <div className={hideFixtureSelector ? "[&>*:first-child]:rounded-t-none" : undefined}>
       {/* Full-page error when the stats request fails (both tiles failed to load) */}
       {selectedId && error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900/50 dark:bg-red-950/50 sm:p-8">
@@ -466,11 +543,12 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
                 return sortedPlayers.map((player, index) => {
                   const isTop = index === 0;
                   const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? sortBy;
+                  const displayLabel = sortBy === "shotsOnTarget" ? "SoT" : sortLabel;
                   const sortValue = player[sortBy];
                   const numValue = Number(sortValue) ?? 0;
                   const minutes = player.minutes ?? 0;
                   const per90 = minutes > 0 ? (numValue / minutes) * 90 : 0;
-                  const per90Label = `${sortLabel}/90min`;
+                  const per90Label = `${displayLabel}/90min`;
 
                   return (
                     <div
@@ -493,11 +571,6 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
                               <h4 className="font-semibold text-neutral-900 dark:text-neutral-50">
                                 {player.name}
                               </h4>
-                              {isTop && (
-                                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
-                                  Top
-                                </span>
-                              )}
                             </div>
                             {player.position && (
                               <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
@@ -516,7 +589,7 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
                         </div>
                       </div>
                       <div className="mt-3 border-t border-neutral-200 pt-2 text-xs text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
-                        <span className="font-medium">Total {sortLabel}:</span>{" "}
+                        <span className="font-medium">Total {displayLabel}:</span>{" "}
                         <span className="text-neutral-900 dark:text-neutral-50">{Number(sortValue) ?? 0}</span>
                       </div>
                     </div>
@@ -547,6 +620,7 @@ export function TodayFixturesDashboard({ fixtures }: Props) {
         )}
       </section>
       )}
+      </div>
     </div>
   );
 }

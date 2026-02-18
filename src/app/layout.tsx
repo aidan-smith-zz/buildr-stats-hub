@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
+import { GoogleAnalytics } from "@/app/_components/google-analytics";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -54,19 +56,26 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased`}
       >
+        <GoogleAnalytics />
         <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-black sm:px-6">
           <div className="mx-auto flex max-w-4xl items-center overflow-visible">
-            <Image
-              src="/logo.png"
-              alt="statsBuildr"
-              width={180}
-              height={56}
-              className="h-11 w-auto shrink-0 object-contain sm:h-12 dark:invert dark:[mix-blend-mode:screen]"
-              priority
-            />
-            <span className="ml-2 shrink-0 text-lg font-medium tracking-tight text-neutral-800 dark:text-neutral-100 sm:text-xl">
-              <b>stats</b>Buildr
-            </span>
+            <Link
+              href="/"
+              className="flex items-center gap-2 transition-opacity hover:opacity-80 focus:opacity-80"
+              aria-label="Back to home"
+            >
+              <Image
+                src="/logo.png"
+                alt=""
+                width={180}
+                height={56}
+                className="h-11 w-auto shrink-0 object-contain sm:h-12 dark:invert dark:[mix-blend-mode:screen]"
+                priority
+              />
+              <span className="ml-2 shrink-0 text-lg font-medium tracking-tight text-neutral-800 dark:text-neutral-100 sm:text-xl">
+                <b>stats</b>Buildr
+              </span>
+            </Link>
           </div>
         </header>
         {process.env.NEXT_PUBLIC_CTA_URL ? (

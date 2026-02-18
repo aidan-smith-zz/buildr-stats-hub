@@ -1,12 +1,12 @@
 import { getOrRefreshTodayFixtures } from "@/lib/fixturesService";
-import { TodayFixturesDashboard } from "@/app/_components/today-fixtures-dashboard";
+import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  let fixtures;
   try {
-    fixtures = await getOrRefreshTodayFixtures(new Date());
+    const fixtures = await getOrRefreshTodayFixtures(new Date());
+    return <TodayFixturesList fixtures={fixtures} showHero />;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     const isMissingLeagueId =
@@ -49,13 +49,4 @@ export default async function Home() {
       </div>
     );
   }
-
-  return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        <h1 className="sr-only">statsBuildr – today&apos;s fixtures and player stats</h1>
-        <TodayFixturesDashboard fixtures={fixtures} />
-      </main>
-    </div>
-  );
 }
