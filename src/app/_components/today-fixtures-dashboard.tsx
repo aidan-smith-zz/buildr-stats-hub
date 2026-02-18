@@ -283,19 +283,40 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
           <header
             className={
               isHeaderMode
-                ? `rounded-t-xl rounded-b-none border border-b-0 border-neutral-200 bg-white px-4 py-5 dark:border-neutral-800 dark:bg-neutral-900 sm:px-6 sm:py-6 ${isLive ? "match-live-flash" : ""}`
+                ? `rounded-t-xl rounded-b-none border border-b-0 border-neutral-200 bg-white px-3 py-4 dark:border-neutral-800 dark:bg-neutral-900 sm:px-6 sm:py-6 ${isLive ? "match-live-flash" : ""}`
                 : "rounded-lg border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900"
             }
           >
             {isHeaderMode ? (
               <div className="flex flex-col items-center gap-3 sm:gap-4">
-                <div className="flex w-full items-center justify-between gap-4">
+                {/* Mobile: crests centred, then team names centred and smaller */}
+                <div className="flex w-full flex-col items-center gap-3 sm:hidden">
+                  <div className="flex items-center justify-center gap-4">
+                    <TeamCrestOrShirt
+                      crestUrl={stats!.fixture.homeTeam.crestUrl}
+                      alt={homeName}
+                      size="md"
+                    />
+                    <TeamCrestOrShirt
+                      crestUrl={stats!.fixture.awayTeam.crestUrl}
+                      alt={awayName}
+                      size="md"
+                    />
+                  </div>
+                  <h1 className="max-w-full break-words text-center text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+                    {homeName}
+                    <span className="mx-1.5 text-neutral-400">vs</span>
+                    {awayName}
+                  </h1>
+                </div>
+                {/* sm+: one row, crest | names | crest */}
+                <div className="hidden w-full items-center justify-between gap-4 sm:flex">
                   <TeamCrestOrShirt
                     crestUrl={stats!.fixture.homeTeam.crestUrl}
                     alt={homeName}
                     size="lg"
                   />
-                  <h1 className="text-center text-xl font-semibold text-neutral-900 dark:text-neutral-50 sm:text-2xl md:text-3xl">
+                  <h1 className="min-w-0 shrink text-center text-xl font-semibold text-neutral-900 dark:text-neutral-50 md:text-2xl lg:text-3xl">
                     {homeName}
                     <span className="mx-2 text-neutral-400">vs</span>
                     {awayName}
@@ -306,7 +327,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                     size="lg"
                   />
                 </div>
-                <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+                <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xs text-neutral-600 dark:text-neutral-400 sm:text-sm">
                   <span>{koTime}</span>
                   <span className="text-neutral-300 dark:text-neutral-600">·</span>
                   <span>{selectedFixture.league ?? "League"}</span>

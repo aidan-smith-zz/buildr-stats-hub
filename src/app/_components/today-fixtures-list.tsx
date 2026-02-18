@@ -51,7 +51,7 @@ function TeamCrest({
   alt: string;
   className?: string;
 }) {
-  const sizeClass = "h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 object-contain";
+  const sizeClass = "h-6 w-6 sm:h-8 sm:w-8 md:h-9 md:w-9 flex-shrink-0 object-contain";
   if (crestUrl) {
     return (
       <img
@@ -69,7 +69,7 @@ function TeamCrest({
       className={`${sizeClass} inline-flex items-center justify-center rounded bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400 ${className}`}
       aria-hidden
     >
-      <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <svg className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
         <path d="M12 2.5a1.5 1.5 0 0 0-1.5 1.5v1.2L8 6.5v2l-2 1.5v11h12v-11l-2-1.5v-2l-2.5-2.5V4a1.5 1.5 0 0 0-1.5-1.5zM6 8h2v11H6V8zm10 0h2v11h-2V8z" />
       </svg>
     </span>
@@ -130,32 +130,32 @@ export function TodayFixturesList({ fixtures, showHero = true }: Props) {
                       <li key={f.id}>
                         <Link
                           href={href}
-                          className="group flex items-center justify-between gap-4 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 shadow-sm transition-all hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700 sm:px-5 sm:py-4"
+                          className="group flex items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-3 shadow-sm transition-all hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700 sm:gap-4 sm:px-5 sm:py-4"
                         >
-                          <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+                          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
                             <TeamCrest
                               crestUrl={f.homeTeam.crestUrl}
                               alt={home}
                             />
-                            <span className="truncate text-left text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+                            <span className="truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm md:text-base">
                               {home}
                             </span>
-                            <span className="shrink-0 text-xs font-medium text-neutral-400 dark:text-neutral-500 sm:text-sm">
+                            <span className="shrink-0 text-[10px] font-medium text-neutral-400 dark:text-neutral-500 sm:text-sm">
                               vs
                             </span>
                             <TeamCrest
                               crestUrl={f.awayTeam.crestUrl}
                               alt={away}
                             />
-                            <span className="truncate text-left text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+                            <span className="truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm md:text-base">
                               {away}
                             </span>
                           </div>
-                          <div className="flex shrink-0 items-center gap-3">
+                          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                             <span className="hidden text-sm text-neutral-500 dark:text-neutral-400 sm:inline">
                               {koTime}
                             </span>
-                            <span className="rounded-lg bg-neutral-100 px-3 py-1.5 text-sm font-medium text-neutral-700 transition-colors group-hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:group-hover:bg-neutral-700">
+                            <span className="rounded-lg bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 transition-colors group-hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:group-hover:bg-neutral-700 sm:px-3 sm:py-1.5 sm:text-sm">
                               View Stats
                             </span>
                           </div>
