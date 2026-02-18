@@ -59,9 +59,9 @@ export default function RootLayout({
             <Image
               src="/logo.png"
               alt="statsBuildr"
-              width={140}
-              height={44}
-              className="h-9 w-auto shrink-0 object-contain sm:h-10 dark:invert dark:[mix-blend-mode:screen]"
+              width={180}
+              height={56}
+              className="h-11 w-auto shrink-0 object-contain sm:h-12 dark:invert dark:[mix-blend-mode:screen]"
               priority
             />
             <span className="ml-2 shrink-0 text-lg font-medium tracking-tight text-neutral-800 dark:text-neutral-100 sm:text-xl">
