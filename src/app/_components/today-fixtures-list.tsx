@@ -137,7 +137,7 @@ export function TodayFixturesList({ fixtures, showHero = true }: Props) {
                               crestUrl={f.homeTeam.crestUrl}
                               alt={home}
                             />
-                            <span className="truncate text-left font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+                            <span className="truncate text-left text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
                               {home}
                             </span>
                             <span className="shrink-0 text-xs font-medium text-neutral-400 dark:text-neutral-500 sm:text-sm">
@@ -147,7 +147,7 @@ export function TodayFixturesList({ fixtures, showHero = true }: Props) {
                               crestUrl={f.awayTeam.crestUrl}
                               alt={away}
                             />
-                            <span className="truncate text-left font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+                            <span className="truncate text-left text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
                               {away}
                             </span>
                           </div>
