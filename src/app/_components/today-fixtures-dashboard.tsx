@@ -25,6 +25,9 @@ const SORT_OPTIONS: { value: PlayerSortKey; label: string }[] = [
   { value: "shotsOnTarget", label: "Shots on target" },
 ];
 
+/** statusShort values from live API that mean the match is finished */
+const LIVE_FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);
+
 function TeamCrestOrShirt({
   crestUrl,
   alt,
@@ -100,6 +103,12 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
     elapsedMinutes: number | null;
     statusShort: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (hideFixtureSelector && typeof window !== "undefined") {
+      window.scrollTo(0, 0);
+    }
+  }, [hideFixtureSelector]);
 
   const handleShare = async () => {
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -189,7 +198,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
     };
   }, [selectedId]);
 
-  // Live score: fetch only once on load/refresh when match has started. No polling. Server only hits external API when cache empty (90s TTL).
+  // Live score: fetch once on load/refresh when match has started or ended (no polling). Pre-match 0-0 shown locally; ended returns cached FT from server.
   useEffect(() => {
     if (!selectedId || !stats || String(stats.fixture.id) !== selectedId) {
       setLiveScore(null);
@@ -202,7 +211,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
     const isEnded = !isNotStarted && now.getTime() - koDate.getTime() >= twoHoursMs;
     const isLive = !isNotStarted && !isEnded;
 
-    if (!isLive) {
+    if (isNotStarted) {
       setLiveScore(null);
       return;
     }
@@ -219,7 +228,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
             homeGoals: data.homeGoals,
             awayGoals: data.awayGoals,
             elapsedMinutes: data.elapsedMinutes ?? null,
-            statusShort: data.statusShort ?? "LIVE",
+            statusShort: data.statusShort ?? (isEnded ? "FT" : "LIVE"),
           });
         } else {
           setLiveScore(null);
@@ -322,22 +331,29 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
           hour12: false,
         });
         const isNotStarted = koDate > now;
-        const twoHoursMs = 2 * 60 * 60 * 1000;
-        const isEnded = !isNotStarted && now.getTime() - koDate.getTime() >= twoHoursMs;
-        const statusLabel = isNotStarted ? "Not started" : isEnded ? "Ended" : "Started";
+        const isEnded = liveScore != null && LIVE_FINISHED_STATUSES.has(liveScore.statusShort);
         const isLive = !isNotStarted && !isEnded;
+        const tenMinMs = 10 * 60 * 1000;
+        const isPreMatch = isNotStarted && now.getTime() >= koDate.getTime() - tenMinMs;
+        const statusLabel = isNotStarted ? "Not started" : isEnded ? "Ended" : "Started";
 
         const homeName = selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name;
         const awayName = selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name;
 
         const timeOrMinutes =
-          isLive && liveScore
-            ? liveScore.elapsedMinutes != null
-              ? `${liveScore.elapsedMinutes}'`
-              : liveScore.statusShort
-            : koTime;
+          isPreMatch
+            ? koTime
+            : (isLive || isEnded) && liveScore
+              ? liveScore.elapsedMinutes != null
+                ? `${liveScore.elapsedMinutes}'`
+                : liveScore.statusShort
+              : koTime;
         const scoreLabel =
-          isLive && liveScore ? `${liveScore.homeGoals} – ${liveScore.awayGoals}` : null;
+          isPreMatch
+            ? "0 – 0"
+            : (isLive || isEnded) && liveScore
+              ? `${liveScore.homeGoals} – ${liveScore.awayGoals}`
+              : null;
 
         return (
           <header

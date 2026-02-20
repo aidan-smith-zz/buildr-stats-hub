@@ -3,6 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { fetchLiveFixture } from "@/lib/footballApi";
 
 const LIVE_CACHE_TTL_MS = 90 * 1000; // 90 seconds
+const PRE_MATCH_WINDOW_MS = 10 * 60 * 1000; // show 0-0 from 10 min before kickoff
+/** Only call external API during this window after kickoff (covers normal + ET). After this, use cache only. */
+const MAX_MATCH_DURATION_MS = 150 * 60 * 1000; // 2.5 hours
+
+/** API-Football statusShort values that mean the match is finished (cache can be used as FT score). */
+const FINISHED_STATUS = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);
+
+function isMatchEnded(statusShort: string): boolean {
+  return FINISHED_STATUS.has(statusShort);
+}
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -26,20 +36,43 @@ export async function GET(_request: Request, { params }: RouteParams) {
   const now = new Date();
   const kickoff = new Date(fixture.date);
 
-  // Only fetch live data if match has started — avoid wasting API calls
+  // Pre-match: within 10 min before kickoff — return 0-0, no API call
   if (kickoff > now) {
+    const preMatchStart = new Date(kickoff.getTime() - PRE_MATCH_WINDOW_MS);
+    if (now >= preMatchStart) {
+      return NextResponse.json(
+        { live: true, homeGoals: 0, awayGoals: 0, elapsedMinutes: null, statusShort: "Pre" },
+        { headers: { "Cache-Control": "public, max-age=60" } },
+      );
+    }
     return NextResponse.json(
       { live: false, reason: "Match has not started" },
       { headers: { "Cache-Control": "public, max-age=60" } },
     );
   }
 
-  const cacheCutoff = new Date(now.getTime() - LIVE_CACHE_TTL_MS);
-
   const cached = await prisma.liveScoreCache.findUnique({
     where: { fixtureId },
   });
 
+  const cacheSaysEnded = cached ? isMatchEnded(cached.statusShort) : false;
+
+  // Ended (from cache): return cached FT score, no TTL — fulltime score persists
+  if (cacheSaysEnded && cached) {
+    return NextResponse.json(
+      {
+        live: true,
+        homeGoals: cached.homeGoals,
+        awayGoals: cached.awayGoals,
+        elapsedMinutes: cached.elapsedMinutes,
+        statusShort: cached.statusShort,
+      },
+      { headers: { "Cache-Control": "public, max-age=3600" } },
+    );
+  }
+
+  // Live: use 90s cache
+  const cacheCutoff = new Date(now.getTime() - LIVE_CACHE_TTL_MS);
   if (cached && cached.cachedAt >= cacheCutoff) {
     return NextResponse.json(
       {
@@ -57,6 +90,29 @@ export async function GET(_request: Request, { params }: RouteParams) {
     return NextResponse.json(
       { live: true, homeGoals: 0, awayGoals: 0, elapsedMinutes: null, statusShort: "?" },
       { headers: { "Cache-Control": "public, max-age=90" } },
+    );
+  }
+
+  // Only call external API during the game (kickoff → kickoff + 2.5h). After that, use cache or fallback.
+  const elapsedSinceKickoff = now.getTime() - kickoff.getTime();
+  const duringGame = elapsedSinceKickoff <= MAX_MATCH_DURATION_MS;
+
+  if (!duringGame) {
+    if (cached) {
+      return NextResponse.json(
+        {
+          live: true,
+          homeGoals: cached.homeGoals,
+          awayGoals: cached.awayGoals,
+          elapsedMinutes: cached.elapsedMinutes,
+          statusShort: cached.statusShort,
+        },
+        { headers: { "Cache-Control": "public, max-age=3600" } },
+      );
+    }
+    return NextResponse.json(
+      { live: true, homeGoals: 0, awayGoals: 0, elapsedMinutes: null, statusShort: "FT" },
+      { headers: { "Cache-Control": "public, max-age=3600" } },
     );
   }
 
