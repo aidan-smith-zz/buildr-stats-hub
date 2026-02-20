@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import type { FixtureSummary, FixtureStatsResponse } from "@/lib/statsService";
 
 type Props = {
@@ -111,7 +112,18 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
   }, [hideFixtureSelector]);
 
   const handleShare = async () => {
-    const url = typeof window !== "undefined" ? window.location.href : "";
+    let url = typeof window !== "undefined" ? window.location.href : "";
+    const selectedFixture = selectedId ? filteredFixtures.find((f) => String(f.id) === selectedId) : null;
+    if (typeof window !== "undefined" && selectedFixture) {
+      const dateKey = new Date(selectedFixture.date).toLocaleDateString("en-CA", {
+        timeZone: "Europe/London",
+      });
+      const leagueSlug = leagueToSlug(selectedFixture.league);
+      const homeName = selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name;
+      const awayName = selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name;
+      const match = matchSlug(homeName, awayName);
+      url = `${window.location.origin}/fixtures/${dateKey}/${leagueSlug}/${match}`;
+    }
     const title = "Football stats | statsBuildr";
     const text = "Check today's fixtures and player stats before you build your bet.";
     try {
