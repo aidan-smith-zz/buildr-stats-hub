@@ -31,6 +31,7 @@ model Team {
   seasonStats     PlayerSeasonStats[]
   teamSeasonStats  TeamSeasonStats[]
   fixtureTeamStats FixtureTeamStats[]
+  fixtureLineups   FixtureLineup[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -60,6 +61,11 @@ model TeamSeasonStats {
   @@index([teamId, season, league])
 }
 
+enum LineupStatus {
+  starting
+  substitute
+}
+
 model Fixture {
   id       Int      @id @default(autoincrement())
   apiId    String?  @unique
@@ -75,11 +81,29 @@ model Fixture {
   homeTeam   Team   @relation("HomeTeamFixtures", fields: [homeTeamId], references: [id])
   awayTeam   Team   @relation("AwayTeamFixtures", fields: [awayTeamId], references: [id])
   teamStats  FixtureTeamStats[]
+  lineups    FixtureLineup[]
+  liveScoreCache LiveScoreCache?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([date])
+}
+
+model FixtureLineup {
+  id           Int          @id @default(autoincrement())
+  fixtureId    Int
+  teamId       Int
+  playerId     Int
+  lineupStatus LineupStatus
+  createdAt    DateTime     @default(now())
+
+  fixture Fixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player  Player  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([fixtureId, teamId, playerId])
+  @@index([fixtureId])
 }
 
 model FixtureTeamStats {
@@ -113,7 +137,8 @@ model Player {
   teamId Int
   team   Team @relation(fields: [teamId], references: [id])
 
-  seasonStats PlayerSeasonStats[]
+  seasonStats   PlayerSeasonStats[]
+  fixtureLineups FixtureLineup[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -158,4 +183,18 @@ model ApiFetchLog {
   createdAt DateTime @default(now())
 
   @@index([resource, fetchedAt])
+}
+
+/** Ephemeral cache for live score (90s TTL). Shared across Vercel instances. */
+model LiveScoreCache {
+  fixtureId      Int      @id
+  homeGoals      Int      @default(0)
+  awayGoals      Int      @default(0)
+  elapsedMinutes Int?
+  statusShort    String   @default("?")
+  cachedAt       DateTime @default(now())
+
+  fixture Fixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+
+  @@map("LiveScoreCache")
 }

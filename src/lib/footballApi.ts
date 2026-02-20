@@ -574,6 +574,49 @@ export async function fetchFixtureStatistics(
   }
 }
 
+/** Response shape for GET /fixtures?id= (single fixture, includes goals and status.elapsed when live) */
+type ApiFootballFixtureById = {
+  fixture: {
+    id: number;
+    date: string;
+    status: { short: string; long?: string; elapsed?: number | null };
+  };
+  goals?: { home: number | null; away: number | null };
+  league?: unknown;
+  teams?: unknown;
+};
+
+export type LiveFixtureResult = {
+  homeGoals: number;
+  awayGoals: number;
+  elapsedMinutes: number | null;
+  statusShort: string;
+};
+
+/**
+ * Fetch live score and elapsed minutes for a fixture. Only call when match has started.
+ * GET /fixtures?id={fixtureApiId}
+ */
+export async function fetchLiveFixture(
+  fixtureApiId: string | number,
+): Promise<LiveFixtureResult | null> {
+  const path = "/fixtures";
+  const response = await request<ApiFootballFixtureById>(path, { id: fixtureApiId });
+  if (!response?.length) return null;
+  const data = response[0];
+  const goals = data.goals;
+  const status = data.fixture?.status;
+  const homeGoals = goals?.home != null ? Number(goals.home) : 0;
+  const awayGoals = goals?.away != null ? Number(goals.away) : 0;
+  const elapsedMinutes = status?.elapsed != null ? Number(status.elapsed) : null;
+  return {
+    homeGoals,
+    awayGoals,
+    elapsedMinutes,
+    statusShort: status?.short ?? "?",
+  };
+}
+
 /**
  * Helpers for mapping API identity to database identity.
  * These mirror the `apiId` fields on your Prisma models.
@@ -588,5 +631,27 @@ export function getPlayerExternalId(raw: RawPlayerSeasonStats["player"]) {
 
 export function getFixtureExternalId(raw: RawFixture) {
   return String(raw.id);
+}
+
+/** Raw lineup entry from API: one per team with startXI and substitutes */
+export type RawFixtureLineupTeam = {
+  team: { id: number };
+  startXI?: Array<{ player: { id: number; name: string }; [key: string]: unknown }>;
+  substitutes?: Array<{ player: { id: number; name: string }; [key: string]: unknown }>;
+};
+
+/**
+ * Fetch fixture lineups from API-Football.
+ * GET /fixtures/lineups?fixture={fixtureApiId}
+ * Returns startXI and substitutes per team (typically available ~30 min before kickoff).
+ */
+export async function fetchFixtureLineups(
+  fixtureApiId: string | number,
+): Promise<RawFixtureLineupTeam[]> {
+  const path = "/fixtures/lineups";
+  const response = await request<RawFixtureLineupTeam>(path, {
+    fixture: fixtureApiId,
+  });
+  return response ?? [];
 }
 

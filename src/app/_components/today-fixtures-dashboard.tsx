@@ -94,6 +94,12 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
   const [sortBy, setSortBy] = useState<PlayerSortKey>("goals");
   const [activeTab, setActiveTab] = useState<"home" | "away">("home");
   const [shareLabel, setShareLabel] = useState<"Share" | "Copied!" | "Shared!">("Share");
+  const [liveScore, setLiveScore] = useState<{
+    homeGoals: number;
+    awayGoals: number;
+    elapsedMinutes: number | null;
+    statusShort: string;
+  } | null>(null);
 
   const handleShare = async () => {
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -182,6 +188,51 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
       cancelled = true;
     };
   }, [selectedId]);
+
+  // Live score: fetch only once on load/refresh when match has started. No polling. Server only hits external API when cache empty (90s TTL).
+  useEffect(() => {
+    if (!selectedId || !stats || String(stats.fixture.id) !== selectedId) {
+      setLiveScore(null);
+      return;
+    }
+    const koDate = new Date(stats.fixture.date);
+    const now = new Date();
+    const isNotStarted = koDate > now;
+    const twoHoursMs = 2 * 60 * 60 * 1000;
+    const isEnded = !isNotStarted && now.getTime() - koDate.getTime() >= twoHoursMs;
+    const isLive = !isNotStarted && !isEnded;
+
+    if (!isLive) {
+      setLiveScore(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/fixtures/${selectedId}/live`, { cache: "no-store" });
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.live && data.homeGoals != null && data.awayGoals != null) {
+          setLiveScore({
+            homeGoals: data.homeGoals,
+            awayGoals: data.awayGoals,
+            elapsedMinutes: data.elapsedMinutes ?? null,
+            statusShort: data.statusShort ?? "LIVE",
+          });
+        } else {
+          setLiveScore(null);
+        }
+      } catch {
+        if (!cancelled) setLiveScore(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, stats]);
 
   if (filteredFixtures.length === 0) {
     return (
@@ -279,6 +330,15 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
         const homeName = selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name;
         const awayName = selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name;
 
+        const timeOrMinutes =
+          isLive && liveScore
+            ? liveScore.elapsedMinutes != null
+              ? `${liveScore.elapsedMinutes}'`
+              : liveScore.statusShort
+            : koTime;
+        const scoreLabel =
+          isLive && liveScore ? `${liveScore.homeGoals} – ${liveScore.awayGoals}` : null;
+
         return (
           <header
             className={
@@ -289,7 +349,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
           >
             {isHeaderMode ? (
               <div className="flex flex-col items-center gap-3 sm:gap-4">
-                {/* Mobile: crests centred, then team names centred and smaller */}
+                {/* Mobile: crests + score, then team names */}
                 <div className="flex w-full flex-col items-center gap-3 sm:hidden">
                   <div className="flex items-center justify-center gap-4">
                     <TeamCrestOrShirt
@@ -297,6 +357,13 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                       alt={homeName}
                       size="md"
                     />
+                    {scoreLabel != null ? (
+                      <span className="min-w-[4rem] text-center text-xl font-bold tabular-nums text-neutral-900 dark:text-neutral-50">
+                        {scoreLabel}
+                      </span>
+                    ) : (
+                      <span className="min-w-[4rem] text-center text-lg text-neutral-400">–</span>
+                    )}
                     <TeamCrestOrShirt
                       crestUrl={stats!.fixture.awayTeam.crestUrl}
                       alt={awayName}
@@ -309,18 +376,25 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                     {awayName}
                   </h1>
                 </div>
-                {/* sm+: one row, crest | names | crest */}
+                {/* sm+: one row, crest | names + score | crest */}
                 <div className="hidden w-full items-center justify-between gap-4 sm:flex">
                   <TeamCrestOrShirt
                     crestUrl={stats!.fixture.homeTeam.crestUrl}
                     alt={homeName}
                     size="lg"
                   />
-                  <h1 className="min-w-0 shrink text-center text-xl font-semibold text-neutral-900 dark:text-neutral-50 md:text-2xl lg:text-3xl">
-                    {homeName}
-                    <span className="mx-2 text-neutral-400">vs</span>
-                    {awayName}
-                  </h1>
+                  <div className="flex min-w-0 shrink flex-col items-center gap-1">
+                    <h1 className="min-w-0 shrink text-center text-xl font-semibold text-neutral-900 dark:text-neutral-50 md:text-2xl lg:text-3xl">
+                      {homeName}
+                      <span className="mx-2 text-neutral-400">vs</span>
+                      {awayName}
+                    </h1>
+                    {scoreLabel != null && (
+                      <span className="text-2xl font-bold tabular-nums text-neutral-900 dark:text-neutral-50 md:text-3xl">
+                        {scoreLabel}
+                      </span>
+                    )}
+                  </div>
                   <TeamCrestOrShirt
                     crestUrl={stats!.fixture.awayTeam.crestUrl}
                     alt={awayName}
@@ -328,7 +402,9 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                   />
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xs text-neutral-600 dark:text-neutral-400 sm:text-sm">
-                  <span>{koTime}</span>
+                  <span className={isLive ? "font-semibold text-green-600 dark:text-green-400" : ""}>
+                    {timeOrMinutes}
+                  </span>
                   <span className="text-neutral-300 dark:text-neutral-600">·</span>
                   <span>{selectedFixture.league ?? "League"}</span>
                   <span className="text-neutral-300 dark:text-neutral-600">·</span>
@@ -349,6 +425,11 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-3">
                   <TeamCrestOrShirt crestUrl={stats!.fixture.homeTeam.crestUrl} alt={homeName} />
+                  {scoreLabel != null ? (
+                    <span className="text-lg font-bold tabular-nums text-neutral-900 dark:text-neutral-50">
+                      {scoreLabel}
+                    </span>
+                  ) : null}
                   <TeamCrestOrShirt crestUrl={stats!.fixture.awayTeam.crestUrl} alt={awayName} />
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
@@ -356,7 +437,9 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                   <span className="text-neutral-400">vs</span>
                   <span className="font-medium text-neutral-900 dark:text-neutral-50">{awayName}</span>
                   <span className="text-neutral-300 dark:text-neutral-600">·</span>
-                  <span className="text-neutral-600 dark:text-neutral-400">{koTime}</span>
+                  <span className={isLive ? "font-semibold text-green-600 dark:text-green-400" : "text-neutral-600 dark:text-neutral-400"}>
+                    {timeOrMinutes}
+                  </span>
                   <span className="text-neutral-300 dark:text-neutral-600">·</span>
                   <span className="text-neutral-600 dark:text-neutral-400">
                     {selectedFixture.league ?? "League"}
@@ -570,14 +653,34 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                   const minutes = player.minutes ?? 0;
                   const per90 = minutes > 0 ? (numValue / minutes) * 90 : 0;
                   const per90Label = `${displayLabel}/90min`;
+                  const lineupStatus = player.lineupStatus ?? null;
+                  const hasLineup = stats.hasLineup === true;
+                  const isNotInvolved = hasLineup && lineupStatus === null;
+
+                  const lineupPill =
+                    lineupStatus === "starting" ? (
+                      <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                        STARTING
+                      </span>
+                    ) : lineupStatus === "substitute" ? (
+                      <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+                        SUB
+                      </span>
+                    ) : isNotInvolved ? (
+                      <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                        NOT INVOLVED
+                      </span>
+                    ) : null;
 
                   return (
                     <div
                       key={player.playerId}
                       className={`group rounded-lg border px-4 py-3 transition-all hover:shadow-sm ${
-                        isTop
-                          ? "border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/30"
-                          : "border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
+                        isNotInvolved
+                          ? "border-neutral-200 bg-neutral-50/80 opacity-75 dark:border-neutral-800 dark:bg-neutral-900/60"
+                          : isTop
+                            ? "border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/30"
+                            : "border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-4">
@@ -588,10 +691,11 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                             size="sm"
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-semibold text-neutral-900 dark:text-neutral-50">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className={`font-semibold ${isNotInvolved ? "text-neutral-500 dark:text-neutral-400" : "text-neutral-900 dark:text-neutral-50"}`}>
                                 {player.name}
                               </h4>
+                              {lineupPill}
                             </div>
                             {player.position && (
                               <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
@@ -602,16 +706,16 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                         </div>
                         <div className="flex flex-shrink-0 flex-col items-end gap-1 text-right">
                           <div className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                            <span className="text-neutral-900 dark:text-neutral-50">
+                            <span className={isNotInvolved ? "text-neutral-500 dark:text-neutral-400" : "text-neutral-900 dark:text-neutral-50"}>
                               {minutes > 0 ? per90.toFixed(2) : "0.00"}
                             </span>
                             <span className="ml-1 text-neutral-400">{per90Label}</span>
                           </div>
                         </div>
                       </div>
-                      <div className="mt-3 border-t border-neutral-200 pt-2 text-xs text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
+                      <div className={`mt-3 border-t pt-2 text-xs ${isNotInvolved ? "border-neutral-200 text-neutral-500 dark:border-neutral-800 dark:text-neutral-400" : "border-neutral-200 text-neutral-600 dark:border-neutral-800 dark:text-neutral-400"}`}>
                         <span className="font-medium">Total {displayLabel}:</span>{" "}
-                        <span className="text-neutral-900 dark:text-neutral-50">{Number(sortValue) ?? 0}</span>
+                        <span className={isNotInvolved ? "text-neutral-500 dark:text-neutral-400" : "text-neutral-900 dark:text-neutral-50"}>{Number(sortValue) ?? 0}</span>
                       </div>
                     </div>
                   );

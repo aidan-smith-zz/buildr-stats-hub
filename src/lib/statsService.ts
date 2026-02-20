@@ -6,6 +6,7 @@ import {
   getPlayerExternalId,
   type RawPlayerSeasonStats,
 } from "@/lib/footballApi";
+import { ensureLineupIfWithinWindow, getLineupForFixture } from "@/lib/lineupService";
 
 /** Fixture including leagueId (schema has it; Prisma payload may omit until client is regenerated) */
 type FixtureWithLeagueId = { leagueId?: number | null; league?: string | null };
@@ -31,6 +32,8 @@ export type TeamStatsPer90 = {
 
 export type FixtureStatsResponse = {
   fixture: FixtureSummary;
+  /** True when lineup exists in DB for this fixture (so lineupStatus on players is authoritative). */
+  hasLineup: boolean;
   teams: {
     teamId: number;
     teamName: string;
@@ -50,6 +53,8 @@ export type FixtureStatsResponse = {
       tackles: number;
       yellowCards: number;
       redCards: number;
+      /** "starting" | "substitute" | null (null = not involved). Only set when lineup exists in DB. */
+      lineupStatus: "starting" | "substitute" | null;
     }[];
   }[];
   teamStats?: {
@@ -393,6 +398,18 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     ]);
   }
 
+  // Lineup: fetch from API only if within 30 min of kickoff and no lineup in DB; then always read from DB
+  await ensureLineupIfWithinWindow(
+    fixture.id,
+    fixture.date,
+    fixture.apiId,
+    fixture.homeTeamId,
+    fixture.awayTeamId,
+    fixture.homeTeam.apiId,
+    fixture.awayTeam.apiId,
+  );
+  const lineupByTeam = await getLineupForFixture(fixture.id);
+
   // Now fetch the stats (either existing or newly stored)
   const stats = await prisma.playerSeasonStats.findMany({
     where: {
@@ -431,6 +448,8 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     // If API stored 0 appearances but player has minutes, show at least 1
     const appearances =
       row.appearances > 0 ? row.appearances : row.minutes > 0 ? 1 : 0;
+    const teamLineup = lineupByTeam.get(row.teamId);
+    const lineupStatus = teamLineup?.get(row.playerId) ?? null;
     group.players.push({
       playerId: row.playerId,
       name: row.player.name,
@@ -446,6 +465,7 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
       tackles: (row as { tackles?: number }).tackles ?? 0,
       yellowCards: row.yellowCards,
       redCards: row.redCards,
+      lineupStatus,
     });
   }
 
@@ -476,6 +496,15 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
   // Set USE_MOCK_PLAYERS_FALLBACK=false (or unset) after upgrading to use real player data only.
   const useMockFallback = process.env.USE_MOCK_PLAYERS_FALLBACK !== "false";
 
+  const mockPlayer = (
+    playerId: number,
+    name: string,
+    position: string,
+    shirtNumber: number,
+    rest: Omit<FixtureStatsResponse["teams"][number]["players"][number], "playerId" | "name" | "position" | "shirtNumber" | "lineupStatus">,
+    lineupStatus: "starting" | "substitute" | null = null,
+  ) => ({ playerId, name, position, shirtNumber, ...rest, lineupStatus });
+
   const mockPlayersForTeam = (
     teamId: number,
     teamName: string,
@@ -486,11 +515,11 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     teamName,
     teamShortName,
     players: [
-      { playerId: idOffset + 1, name: "Mock Player One", position: "Attacker", shirtNumber: 9, appearances: 12, minutes: 980, goals: 8, assists: 3, fouls: 4, shots: 42, shotsOnTarget: 22, tackles: 2, yellowCards: 1, redCards: 0 },
-      { playerId: idOffset + 2, name: "Mock Player Two", position: "Midfielder", shirtNumber: 10, appearances: 14, minutes: 1120, goals: 2, assists: 7, fouls: 2, shots: 18, shotsOnTarget: 9, tackles: 15, yellowCards: 2, redCards: 0 },
-      { playerId: idOffset + 3, name: "Mock Player Three", position: "Defender", shirtNumber: 4, appearances: 15, minutes: 1350, goals: 0, assists: 1, fouls: 12, shots: 5, shotsOnTarget: 2, tackles: 28, yellowCards: 3, redCards: 0 },
-      { playerId: idOffset + 4, name: "Mock Player Four", position: "Goalkeeper", shirtNumber: 1, appearances: 16, minutes: 1440, goals: 0, assists: 0, fouls: 0, shots: 0, shotsOnTarget: 0, tackles: 0, yellowCards: 0, redCards: 0 },
-      { playerId: idOffset + 5, name: "Mock Player Five", position: "Midfielder", shirtNumber: 8, appearances: 11, minutes: 720, goals: 1, assists: 4, fouls: 3, shots: 12, shotsOnTarget: 6, tackles: 8, yellowCards: 1, redCards: 0 },
+      mockPlayer(idOffset + 1, "Mock Player One", "Attacker", 9, { appearances: 12, minutes: 980, goals: 8, assists: 3, fouls: 4, shots: 42, shotsOnTarget: 22, tackles: 2, yellowCards: 1, redCards: 0 }),
+      mockPlayer(idOffset + 2, "Mock Player Two", "Midfielder", 10, { appearances: 14, minutes: 1120, goals: 2, assists: 7, fouls: 2, shots: 18, shotsOnTarget: 9, tackles: 15, yellowCards: 2, redCards: 0 }),
+      mockPlayer(idOffset + 3, "Mock Player Three", "Defender", 4, { appearances: 15, minutes: 1350, goals: 0, assists: 1, fouls: 12, shots: 5, shotsOnTarget: 2, tackles: 28, yellowCards: 3, redCards: 0 }),
+      mockPlayer(idOffset + 4, "Mock Player Four", "Goalkeeper", 1, { appearances: 16, minutes: 1440, goals: 0, assists: 0, fouls: 0, shots: 0, shotsOnTarget: 0, tackles: 0, yellowCards: 0, redCards: 0 }),
+      mockPlayer(idOffset + 5, "Mock Player Five", "Midfielder", 8, { appearances: 11, minutes: 720, goals: 1, assists: 4, fouls: 3, shots: 12, shotsOnTarget: 6, tackles: 8, yellowCards: 1, redCards: 0 }),
     ],
   });
 
@@ -566,8 +595,11 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
         }
       : undefined;
 
+  const hasLineup = lineupByTeam.size > 0;
+
   return {
     fixture: fixtureSummary,
+    hasLineup,
     teams,
     teamStats,
   };
