@@ -27,6 +27,9 @@ function formatKoTime(date: Date): string {
   });
 }
 
+/** statusShort values that mean the match has finished (don't show "Live" badge). */
+const LIVE_FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);
+
 /** Default order within each KO time: SPFL → EPL → Championship → UCL → UEL → FA Cup. */
 const LEAGUE_ORDER: number[] = [179, 39, 40, 2, 3, 45];
 
@@ -190,9 +193,12 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
               const koTime = formatKoTime(new Date(f.date));
               const now = new Date();
               const kickoff = new Date(f.date);
-              const twoAndHalfHoursMs = 2.5 * 60 * 60 * 1000;
-              const isLive =
-                kickoff <= now && now.getTime() - kickoff.getTime() < twoAndHalfHoursMs;
+              const twoHoursMs = 2 * 60 * 60 * 1000;
+              const withinLiveWindow =
+                kickoff <= now && now.getTime() - kickoff.getTime() < twoHoursMs;
+              const isFinished =
+                f.statusShort != null && LIVE_FINISHED_STATUSES.has(f.statusShort);
+              const isLive = withinLiveWindow && !isFinished;
               const competitionName = leagueDisplayName(f.league, f.leagueId);
               return (
                 <FixtureRowLink

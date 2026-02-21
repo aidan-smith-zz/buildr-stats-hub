@@ -97,7 +97,7 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
     prisma.fixture.findMany({
       where: { date: { gte: dayStart, lte: spilloverEnd } },
       orderBy: { date: "asc" },
-      include: { homeTeam: true, awayTeam: true },
+      include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
     }),
     prisma.apiFetchLog.findFirst({
       where: { resource: `fixtures:${dateKey}`, success: true },
@@ -236,7 +236,7 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
     const refreshedFixtures = await prisma.fixture.findMany({
       where: { date: { gte: dayStart, lte: spilloverEnd } },
       orderBy: { date: "asc" },
-      include: { homeTeam: true, awayTeam: true },
+      include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
     });
 
     return refreshedFixtures.map(mapFixtureToSummary);
@@ -254,13 +254,19 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
   return refreshPromise;
 }
 
-type FixtureWithTeams = Fixture & { leagueId?: number | null; homeTeam: Team; awayTeam: Team };
+type FixtureWithTeams = Fixture & {
+  leagueId?: number | null;
+  homeTeam: Team;
+  awayTeam: Team;
+  liveScoreCache?: { statusShort: string } | null;
+};
 
 function mapFixtureToSummary(f: FixtureWithTeams): FixtureSummary {
   return {
     id: f.id,
     date: f.date,
     status: f.status,
+    statusShort: f.liveScoreCache?.statusShort,
     league: f.league,
     leagueId: f.leagueId ?? null,
     season: f.season,

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getOrRefreshTodayFixtures } from "@/lib/fixturesService";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
@@ -31,7 +32,7 @@ export default async function FixtureMatchPage({
 }: {
   params: Promise<{ date: string; league: string; match: string }>;
 }) {
-  const { league: leagueSlug, match: matchSlugParam } = await params;
+  const { date: dateKey, league: leagueSlug, match: matchSlugParam } = await params;
   const fixtures = await getOrRefreshTodayFixtures(new Date());
   const fixture = findFixture(fixtures, leagueSlug, matchSlugParam);
 
@@ -51,6 +52,22 @@ export default async function FixtureMatchPage({
           initialSelectedId={String(fixture.id)}
           hideFixtureSelector
         />
+        <section className="mt-12 border-t border-neutral-200 pt-10 dark:border-neutral-800">
+          <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-6 dark:border-violet-800/50 dark:bg-violet-950/20">
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+              New AI Insights
+            </h2>
+            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+              We scan today&apos;s fixtures and facts and surface the trends that matter.
+            </p>
+            <Link
+              href={`/${dateKey}/ai/insights`}
+              className="mt-4 inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400"
+            >
+              See today&apos;s AI Insights →
+            </Link>
+          </div>
+        </section>
       </main>
     </div>
   );

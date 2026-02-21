@@ -5,7 +5,7 @@ import { fetchLiveFixture } from "@/lib/footballApi";
 const LIVE_CACHE_TTL_MS = 90 * 1000; // 90 seconds
 const PRE_MATCH_WINDOW_MS = 10 * 60 * 1000; // show 0-0 from 10 min before kickoff
 /** Only call external API during this window after kickoff (covers normal + ET). After this, use cache only. */
-const MAX_MATCH_DURATION_MS = 150 * 60 * 1000; // 2.5 hours
+const MAX_MATCH_DURATION_MS = 120 * 60 * 1000; // 2 hours
 
 /** API-Football statusShort values that mean the match is finished (cache can be used as FT score). */
 const FINISHED_STATUS = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);

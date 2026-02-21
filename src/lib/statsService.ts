@@ -19,6 +19,8 @@ export type FixtureSummary = {
   id: number;
   date: Date;
   status: string;
+  /** From LiveScoreCache when available; e.g. FT, AET, PEN. Used to hide "Live" badge when match has ended. */
+  statusShort?: string;
   league: string | null;
   leagueId: number | null;
   season: string;
