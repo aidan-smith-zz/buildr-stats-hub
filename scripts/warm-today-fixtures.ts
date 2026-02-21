@@ -1,6 +1,6 @@
 /**
  * Warm today's fixtures using chunked requests (each under 60s for Vercel Hobby).
- * Per fixture: GET warm?part=home → warm?part=away → GET stats. No upgrade needed.
+ * Per fixture: home → away → teamstats-home (loop until done) → teamstats-away (loop) → lineup → stats.
  *
  * Usage: npm run warm-today
  * Optional: BASE_URL=https://your-app.vercel.app npm run warm-today
@@ -12,7 +12,7 @@ const REQUEST_TIMEOUT_MS = 70_000;
 /** Delay between chunks and between fixtures. */
 const DELAY_BETWEEN_CHUNKS_MS = 5_000;
 const DELAY_BETWEEN_FIXTURES_MS = 15_000;
-/** Retry a fixture's full sequence (home + away + stats) up to this many times. */
+/** Retry a fixture's full sequence up to this many times. */
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 10_000;
 
@@ -20,20 +20,50 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+type FetchResult = { ok: boolean; status?: number; error?: string; data?: { done?: boolean } };
+
 async function fetchWithTimeout(
   url: string,
-  timeoutMs: number
-): Promise<{ ok: boolean; status?: number; error?: string }> {
+  timeoutMs: number,
+  parseJson = false
+): Promise<FetchResult> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, { cache: "no-store", signal: ctrl.signal });
     clearTimeout(t);
-    return { ok: res.ok, status: res.status };
+    const out: FetchResult = { ok: res.ok, status: res.status };
+    if (parseJson && res.ok) {
+      try {
+        out.data = (await res.json()) as { done?: boolean };
+      } catch {
+        // ignore
+      }
+    }
+    return out;
   } catch (err) {
     clearTimeout(t);
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+async function warmTeamStatsUntilDone(
+  id: number,
+  part: "teamstats-home" | "teamstats-away"
+): Promise<{ ok: boolean; error?: string }> {
+  for (;;) {
+    const res = await fetchWithTimeout(
+      `${BASE_URL}/api/fixtures/${id}/warm?part=${part}`,
+      REQUEST_TIMEOUT_MS,
+      true
+    );
+    if (!res.ok) {
+      return { ok: false, error: `${part}: ${res.error ?? res.status}` };
+    }
+    if (res.data?.done !== false) break;
+    await sleep(DELAY_BETWEEN_CHUNKS_MS);
+  }
+  return { ok: true };
 }
 
 async function warmOneFixture(
@@ -55,6 +85,23 @@ async function warmOneFixture(
   );
   if (!warmAway.ok) {
     return { ok: false, error: `away: ${warmAway.error ?? warmAway.status}` };
+  }
+  await sleep(DELAY_BETWEEN_CHUNKS_MS);
+
+  const teamstatsHome = await warmTeamStatsUntilDone(id, "teamstats-home");
+  if (!teamstatsHome.ok) return teamstatsHome;
+  await sleep(DELAY_BETWEEN_CHUNKS_MS);
+
+  const teamstatsAway = await warmTeamStatsUntilDone(id, "teamstats-away");
+  if (!teamstatsAway.ok) return teamstatsAway;
+  await sleep(DELAY_BETWEEN_CHUNKS_MS);
+
+  const lineup = await fetchWithTimeout(
+    `${BASE_URL}/api/fixtures/${id}/warm?part=lineup`,
+    REQUEST_TIMEOUT_MS
+  );
+  if (!lineup.ok) {
+    return { ok: false, error: `lineup: ${lineup.error ?? lineup.status}` };
   }
   await sleep(DELAY_BETWEEN_CHUNKS_MS);
 
@@ -95,7 +142,7 @@ async function main() {
 
   console.log("[warm-today]", listData.message ?? "");
   console.log(
-    `[warm-today] Warming ${fixtures.length} fixture(s) (chunked: home → away → stats, ${REQUEST_TIMEOUT_MS / 1000}s timeout each, up to ${MAX_RETRIES + 1} attempts).\n`
+    `[warm-today] Warming ${fixtures.length} fixture(s) (home → away → teamstats → lineup → stats, ${REQUEST_TIMEOUT_MS / 1000}s timeout per request, up to ${MAX_RETRIES + 1} attempts).\n`
   );
 
   const succeeded: string[] = [];

@@ -85,10 +85,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Max fixture-statistics API calls per invocation so one request stays under ~60s (e.g. 25 * 2s delay). */
+const TEAM_STATS_CHUNK_SIZE = 25;
+
+export type EnsureTeamSeasonStatsResult = { done: boolean };
+
 /**
  * Aggregate team stats for this season only: goals/conceded from fixtures list,
  * corners/cards/xG from fixture statistics (up to 38 fixtures per team).
  * Cached once per day per team/season/league.
+ * When maxApiCallsPerInvocation is set, only does that many API calls per call and returns { done: false } until all are cached.
  */
 async function ensureTeamSeasonStatsCornersAndCards(
   teamId: number,
@@ -96,8 +102,10 @@ async function ensureTeamSeasonStatsCornersAndCards(
   season: string,
   leagueKey: string,
   leagueId: number,
-): Promise<void> {
-  // Skip API if we already have team season stats in DB (source of truth)
+  options?: { maxApiCallsPerInvocation?: number },
+): Promise<EnsureTeamSeasonStatsResult> {
+  const maxCalls = options?.maxApiCallsPerInvocation;
+
   const existing = await prisma.teamSeasonStats.findFirst({
     where: {
       teamId,
@@ -106,7 +114,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
     },
   });
   if (existing) {
-    return;
+    return { done: true };
   }
 
   const resource = `teamSeasonCorners:${teamId}:${season}:${leagueKey}`;
@@ -117,45 +125,61 @@ async function ensureTeamSeasonStatsCornersAndCards(
     orderBy: { fetchedAt: "desc" },
   });
   if (lastLog && lastLog.fetchedAt >= dayStart) {
-    return;
+    return { done: true };
   }
 
   const { fixtureIds, goalsFor, goalsAgainst, played, fixtures: fixturesMeta } = await fetchTeamFixturesWithGoals(teamApiId, season, leagueId);
   const minutesPlayed = played * 90;
 
-  let corners = 0;
-  let yellowCards = 0;
-  let redCards = 0;
-  let xgSum = 0;
-  let xgCount = 0;
-
   const limit = Math.min(fixtureIds.length, MAX_FIXTURES_PER_SEASON);
+  const fixtureIdsToProcess = fixtureIds.slice(0, limit);
+
+  type CachedFixtureStats = { corners: number; yellowCards: number; redCards: number; xg: number | null };
+  const existingCache = await prisma.teamFixtureCache.findMany({
+    where: {
+      teamId,
+      season,
+      league: leagueKey,
+      apiFixtureId: { in: fixtureIdsToProcess.map((id) => String(id)) },
+    },
+    select: { apiFixtureId: true, corners: true, yellowCards: true, redCards: true, xg: true },
+  });
+  const cacheByApiFixtureId = new Map<string, CachedFixtureStats>(
+    existingCache.map((r: CachedFixtureStats & { apiFixtureId: string }) => [r.apiFixtureId, r])
+  );
+
+  let apiCallsThisInvocation = 0;
+
   for (let i = 0; i < limit; i++) {
-    if (i > 0) await sleep(FIXTURE_STATS_DELAY_MS);
-    const stat = await fetchFixtureStatistics(fixtureIds[i], teamApiId);
+    if (maxCalls != null && apiCallsThisInvocation >= maxCalls) {
+      return { done: false };
+    }
+    const apiFixtureId = String(fixtureIds[i]);
     const meta = fixturesMeta[i];
+    const cached = cacheByApiFixtureId.get(apiFixtureId);
+
+    if (cached) {
+      continue;
+    }
+
+    if (apiCallsThisInvocation > 0) await sleep(FIXTURE_STATS_DELAY_MS);
+    apiCallsThisInvocation++;
+    const stat = await fetchFixtureStatistics(fixtureIds[i], teamApiId);
     if (stat && meta) {
-      corners += stat.corners;
-      yellowCards += stat.yellowCards;
-      redCards += stat.redCards;
-      if (stat.xg != null) {
-        xgSum += stat.xg;
-        xgCount++;
-      }
       await prisma.teamFixtureCache.upsert({
         where: {
           teamId_season_league_apiFixtureId: {
             teamId,
             season,
             league: leagueKey,
-            apiFixtureId: String(fixtureIds[i]),
+            apiFixtureId,
           },
         },
         create: {
           teamId,
           season,
           league: leagueKey,
-          apiFixtureId: String(fixtureIds[i]),
+          apiFixtureId,
           fixtureDate: meta.date,
           goalsFor: meta.goalsFor,
           goalsAgainst: meta.goalsAgainst,
@@ -174,6 +198,32 @@ async function ensureTeamSeasonStatsCornersAndCards(
           redCards: stat.redCards,
         },
       });
+    }
+  }
+
+  // All fixtures processed (from cache or API). Aggregate from DB and write season row.
+  const apiFixtureIds = fixtureIdsToProcess.map((id) => String(id));
+  const cacheRows = await prisma.teamFixtureCache.findMany({
+    where: {
+      teamId,
+      season,
+      league: leagueKey,
+      apiFixtureId: { in: apiFixtureIds },
+    },
+    select: { corners: true, yellowCards: true, redCards: true, xg: true },
+  });
+  let corners = 0;
+  let yellowCards = 0;
+  let redCards = 0;
+  let xgSum = 0;
+  let xgCount = 0;
+  for (const r of cacheRows) {
+    corners += r.corners;
+    yellowCards += r.yellowCards;
+    redCards += r.redCards;
+    if (r.xg != null) {
+      xgSum += r.xg;
+      xgCount++;
     }
   }
   const xgFor = xgCount > 0 ? xgSum : null;
@@ -209,6 +259,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
   await prisma.apiFetchLog.create({
     data: { resource, success: true },
   });
+  return { done: true };
 }
 
 /**
@@ -333,22 +384,62 @@ const LEAGUE_ID_MAP: Record<string, number> = {
   "FA Cup": 45,
 };
 
+export type WarmPartResult =
+  | { ok: true; teamId: number }
+  | { ok: true; done: boolean }
+  | { ok: true };
+
 /**
  * Warm one part of fixture stats (stays under 60s for Vercel Hobby).
- * Call with part=home then part=away so the full stats route can serve from DB.
+ * - part=home|away: player season stats for that team.
+ * - part=teamstats-home|teamstats-away: team season stats (chunked); returns { done } so caller can loop until done.
+ * - part=lineup: ensure lineup if within window.
  */
 export async function warmFixturePart(
   fixtureId: number,
-  part: "home" | "away",
-): Promise<{ ok: true; teamId: number }> {
+  part: "home" | "away" | "teamstats-home" | "teamstats-away" | "lineup",
+): Promise<WarmPartResult> {
   const fixture = await prisma.fixture.findUnique({
     where: { id: fixtureId },
     include: { homeTeam: true, awayTeam: true },
   });
   if (!fixture) throw new Error("Fixture not found");
+  const fixtureWithLeague = fixture as FixtureWithLeagueId;
   const leagueId =
-    (fixture as FixtureWithLeagueId).leagueId ??
+    fixtureWithLeague.leagueId ??
     (fixture.league ? LEAGUE_ID_MAP[fixture.league] : undefined);
+  const leagueKey = fixture.league ?? "Unknown";
+
+  if (part === "teamstats-home" || part === "teamstats-away") {
+    const team = part === "teamstats-home" ? fixture.homeTeam : fixture.awayTeam;
+    const teamId = part === "teamstats-home" ? fixture.homeTeamId : fixture.awayTeamId;
+    if (!team.apiId || leagueId == null) {
+      return { ok: true, done: true };
+    }
+    const result = await ensureTeamSeasonStatsCornersAndCards(
+      teamId,
+      team.apiId,
+      fixture.season,
+      leagueKey,
+      leagueId,
+      { maxApiCallsPerInvocation: TEAM_STATS_CHUNK_SIZE },
+    );
+    return { ok: true, done: result.done };
+  }
+
+  if (part === "lineup") {
+    await ensureLineupIfWithinWindow(
+      fixture.id,
+      fixture.date,
+      fixture.apiId,
+      fixture.homeTeamId,
+      fixture.awayTeamId,
+      fixture.homeTeam.apiId,
+      fixture.awayTeam.apiId,
+    );
+    return { ok: true };
+  }
+
   const team = part === "home" ? fixture.homeTeam : fixture.awayTeam;
   const teamId = part === "home" ? fixture.homeTeamId : fixture.awayTeamId;
   if (team.apiId) {

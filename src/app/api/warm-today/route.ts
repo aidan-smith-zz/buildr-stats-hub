@@ -7,8 +7,8 @@ const MIN_PLAYERS_PER_TEAM = 11;
 
 /**
  * GET /api/warm-today
- * Returns today's fixture IDs (and labels) that still need warming (missing player stats).
- * Does NOT warm stats in this request — use the script which calls GET /api/fixtures/[id]/stats per fixture.
+ * Returns today's fixture IDs that need warming: missing player stats OR missing team stats (e.g. after clearing team cache).
+ * Use the script which calls GET /api/fixtures/[id]/stats per fixture to warm.
  */
 export async function GET() {
   try {
@@ -26,7 +26,6 @@ export async function GET() {
       });
     }
 
-    // Pairs (teamId, season, league) we need counts for
     const keys = filtered.flatMap((f) => {
       const league = f.league ?? "Unknown";
       return [
@@ -34,26 +33,47 @@ export async function GET() {
         { teamId: f.awayTeam.id, season: f.season, league },
       ];
     });
-    const counts = await prisma.playerSeasonStats.groupBy({
-      by: ["teamId", "season", "league"],
-      where: {
-        OR: keys.map((k) => ({
-          teamId: k.teamId,
-          season: k.season,
-          league: k.league,
-        })),
-      },
-      _count: { id: true },
-    });
-    const countMap = new Map(
-      counts.map((c) => [`${c.teamId}:${c.season}:${c.league}`, c._count.id])
+    const [playerCounts, teamStatsExisting] = await Promise.all([
+      prisma.playerSeasonStats.groupBy({
+        by: ["teamId", "season", "league"],
+        where: {
+          OR: keys.map((k) => ({
+            teamId: k.teamId,
+            season: k.season,
+            league: k.league,
+          })),
+        },
+        _count: { id: true },
+      }),
+      prisma.teamSeasonStats.findMany({
+        where: {
+          OR: keys.map((k) => ({
+            teamId: k.teamId,
+            season: k.season,
+            league: k.league,
+          })),
+        },
+        select: { teamId: true, season: true, league: true },
+      }),
+    ]);
+
+    const playerCountMap = new Map(
+      playerCounts.map((c) => [`${c.teamId}:${c.season}:${c.league}`, c._count.id])
+    );
+    const teamStatsKeys = new Set(
+      teamStatsExisting.map((r) => `${r.teamId}:${r.season}:${r.league}`)
     );
 
     const needsWarm = filtered.filter((f) => {
       const league = f.league ?? "Unknown";
-      const homeCount = countMap.get(`${f.homeTeam.id}:${f.season}:${league}`) ?? 0;
-      const awayCount = countMap.get(`${f.awayTeam.id}:${f.season}:${league}`) ?? 0;
-      return homeCount < MIN_PLAYERS_PER_TEAM || awayCount < MIN_PLAYERS_PER_TEAM;
+      const homePlayerCount = playerCountMap.get(`${f.homeTeam.id}:${f.season}:${league}`) ?? 0;
+      const awayPlayerCount = playerCountMap.get(`${f.awayTeam.id}:${f.season}:${league}`) ?? 0;
+      const needsPlayerStats =
+        homePlayerCount < MIN_PLAYERS_PER_TEAM || awayPlayerCount < MIN_PLAYERS_PER_TEAM;
+      const homeHasTeamStats = teamStatsKeys.has(`${f.homeTeam.id}:${f.season}:${league}`);
+      const awayHasTeamStats = teamStatsKeys.has(`${f.awayTeam.id}:${f.season}:${league}`);
+      const needsTeamStats = !homeHasTeamStats || !awayHasTeamStats;
+      return needsPlayerStats || needsTeamStats;
     });
 
     const list = needsWarm.map((f) => ({
