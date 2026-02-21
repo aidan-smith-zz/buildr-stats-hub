@@ -8,7 +8,7 @@ type Props = {
 export function NavigationLoadingOverlay({ message = "Loading…", italic }: Props) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 dark:bg-black/70"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 backdrop-blur-[2px] dark:bg-black/75"
       aria-live="polite"
       aria-label={message}
     >

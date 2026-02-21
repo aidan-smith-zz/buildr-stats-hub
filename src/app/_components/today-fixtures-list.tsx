@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { FixtureRowLink, FixtureStatsLink } from "@/app/_components/fixture-row-link";
+import { FixtureRowLink, FixtureStatsLink, NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
@@ -258,9 +257,11 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
             Explore more
           </h2>
           <div className="grid gap-6 sm:grid-cols-2">
-            <Link
+            <NavLinkWithOverlay
               href={`/${todayKey}/ai/insights`}
               className="rounded-2xl border border-violet-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-violet-800/50 dark:bg-neutral-900 dark:hover:shadow-violet-900/20 dark:hover:border-violet-700/50 sm:col-span-2"
+              message="Loading insights…"
+              italic={false}
             >
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
                 New AI Insights
@@ -271,7 +272,7 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
               <span className="mt-4 inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400">
                 See AI Insights →
               </span>
-            </Link>
+            </NavLinkWithOverlay>
             <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:shadow-neutral-800/50">
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
                 Season Player Performance Stats
@@ -279,13 +280,20 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
               <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
                 Detailed player statistics including shots per 90, goals, assists, and disciplinary records
               </p>
-              {randomFixture1 && (
+              {randomFixture1 ? (
                 <FixtureStatsLink
                   href={getFixtureUrl(randomFixture1)}
                   className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
                 >
                   View match stats →
                 </FixtureStatsLink>
+              ) : (
+                <NavLinkWithOverlay
+                  href={`/fixtures/${todayKey}`}
+                  className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
+                >
+                  View fixtures →
+                </NavLinkWithOverlay>
               )}
             </div>
             <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:shadow-neutral-800/50">
@@ -295,13 +303,20 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
               <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
                 Compare team averages/patterns for goals, corners, and cards across the season
               </p>
-              {randomFixture2 && (
+              {randomFixture2 ? (
                 <FixtureStatsLink
                   href={getFixtureUrl(randomFixture2)}
                   className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
                 >
                   Today's stats →
                 </FixtureStatsLink>
+              ) : (
+                <NavLinkWithOverlay
+                  href={`/fixtures/${todayKey}`}
+                  className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
+                >
+                  View fixtures →
+                </NavLinkWithOverlay>
               )}
             </div>
           </div>

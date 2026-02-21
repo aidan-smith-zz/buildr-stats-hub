@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { NavigationLoadingOverlay } from "./navigation-loading-overlay";
 
 type Props = {
@@ -10,8 +11,15 @@ type Props = {
   className?: string;
 };
 
+const DEFAULT_LOADING_MESSAGE = "Building your Stats";
+
 export function FixtureRowLink({ href, children, className }: Props) {
   const [isNavigating, setIsNavigating] = useState(false);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (pathname) setIsNavigating(false);
+  }, [pathname]);
 
   return (
     <li className="relative">
@@ -28,9 +36,19 @@ export function FixtureRowLink({ href, children, className }: Props) {
   );
 }
 
-/** Link that shows the "Building your Stats" loading overlay when navigating to fixture stats (e.g. Explore more CTAs). */
-export function FixtureStatsLink({ href, children, className }: Props) {
+/** Link that shows the loading overlay when navigating (e.g. Explore more CTAs). */
+export function FixtureStatsLink({
+  href,
+  children,
+  className,
+  message = DEFAULT_LOADING_MESSAGE,
+}: Props & { message?: string }) {
   const [isNavigating, setIsNavigating] = useState(false);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (pathname) setIsNavigating(false);
+  }, [pathname]);
 
   return (
     <span className="relative inline-block">
@@ -43,8 +61,45 @@ export function FixtureStatsLink({ href, children, className }: Props) {
         {children}
       </Link>
       {isNavigating && (
-        <NavigationLoadingOverlay message="Building your Stats" italic />
+        <NavigationLoadingOverlay message={message} italic />
       )}
     </span>
+  );
+}
+
+/** Wrapper for any Link that shows a full-screen loading overlay during navigation. Use for billboard CTAs. */
+type NavLinkWithOverlayProps = Props & {
+  message?: string;
+  italic?: boolean;
+};
+
+export function NavLinkWithOverlay({
+  href,
+  children,
+  className,
+  message = DEFAULT_LOADING_MESSAGE,
+  italic = true,
+}: NavLinkWithOverlayProps) {
+  const [isNavigating, setIsNavigating] = useState(false);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (pathname) setIsNavigating(false);
+  }, [pathname]);
+
+  return (
+    <>
+      <Link
+        href={href}
+        className={className}
+        onClick={() => setIsNavigating(true)}
+        aria-busy={isNavigating}
+      >
+        {children}
+      </Link>
+      {isNavigating && (
+        <NavigationLoadingOverlay message={message} italic={italic} />
+      )}
+    </>
   );
 }
