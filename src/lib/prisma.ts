@@ -5,8 +5,9 @@ import { join } from "path";
 const ENGINE_NAME = "query-engine-rhel-openssl-3.0.x";
 
 /**
- * On serverless (Vercel/Lambda) the filesystem is read-only and Prisma tries to chmod the
- * query engine binary, causing EPERM. Copy the engine to /tmp (writable) and point Prisma at it.
+ * On Vercel/Lambda the deployment filesystem is read-only. Prisma tries to chmod the query
+ * engine binary at runtime, causing EPERM and a broken UI. Copy the engine to /tmp (writable)
+ * once per cold start and point Prisma at it so this never happens on the deployed site.
  */
 function ensurePrismaEngineForServerless(): void {
   if (process.env.PRISMA_QUERY_ENGINE_BINARY) return;
@@ -19,14 +20,22 @@ function ensurePrismaEngineForServerless(): void {
     return;
   }
 
-  let sourcePath: string;
+  const cwd = process.cwd();
+  const candidates: string[] = [
+    join(cwd, "node_modules", ".prisma", "client", ENGINE_NAME),
+  ];
   try {
     const clientEntry = require.resolve("@prisma/client");
-    sourcePath = join(clientEntry, "..", "..", ".prisma", "client", ENGINE_NAME);
+    candidates.push(
+      join(clientEntry, "..", "..", ".prisma", "client", ENGINE_NAME),
+      join(clientEntry, "..", "..", "..", ".prisma", "client", ENGINE_NAME),
+    );
   } catch {
-    sourcePath = join(process.cwd(), "node_modules", ".prisma", "client", ENGINE_NAME);
+    // require.resolve can fail in some bundler contexts; cwd candidate is enough
   }
-  if (!existsSync(sourcePath)) return;
+
+  const sourcePath = candidates.find((p) => existsSync(p));
+  if (!sourcePath) return;
 
   try {
     copyFileSync(sourcePath, tmpPath);
