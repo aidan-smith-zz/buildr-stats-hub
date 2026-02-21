@@ -15,6 +15,9 @@ async function clearTeamStatsCache() {
     const deletedStats = await prisma.teamSeasonStats.deleteMany({});
     console.log(`  TeamSeasonStats: ${deletedStats.count}`);
 
+    const deletedCache = await prisma.teamFixtureCache.deleteMany({});
+    console.log(`  TeamFixtureCache (last-5): ${deletedCache.count}`);
+
     const deletedLogs = await prisma.apiFetchLog.deleteMany({
       where: { resource: { startsWith: "teamSeasonCorners:" } },
     });

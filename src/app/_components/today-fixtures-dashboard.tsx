@@ -98,6 +98,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
   const [sortBy, setSortBy] = useState<PlayerSortKey>("goals");
   const [activeTab, setActiveTab] = useState<"home" | "away">("home");
   const [shareLabel, setShareLabel] = useState<"Share" | "Copied!" | "Shared!">("Share");
+  const [teamStatsView, setTeamStatsView] = useState<"season" | "last5">("season");
   const [liveScore, setLiveScore] = useState<{
     homeGoals: number;
     awayGoals: number;
@@ -504,13 +505,28 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
         <section className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-6 p-4">
           {loading ? null : stats?.teamStats ? (
             <>
-              <header className="border-b border-neutral-200 pb-4 dark:border-neutral-800">
-                <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                  Team Stats
-                </h2>
-                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                  Season {stats.fixture.season} — average per match
-                </p>
+              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-4 dark:border-neutral-800">
+                <div>
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                    Team Stats
+                  </h2>
+                  <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                    {teamStatsView === "season"
+                      ? `Season ${stats.fixture.season} — average per match`
+                      : "Last 5 matches — average per match"}
+                  </p>
+                </div>
+                <select
+                  value={teamStatsView}
+                  onChange={(e) => setTeamStatsView(e.target.value as "season" | "last5")}
+                  className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 shadow-sm focus:border-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:focus:border-neutral-500 dark:focus:ring-neutral-500"
+                  aria-label="Team stats view"
+                >
+                  <option value="season">Whole season</option>
+                  <option value="last5" disabled={!stats.teamStatsLast5}>
+                    Last 5 matches
+                  </option>
+                </select>
               </header>
               <div className="overflow-x-auto rounded-b-lg border border-t-0 border-neutral-200 bg-neutral-50/50 dark:border-neutral-800 dark:bg-neutral-900/50">
                 <table className="w-full min-w-[26rem] text-sm">
@@ -537,46 +553,53 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                    <tr className="bg-white transition-colors hover:bg-neutral-50/80 dark:bg-neutral-900/80 dark:hover:bg-neutral-800/50">
-                      <td className="py-3 pl-4 pr-3 font-medium text-neutral-900 dark:text-neutral-50">
-                        {stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
-                      </td>
-                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                        {stats.teamStats.home.xgPer90 != null ? stats.teamStats.home.xgPer90.toFixed(2) : "–"}
-                      </td>
-                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                        {stats.teamStats.home.goalsPer90.toFixed(2)}
-                      </td>
-                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                        {stats.teamStats.home.concededPer90.toFixed(2)}
-                      </td>
-                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                        {stats.teamStats.home.cornersPer90.toFixed(2)}
-                      </td>
-                      <td className="py-3 pr-4 pl-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                        {stats.teamStats.home.cardsPer90.toFixed(2)}
-                      </td>
-                    </tr>
-                    <tr className="bg-white transition-colors hover:bg-neutral-50/80 dark:bg-neutral-900/80 dark:hover:bg-neutral-800/50">
-                      <td className="py-3 pl-4 pr-3 font-medium text-neutral-900 dark:text-neutral-50">
-                        {stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
-                      </td>
-                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                        {stats.teamStats.away.xgPer90 != null ? stats.teamStats.away.xgPer90.toFixed(2) : "–"}
-                      </td>
-                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                        {stats.teamStats.away.goalsPer90.toFixed(2)}
-                      </td>
-                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                        {stats.teamStats.away.concededPer90.toFixed(2)}
-                      </td>
-                      <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                        {stats.teamStats.away.cornersPer90.toFixed(2)}
-                      </td>
-                      <td className="py-3 pr-4 pl-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                        {stats.teamStats.away.cardsPer90.toFixed(2)}
-                      </td>
-                    </tr>
+                    {(() => {
+                      const data = teamStatsView === "last5" && stats.teamStatsLast5 ? stats.teamStatsLast5 : stats.teamStats;
+                      return (
+                        <>
+                          <tr className="bg-white transition-colors hover:bg-neutral-50/80 dark:bg-neutral-900/80 dark:hover:bg-neutral-800/50">
+                            <td className="py-3 pl-4 pr-3 font-medium text-neutral-900 dark:text-neutral-50">
+                              {stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
+                            </td>
+                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                              {data.home.xgPer90 != null ? data.home.xgPer90.toFixed(2) : "–"}
+                            </td>
+                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                              {data.home.goalsPer90.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                              {data.home.concededPer90.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                              {data.home.cornersPer90.toFixed(2)}
+                            </td>
+                            <td className="py-3 pr-4 pl-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                              {data.home.cardsPer90.toFixed(2)}
+                            </td>
+                          </tr>
+                          <tr className="bg-white transition-colors hover:bg-neutral-50/80 dark:bg-neutral-900/80 dark:hover:bg-neutral-800/50">
+                            <td className="py-3 pl-4 pr-3 font-medium text-neutral-900 dark:text-neutral-50">
+                              {stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
+                            </td>
+                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                              {data.away.xgPer90 != null ? data.away.xgPer90.toFixed(2) : "–"}
+                            </td>
+                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                              {data.away.goalsPer90.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                              {data.away.concededPer90.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                              {data.away.cornersPer90.toFixed(2)}
+                            </td>
+                            <td className="py-3 pr-4 pl-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
+                              {data.away.cardsPer90.toFixed(2)}
+                            </td>
+                          </tr>
+                        </>
+                      );
+                    })()}
                   </tbody>
                 </table>
               </div>

@@ -454,6 +454,8 @@ export type TeamFixturesWithGoals = {
   goalsFor: number;
   goalsAgainst: number;
   played: number;
+  /** Per-fixture for caching (same response, no extra API). */
+  fixtures: { apiFixtureId: number; date: Date; goalsFor: number; goalsAgainst: number }[];
 };
 
 /**
@@ -473,33 +475,42 @@ export async function fetchTeamFixturesWithGoals(
   };
 
   type ApiFixtureItem = {
-    fixture?: { id?: number };
+    fixture?: { id?: number; date?: string };
     league?: unknown;
     teams?: { home?: { id?: number }; away?: { id?: number } };
     goals?: { home?: number | null; away?: number | null };
   };
   try {
     const response = await request<ApiFixtureItem>(path, searchParams);
-    if (!response?.length) return { fixtureIds: [], goalsFor: 0, goalsAgainst: 0, played: 0 };
+    if (!response?.length) return { fixtureIds: [], goalsFor: 0, goalsAgainst: 0, played: 0, fixtures: [] };
 
     const teamIdNum = Number(teamApiId);
     let goalsFor = 0;
     let goalsAgainst = 0;
     const fixtureIds: number[] = [];
+    const fixtures: { apiFixtureId: number; date: Date; goalsFor: number; goalsAgainst: number }[] = [];
 
     for (const f of response) {
       const id = f.fixture?.id;
-      if (typeof id === "number") fixtureIds.push(id);
       const homeId = f.teams?.home?.id;
       const awayId = f.teams?.away?.id;
       const homeGoals = f.goals?.home ?? 0;
       const awayGoals = f.goals?.away ?? 0;
+      let fGoalsFor = 0;
+      let fGoalsAgainst = 0;
       if (homeId === teamIdNum) {
-        goalsFor += homeGoals;
-        goalsAgainst += awayGoals;
+        fGoalsFor = homeGoals;
+        fGoalsAgainst = awayGoals;
       } else if (awayId === teamIdNum) {
-        goalsFor += awayGoals;
-        goalsAgainst += homeGoals;
+        fGoalsFor = awayGoals;
+        fGoalsAgainst = homeGoals;
+      }
+      goalsFor += fGoalsFor;
+      goalsAgainst += fGoalsAgainst;
+      if (typeof id === "number") {
+        fixtureIds.push(id);
+        const date = f.fixture?.date ? new Date(f.fixture.date) : new Date(0);
+        fixtures.push({ apiFixtureId: id, date, goalsFor: fGoalsFor, goalsAgainst: fGoalsAgainst });
       }
     }
 
@@ -508,10 +519,11 @@ export async function fetchTeamFixturesWithGoals(
       goalsFor,
       goalsAgainst,
       played: fixtureIds.length,
+      fixtures,
     };
   } catch {
     console.error("[footballApi] fetchTeamFixturesWithGoals error");
-    return { fixtureIds: [], goalsFor: 0, goalsAgainst: 0, played: 0 };
+    return { fixtureIds: [], goalsFor: 0, goalsAgainst: 0, played: 0, fixtures: [] };
   }
 }
 

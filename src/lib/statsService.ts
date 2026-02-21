@@ -61,6 +61,11 @@ export type FixtureStatsResponse = {
     home: TeamStatsPer90;
     away: TeamStatsPer90;
   };
+  /** Same shape as teamStats but from last 5 fixtures (average per match). No extra API. */
+  teamStatsLast5?: {
+    home: TeamStatsPer90;
+    away: TeamStatsPer90;
+  };
 };
 
 const TEAM_STATS_TIMEZONE = "Europe/London";
@@ -115,7 +120,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
     return;
   }
 
-  const { fixtureIds, goalsFor, goalsAgainst, played } = await fetchTeamFixturesWithGoals(teamApiId, season, leagueId);
+  const { fixtureIds, goalsFor, goalsAgainst, played, fixtures: fixturesMeta } = await fetchTeamFixturesWithGoals(teamApiId, season, leagueId);
   const minutesPlayed = played * 90;
 
   let corners = 0;
@@ -128,7 +133,8 @@ async function ensureTeamSeasonStatsCornersAndCards(
   for (let i = 0; i < limit; i++) {
     if (i > 0) await sleep(FIXTURE_STATS_DELAY_MS);
     const stat = await fetchFixtureStatistics(fixtureIds[i], teamApiId);
-    if (stat) {
+    const meta = fixturesMeta[i];
+    if (stat && meta) {
       corners += stat.corners;
       yellowCards += stat.yellowCards;
       redCards += stat.redCards;
@@ -136,6 +142,38 @@ async function ensureTeamSeasonStatsCornersAndCards(
         xgSum += stat.xg;
         xgCount++;
       }
+      await prisma.teamFixtureCache.upsert({
+        where: {
+          teamId_season_league_apiFixtureId: {
+            teamId,
+            season,
+            league: leagueKey,
+            apiFixtureId: String(fixtureIds[i]),
+          },
+        },
+        create: {
+          teamId,
+          season,
+          league: leagueKey,
+          apiFixtureId: String(fixtureIds[i]),
+          fixtureDate: meta.date,
+          goalsFor: meta.goalsFor,
+          goalsAgainst: meta.goalsAgainst,
+          xg: stat.xg,
+          corners: stat.corners,
+          yellowCards: stat.yellowCards,
+          redCards: stat.redCards,
+        },
+        update: {
+          fixtureDate: meta.date,
+          goalsFor: meta.goalsFor,
+          goalsAgainst: meta.goalsAgainst,
+          xg: stat.xg,
+          corners: stat.corners,
+          yellowCards: stat.yellowCards,
+          redCards: stat.redCards,
+        },
+      });
     }
   }
   const xgFor = xgCount > 0 ? xgSum : null;
@@ -628,6 +666,41 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
         }
       : undefined;
 
+  const leagueKeyForCache = fixture.league ?? "Unknown";
+  const last5Home = await prisma.teamFixtureCache.findMany({
+    where: { teamId: fixture.homeTeamId, season: fixture.season, league: leagueKeyForCache },
+    orderBy: { fixtureDate: "desc" },
+    take: 5,
+  });
+  const last5Away = await prisma.teamFixtureCache.findMany({
+    where: { teamId: fixture.awayTeamId, season: fixture.season, league: leagueKeyForCache },
+    orderBy: { fixtureDate: "desc" },
+    take: 5,
+  });
+
+  function last5ToPerMatch(rows: { goalsFor: number; goalsAgainst: number; xg: number | null; corners: number; yellowCards: number; redCards: number }[]): TeamStatsPer90 {
+    if (rows.length === 0) return { xgPer90: null, goalsPer90: 0, concededPer90: 0, cornersPer90: 0, cardsPer90: 0 };
+    const n = rows.length;
+    const goalsFor = rows.reduce((a, r) => a + r.goalsFor, 0) / n;
+    const goalsAgainst = rows.reduce((a, r) => a + r.goalsAgainst, 0) / n;
+    const corners = rows.reduce((a, r) => a + r.corners, 0) / n;
+    const cards = rows.reduce((a, r) => a + r.yellowCards + r.redCards, 0) / n;
+    const xgSum = rows.reduce((a, r) => a + (r.xg ?? 0), 0);
+    const xgCount = rows.filter((r) => r.xg != null).length;
+    return {
+      xgPer90: xgCount > 0 ? xgSum / xgCount : null,
+      goalsPer90: goalsFor,
+      concededPer90: goalsAgainst,
+      cornersPer90: corners,
+      cardsPer90: cards,
+    };
+  }
+
+  const teamStatsLast5: FixtureStatsResponse["teamStatsLast5"] =
+    last5Home.length > 0 || last5Away.length > 0
+      ? { home: last5ToPerMatch(last5Home), away: last5ToPerMatch(last5Away) }
+      : undefined;
+
   const hasLineup = lineupByTeam.size > 0;
 
   return {
@@ -635,6 +708,7 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     hasLineup,
     teams,
     teamStats,
+    teamStatsLast5,
   };
 }
 

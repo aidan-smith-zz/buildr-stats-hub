@@ -25,16 +25,41 @@ model Team {
   country   String?
   crestUrl  String? // Team logo/crest URL from API-Football (media.api-sports.io)
 
-  homeFixtures     Fixture[]           @relation("HomeTeamFixtures")
-  awayFixtures     Fixture[]           @relation("AwayTeamFixtures")
-  players          Player[]
-  seasonStats     PlayerSeasonStats[]
-  teamSeasonStats  TeamSeasonStats[]
-  fixtureTeamStats FixtureTeamStats[]
-  fixtureLineups   FixtureLineup[]
+  homeFixtures       Fixture[]             @relation("HomeTeamFixtures")
+  awayFixtures       Fixture[]             @relation("AwayTeamFixtures")
+  players            Player[]
+  seasonStats        PlayerSeasonStats[]
+  teamSeasonStats    TeamSeasonStats[]
+  fixtureTeamStats   FixtureTeamStats[]
+  teamFixtureCache   TeamFixtureCache[]
+  fixtureLineups     FixtureLineup[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Per-fixture stats for a team (from existing API calls in ensureTeamSeasonStats). Used for "last 5" average with no extra API.
+model TeamFixtureCache {
+  id            Int      @id @default(autoincrement())
+  teamId        Int
+  season        String
+  league        String
+  apiFixtureId  String   // API-Football fixture id
+  fixtureDate   DateTime
+  goalsFor      Int      @default(0)
+  goalsAgainst  Int      @default(0)
+  xg            Float?
+  corners       Int      @default(0)
+  yellowCards   Int      @default(0)
+  redCards      Int      @default(0)
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, season, league, apiFixtureId])
+  @@index([teamId, season, league])
 }
 
 model TeamSeasonStats {
