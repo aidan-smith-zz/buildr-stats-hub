@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getOrRefreshTodayFixtures } from "@/lib/fixturesService";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
@@ -36,7 +36,7 @@ export default async function FixtureMatchPage({
   const fixture = findFixture(fixtures, leagueSlug, matchSlugParam);
 
   if (!fixture) {
-    notFound();
+    redirect("/");
   }
 
   return (

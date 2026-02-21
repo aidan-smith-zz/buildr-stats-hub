@@ -2,6 +2,9 @@
  * Warm today's fixtures using chunked requests (each under 60s for Vercel Hobby).
  * Per fixture: home → away → teamstats-home (loop until done) → teamstats-away (loop) → lineup → stats.
  *
+ * Speed: Delays between steps are kept short (1.5s / 4s). If you hit rate limits or timeouts,
+ * set DELAY_CHUNKS_MS=5000 DELAY_FIXTURES_MS=15000 (or higher) when running.
+ *
  * Usage: npm run warm-today
  * Optional: BASE_URL=https://your-app.vercel.app npm run warm-today
  */
@@ -9,12 +12,12 @@
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 /** Slightly over 60s so we don't abort before the server responds (Hobby max 60s). */
 const REQUEST_TIMEOUT_MS = 75_000;
-/** Delay between chunks and between fixtures. */
-const DELAY_BETWEEN_CHUNKS_MS = 5_000;
-const DELAY_BETWEEN_FIXTURES_MS = 15_000;
+/** Short delay between steps so we don't hammer the server. Override with DELAY_CHUNKS_MS / DELAY_FIXTURES_MS env. */
+const DELAY_BETWEEN_CHUNKS_MS = Number(process.env.DELAY_CHUNKS_MS) || 1_500;
+const DELAY_BETWEEN_FIXTURES_MS = Number(process.env.DELAY_FIXTURES_MS) || 4_000;
 /** Retry a fixture's full sequence up to this many times. */
 const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 15_000;
+const RETRY_DELAY_MS = Number(process.env.RETRY_DELAY_MS) || 5_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -188,7 +191,8 @@ async function main() {
   console.log("\n[warm-today] Summary:");
   console.log(`  Succeeded: ${succeeded.length}/${fixtures.length}`);
   if (failed.length) {
-    console.log(`  Failed: ${failed.map((f) => `${f.label} (${f.error})`).join("; ")}`);
+    console.log("  Still need warming:");
+    failed.forEach((f, i) => console.log(`    ${i + 1}. ${f.label} — ${f.error}`));
   }
   if (totalToday > fixtures.length) {
     console.log(`  (${totalToday - fixtures.length} fixture(s) were already warm and skipped.)`);

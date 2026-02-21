@@ -522,7 +522,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                   className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 shadow-sm focus:border-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:focus:border-neutral-500 dark:focus:ring-neutral-500"
                   aria-label="Team stats view"
                 >
-                  <option value="season">Whole season</option>
+                  <option value="season">Season</option>
                   <option value="last5" disabled={!stats.teamStatsLast5}>
                     Last 5 matches
                   </option>
