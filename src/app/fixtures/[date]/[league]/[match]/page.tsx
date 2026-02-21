@@ -58,7 +58,7 @@ export default async function FixtureMatchPage({
               New AI Insights
             </h2>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              We scan today&apos;s fixtures and facts and surface the trends that matter.
+            We scan today's fixtures & stats then we surface the trends that matter
             </p>
             <Link
               href={`/${dateKey}/ai/insights`}

@@ -93,19 +93,58 @@ export async function GET(_request: Request, { params }: RouteParams) {
     );
   }
 
-  // Only call external API during the game (kickoff → kickoff + 2.5h). After that, use cache or fallback.
+  // Past the game window: match has ended. Use cache only if it already says FT; otherwise re-fetch once to get final result, or force FT so we don't show stale "45'" etc.
   const elapsedSinceKickoff = now.getTime() - kickoff.getTime();
   const duringGame = elapsedSinceKickoff <= MAX_MATCH_DURATION_MS;
 
   if (!duringGame) {
+    // Stale cache (e.g. last updated at 45' / HT): re-fetch once to get FT and update cache.
+    if (cached && !cacheSaysEnded && fixture.apiId) {
+      try {
+        const result = await fetchLiveFixture(fixture.apiId);
+        if (result && isMatchEnded(result.statusShort)) {
+          await prisma.liveScoreCache.upsert({
+            where: { fixtureId },
+            create: {
+              fixtureId,
+              homeGoals: result.homeGoals,
+              awayGoals: result.awayGoals,
+              elapsedMinutes: result.elapsedMinutes,
+              statusShort: result.statusShort,
+              cachedAt: now,
+            },
+            update: {
+              homeGoals: result.homeGoals,
+              awayGoals: result.awayGoals,
+              elapsedMinutes: result.elapsedMinutes,
+              statusShort: result.statusShort,
+              cachedAt: now,
+            },
+          });
+          return NextResponse.json(
+            {
+              live: true,
+              homeGoals: result.homeGoals,
+              awayGoals: result.awayGoals,
+              elapsedMinutes: result.elapsedMinutes,
+              statusShort: result.statusShort,
+            },
+            { headers: { "Cache-Control": "public, max-age=3600" } },
+          );
+        }
+      } catch {
+        // Fall through to force FT below
+      }
+    }
+    // Use cache if we have it, but force status to FT so UI doesn't show "45'" — match has ended.
     if (cached) {
       return NextResponse.json(
         {
           live: true,
           homeGoals: cached.homeGoals,
           awayGoals: cached.awayGoals,
-          elapsedMinutes: cached.elapsedMinutes,
-          statusShort: cached.statusShort,
+          elapsedMinutes: null,
+          statusShort: isMatchEnded(cached.statusShort) ? cached.statusShort : "FT",
         },
         { headers: { "Cache-Control": "public, max-age=3600" } },
       );

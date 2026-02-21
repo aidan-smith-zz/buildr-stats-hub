@@ -266,7 +266,7 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
                 New AI Insights
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-                We scan today's fixtures and facts and we surface the trends that matter
+                We scan today's fixtures & stats then we surface the trends that matter
               </p>
               <span className="mt-4 inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400">
                 See AI Insights →
