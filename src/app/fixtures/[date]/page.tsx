@@ -1,4 +1,5 @@
 import { getOrRefreshTodayFixtures } from "@/lib/fixturesService";
+import { todayDateKey } from "@/lib/slugs";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,8 @@ export default async function FixturesDatePage({
   params: Promise<{ date: string }>;
 }) {
   await params;
-  const fixtures = await getOrRefreshTodayFixtures(new Date());
-  return <TodayFixturesList fixtures={fixtures} showHero />;
+  const now = new Date();
+  const fixtures = await getOrRefreshTodayFixtures(now);
+  const todayKey = todayDateKey();
+  return <TodayFixturesList fixtures={fixtures} showHero todayKey={todayKey} />;
 }

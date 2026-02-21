@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { BurgerMenu } from "@/app/_components/burger-menu";
 import { GoogleAnalytics } from "@/app/_components/google-analytics";
 import { HomeLink } from "@/app/_components/home-link";
 import "./globals.css";
@@ -57,8 +58,9 @@ export default function RootLayout({
       >
         <GoogleAnalytics />
         <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-black sm:px-6">
-          <div className="mx-auto flex max-w-4xl items-center overflow-visible">
+          <div className="mx-auto flex max-w-4xl items-center justify-between overflow-visible">
             <HomeLink />
+            <BurgerMenu />
           </div>
         </header>
         {process.env.NEXT_PUBLIC_CTA_URL ? (

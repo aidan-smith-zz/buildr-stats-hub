@@ -1,4 +1,5 @@
 import { getOrRefreshTodayFixtures } from "@/lib/fixturesService";
+import { todayDateKey } from "@/lib/slugs";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +28,10 @@ function getFixtureErrorDisplay(err: unknown): { message: string; showConfigHint
 
 export default async function Home() {
   try {
-    const fixtures = await getOrRefreshTodayFixtures(new Date());
-    return <TodayFixturesList fixtures={fixtures} showHero />;
+    const now = new Date();
+    const fixtures = await getOrRefreshTodayFixtures(now);
+    const todayKey = todayDateKey();
+    return <TodayFixturesList fixtures={fixtures} showHero todayKey={todayKey} />;
   } catch (err) {
     const { message, showConfigHints } = getFixtureErrorDisplay(err);
     const isMissingLeagueId =

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { FixtureRowLink, FixtureStatsLink } from "@/app/_components/fixture-row-link";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
@@ -117,6 +118,8 @@ type Props = {
   fixtures: FixtureSummary[];
   /** Show hero (title + description). Default true for homepage. */
   showHero?: boolean;
+  /** Today's date key (YYYY-MM-DD) from server to avoid hydration mismatch. */
+  todayKey?: string;
 };
 
 function getFixtureUrl(fixture: FixtureSummary): string {
@@ -127,21 +130,28 @@ function getFixtureUrl(fixture: FixtureSummary): string {
   return `/fixtures/${dateKey}/${leagueSlug}/${matchSlug(home, away)}`;
 }
 
-function pickRandom<T>(arr: T[], count: number): T[] {
+/** Deterministic "random" pick so server and client render the same (avoids hydration mismatch). */
+function pickDeterministic<T>(arr: T[], count: number, seed: string): T[] {
   if (arr.length === 0) return [];
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
+  const next = () => {
+    h = (Math.imul(16807, h) | 0) % 2147483647;
+    return (h >>> 0) / 2147483647;
+  };
   const result: T[] = [];
   for (let i = 0; i < count; i++) {
-    result.push(arr[Math.floor(Math.random() * arr.length)]);
+    result.push(arr[Math.floor(next() * arr.length)]);
   }
   return result;
 }
 
-export function TodayFixturesList({ fixtures, showHero = true }: Props) {
-  const todayKey = todayDateKey();
+export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKeyProp }: Props) {
+  const todayKey = todayKeyProp ?? todayDateKey();
   const sortedFixtures = fixturesByKickOff(fixtures);
   const timeGroups = groupByKickOffTime(sortedFixtures);
   const displayDate = formatDisplayDate(todayKey);
-  const [randomFixture1, randomFixture2] = pickRandom(sortedFixtures, 2);
+  const [randomFixture1, randomFixture2] = pickDeterministic(sortedFixtures, 2, todayKey);
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -242,6 +252,20 @@ export function TodayFixturesList({ fixtures, showHero = true }: Props) {
             Explore more
           </h2>
           <div className="grid gap-6 sm:grid-cols-2">
+            <Link
+              href={`/${todayKey}/ai/insights`}
+              className="rounded-2xl border border-violet-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-violet-800/50 dark:bg-neutral-900 dark:hover:shadow-violet-900/20 dark:hover:border-violet-700/50 sm:col-span-2"
+            >
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                New AI Insights
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+                We scan today's fixtures and facts and we surface the trends that matter
+              </p>
+              <span className="mt-4 inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400">
+                See AI Insights →
+              </span>
+            </Link>
             <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:shadow-neutral-800/50">
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
                 Season Player Performance Stats
