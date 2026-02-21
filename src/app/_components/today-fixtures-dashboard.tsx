@@ -326,7 +326,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
               {loading ? (
                 <div className="flex flex-col items-center gap-3 py-4">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-600 dark:border-neutral-700 dark:border-t-neutral-400" />
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400">Loading stats...</p>
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400"><i>Building your Stats</i></p>
                 </div>
               ) : (
                 <span className="sr-only">Match info will appear when stats have loaded</span>

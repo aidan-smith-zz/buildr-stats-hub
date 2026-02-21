@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { FixtureRowLink } from "@/app/_components/fixture-row-link";
+import { FixtureRowLink, FixtureStatsLink } from "@/app/_components/fixture-row-link";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
@@ -251,12 +250,12 @@ export function TodayFixturesList({ fixtures, showHero = true }: Props) {
                 Detailed player statistics including shots per 90, goals, assists, and disciplinary records
               </p>
               {randomFixture1 && (
-                <Link
+                <FixtureStatsLink
                   href={getFixtureUrl(randomFixture1)}
                   className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
                 >
                   View match stats →
-                </Link>
+                </FixtureStatsLink>
               )}
             </div>
             <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:shadow-neutral-800/50">
@@ -267,12 +266,12 @@ export function TodayFixturesList({ fixtures, showHero = true }: Props) {
                 Compare team averages/patterns for goals, corners, and cards across the season
               </p>
               {randomFixture2 && (
-                <Link
+                <FixtureStatsLink
                   href={getFixtureUrl(randomFixture2)}
                   className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
                 >
                   Today's stats →
-                </Link>
+                </FixtureStatsLink>
               )}
             </div>
           </div>

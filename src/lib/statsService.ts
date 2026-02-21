@@ -341,18 +341,38 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
   const fixtureWithLeagueId = fixture as FixtureWithLeagueId;
   const teamIds = [fixture.homeTeamId, fixture.awayTeamId];
   const leagueFilter = fixture.league ? { league: fixture.league } : {};
+  const leagueKeyForTeamStats = fixture.league ?? "Unknown";
+  const leagueIdForTeamStats =
+    fixtureWithLeagueId.leagueId ??
+    (fixture.league ? LEAGUE_ID_MAP[fixture.league] : undefined);
 
-  // Require at least this many players per team; otherwise refetch (fixes partial data from pagination or errors)
-  const MIN_PLAYERS_PER_TEAM = 11;
-  const counts = await prisma.playerSeasonStats.groupBy({
-    by: ["teamId"],
-    where: {
-      teamId: { in: teamIds },
-      season: fixture.season,
-      ...leagueFilter,
-    },
-    _count: { id: true },
+  const teamStatsWhere = (teamId: number) => ({
+    teamId,
+    season: fixture.season,
+    ...(leagueIdForTeamStats != null
+      ? { OR: [{ league: leagueKeyForTeamStats }, { leagueId: leagueIdForTeamStats }] }
+      : { league: leagueKeyForTeamStats }),
   });
+
+  // Run all independent DB checks in parallel to cut round-trips (warm path is much faster).
+  const [counts, homeTeamStatsExisting, awayTeamStatsExisting, lineupCount, lineupByTeamInitial] =
+    await Promise.all([
+      prisma.playerSeasonStats.groupBy({
+        by: ["teamId"],
+        where: {
+          teamId: { in: teamIds },
+          season: fixture.season,
+          ...leagueFilter,
+        },
+        _count: { id: true },
+      }),
+      prisma.teamSeasonStats.findFirst({ where: teamStatsWhere(fixture.homeTeamId) }),
+      prisma.teamSeasonStats.findFirst({ where: teamStatsWhere(fixture.awayTeamId) }),
+      prisma.fixtureLineup.count({ where: { fixtureId: fixture.id } }),
+      getLineupForFixture(fixture.id),
+    ]);
+
+  const MIN_PLAYERS_PER_TEAM = 11;
   const countByTeam = new Map(counts.map((c) => [c.teamId, c._count.id]));
   const teamsNeedingStats = teamIds.filter((tid) => (countByTeam.get(tid) ?? 0) < MIN_PLAYERS_PER_TEAM);
 
@@ -361,7 +381,6 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
       fixtureWithLeagueId.leagueId ??
       (fixture.league ? LEAGUE_ID_MAP[fixture.league] : undefined);
 
-    // Fetch stats for each team that needs them (serial to respect downstream rate limit)
     for (const teamId of teamsNeedingStats) {
       const team = teamId === fixture.homeTeamId ? fixture.homeTeam : fixture.awayTeam;
       if (team.apiId) {
@@ -383,14 +402,9 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     }
   }
 
-  // Ensure season-level team stats for both teams (once per day per team/season/league). Serial to respect rate limit.
-  const leagueIdForTeamStats =
-    fixtureWithLeagueId.leagueId ??
-    (fixture.league ? LEAGUE_ID_MAP[fixture.league] : undefined);
-
-  const leagueKeyForTeamStats = fixture.league ?? "Unknown";
+  // Only ensure team season stats for teams that don't already have them (saves 2 queries per team when cached).
   if (leagueIdForTeamStats != null) {
-    if (fixture.homeTeam.apiId) {
+    if (fixture.homeTeam.apiId && !homeTeamStatsExisting) {
       await ensureTeamSeasonStatsCornersAndCards(
         fixture.homeTeamId,
         fixture.homeTeam.apiId,
@@ -400,7 +414,7 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
       );
       await sleep(FIXTURE_STATS_DELAY_MS);
     }
-    if (fixture.awayTeam.apiId) {
+    if (fixture.awayTeam.apiId && !awayTeamStatsExisting) {
       await ensureTeamSeasonStatsCornersAndCards(
         fixture.awayTeamId,
         fixture.awayTeam.apiId,
@@ -411,20 +425,21 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     }
   }
 
-  // Lineup: fetch from API only if within 30 min of kickoff and no lineup in DB; then always read from DB
-  await ensureLineupIfWithinWindow(
-    fixture.id,
-    fixture.date,
-    fixture.apiId,
-    fixture.homeTeamId,
-    fixture.awayTeamId,
-    fixture.homeTeam.apiId,
-    fixture.awayTeam.apiId,
-  );
-  const lineupByTeam = await getLineupForFixture(fixture.id);
+  // Only ensure lineup when we don't have one; re-read lineup only if we might have just written it.
+  const hadLineup = lineupCount > 0;
+  if (!hadLineup) {
+    await ensureLineupIfWithinWindow(
+      fixture.id,
+      fixture.date,
+      fixture.apiId,
+      fixture.homeTeamId,
+      fixture.awayTeamId,
+      fixture.homeTeam.apiId,
+      fixture.awayTeam.apiId,
+    );
+  }
 
-  // Now fetch the stats (either existing or newly stored)
-  const stats = await prisma.playerSeasonStats.findMany({
+  const playerStatsQuery = prisma.playerSeasonStats.findMany({
     where: {
       teamId: { in: teamIds },
       season: fixture.season,
@@ -436,6 +451,11 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     },
     orderBy: [{ teamId: "asc" }, { minutes: "desc" }],
   });
+
+  const [lineupByTeam, stats] =
+    hadLineup
+      ? [lineupByTeamInitial, await playerStatsQuery]
+      : await Promise.all([getLineupForFixture(fixture.id), playerStatsQuery]);
 
   const byTeam = new Map<
     number,

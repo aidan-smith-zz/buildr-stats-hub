@@ -20,7 +20,9 @@ export function HomeLink() {
         href="/"
         className="flex items-center gap-2 transition-opacity hover:opacity-80 focus:opacity-80"
         aria-label="Back to home"
-        onClick={() => setIsNavigating(true)}
+        onClick={() => {
+          if (pathname !== "/") setIsNavigating(true);
+        }}
         aria-busy={isNavigating}
       >
         <Image
