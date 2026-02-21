@@ -148,12 +148,26 @@ function pickDeterministic<T>(arr: T[], count: number, seed: string): T[] {
   return result;
 }
 
+/** Fixtures that will produce valid billboard CTA URLs (have league and teams). */
+function fixturesWithValidUrls(fixtures: FixtureSummary[]): FixtureSummary[] {
+  return fixtures.filter(
+    (f) =>
+      f.league != null &&
+      f.league.length > 0 &&
+      (f.homeTeam?.name ?? f.homeTeam?.shortName) != null &&
+      (f.awayTeam?.name ?? f.awayTeam?.shortName) != null
+  );
+}
+
 export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKeyProp }: Props) {
   const todayKey = todayKeyProp ?? todayDateKey();
   const sortedFixtures = fixturesByKickOff(fixtures);
   const timeGroups = groupByKickOffTime(sortedFixtures);
   const displayDate = formatDisplayDate(todayKey);
-  const [randomFixture1, randomFixture2] = pickDeterministic(sortedFixtures, 2, todayKey);
+  const billboardFixtures = fixturesWithValidUrls(sortedFixtures);
+  const [picked1, picked2] = pickDeterministic(billboardFixtures, 2, todayKey);
+  const randomFixture1 = picked1 ?? null;
+  const randomFixture2 = picked2 ?? picked1 ?? null;
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
