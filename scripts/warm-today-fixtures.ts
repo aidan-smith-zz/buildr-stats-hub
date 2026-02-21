@@ -8,13 +8,13 @@
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 /** Slightly over 60s so we don't abort before the server responds (Hobby max 60s). */
-const REQUEST_TIMEOUT_MS = 70_000;
+const REQUEST_TIMEOUT_MS = 75_000;
 /** Delay between chunks and between fixtures. */
 const DELAY_BETWEEN_CHUNKS_MS = 5_000;
 const DELAY_BETWEEN_FIXTURES_MS = 15_000;
 /** Retry a fixture's full sequence up to this many times. */
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 10_000;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 15_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -49,21 +49,28 @@ async function fetchWithTimeout(
 
 async function warmTeamStatsUntilDone(
   id: number,
-  part: "teamstats-home" | "teamstats-away"
+  part: "teamstats-home" | "teamstats-away",
+  stepRetries = 2
 ): Promise<{ ok: boolean; error?: string }> {
   for (;;) {
-    const res = await fetchWithTimeout(
-      `${BASE_URL}/api/fixtures/${id}/warm?part=${part}`,
-      REQUEST_TIMEOUT_MS,
-      true
-    );
-    if (!res.ok) {
-      return { ok: false, error: `${part}: ${res.error ?? res.status}` };
+    let lastError: string | undefined;
+    for (let attempt = 0; attempt <= stepRetries; attempt++) {
+      if (attempt > 0) await sleep(RETRY_DELAY_MS);
+      const res = await fetchWithTimeout(
+        `${BASE_URL}/api/fixtures/${id}/warm?part=${part}`,
+        REQUEST_TIMEOUT_MS,
+        true
+      );
+      if (res.ok) {
+        lastError = undefined;
+        if (res.data?.done !== false) return { ok: true };
+        break;
+      }
+      lastError = res.error ?? String(res.status);
     }
-    if (res.data?.done !== false) break;
+    if (lastError) return { ok: false, error: `${part}: ${lastError}` };
     await sleep(DELAY_BETWEEN_CHUNKS_MS);
   }
-  return { ok: true };
 }
 
 async function warmOneFixture(

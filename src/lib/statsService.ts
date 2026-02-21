@@ -78,15 +78,15 @@ function getTeamStatsDayStart(now: Date = new Date()): Date {
 
 const MAX_FIXTURES_PER_SEASON = 38;
 
-/** Delay between fixture-statistics API calls to avoid bursting the provider's per-minute rate limit. Both teams run in parallel, so use ~4s to stay under 30/min. */
-const FIXTURE_STATS_DELAY_MS = Number(process.env.FOOTBALL_API_DELAY_MS) || 2000;
+/** Delay between fixture-statistics API calls. Lower = faster warmup but higher risk of rate limits. Set FOOTBALL_API_DELAY_MS to 2000+ if you hit limits. */
+const FIXTURE_STATS_DELAY_MS = Number(process.env.FOOTBALL_API_DELAY_MS) || 500;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Max fixture-statistics API calls per invocation so one request stays under ~60s (e.g. 25 * 2s delay). */
-const TEAM_STATS_CHUNK_SIZE = 25;
+/** Max fixture-statistics API calls per invocation so one request stays under ~60s (e.g. 20 * 1s delay + response time). */
+const TEAM_STATS_CHUNK_SIZE = 20;
 
 export type EnsureTeamSeasonStatsResult = { done: boolean };
 
@@ -483,6 +483,14 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
       : { league: leagueKeyForTeamStats }),
   });
 
+  const leagueFilterForTeamStats =
+    fixtureWithLeagueId.leagueId != null
+      ? { leagueId: fixtureWithLeagueId.leagueId }
+      : fixture.league
+        ? { league: fixture.league }
+        : {};
+  const leagueKeyForCache = fixture.league ?? "Unknown";
+
   // Run all independent DB checks in parallel to cut round-trips (warm path is much faster).
   const [counts, homeTeamStatsExisting, awayTeamStatsExisting, lineupCount, lineupByTeamInitial] =
     await Promise.all([
@@ -568,6 +576,7 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     );
   }
 
+  // Single parallel read: player stats, team season rows, last-5 cache, and lineup (if needed). Keeps cached path fast.
   const playerStatsQuery = prisma.playerSeasonStats.findMany({
     where: {
       teamId: { in: teamIds },
@@ -580,11 +589,33 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     },
     orderBy: [{ teamId: "asc" }, { minutes: "desc" }],
   });
+  const teamSeasonRowsQuery = prisma.teamSeasonStats.findMany({
+    where: {
+      teamId: { in: [fixture.homeTeamId, fixture.awayTeamId] },
+      season: fixture.season,
+      ...leagueFilterForTeamStats,
+    },
+  });
+  const last5HomeQuery = prisma.teamFixtureCache.findMany({
+    where: { teamId: fixture.homeTeamId, season: fixture.season, league: leagueKeyForCache },
+    orderBy: { fixtureDate: "desc" },
+    take: 5,
+  });
+  const last5AwayQuery = prisma.teamFixtureCache.findMany({
+    where: { teamId: fixture.awayTeamId, season: fixture.season, league: leagueKeyForCache },
+    orderBy: { fixtureDate: "desc" },
+    take: 5,
+  });
+  const lineupQuery = hadLineup ? Promise.resolve(lineupByTeamInitial) : getLineupForFixture(fixture.id);
 
-  const [lineupByTeam, stats] =
-    hadLineup
-      ? [lineupByTeamInitial, await playerStatsQuery]
-      : await Promise.all([getLineupForFixture(fixture.id), playerStatsQuery]);
+  const [stats, teamSeasonRows, last5Home, last5Away, lineupByTeamRes] = await Promise.all([
+    playerStatsQuery,
+    teamSeasonRowsQuery,
+    last5HomeQuery,
+    last5AwayQuery,
+    lineupQuery,
+  ]);
+  const lineupByTeam = lineupByTeamRes;
 
   const byTeam = new Map<
     number,
@@ -713,23 +744,8 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
     ];
   }
 
-  // Prefer leagueId so we find the row even when league name string differs (e.g. "Championship" vs "EFL Championship"); fallback to league name
-  const leagueFilterForTeamStats =
-    fixtureWithLeagueId.leagueId != null
-      ? { leagueId: fixtureWithLeagueId.leagueId }
-      : fixture.league
-        ? { league: fixture.league }
-        : {};
-  const teamSeasonRows = await prisma.teamSeasonStats.findMany({
-    where: {
-      teamId: { in: [fixture.homeTeamId, fixture.awayTeamId] },
-      season: fixture.season,
-      ...leagueFilterForTeamStats,
-    },
-  });
-
-  const homeRow = teamSeasonRows.find((r) => r.teamId === fixture.homeTeamId);
-  const awayRow = teamSeasonRows.find((r) => r.teamId === fixture.awayTeamId);
+  const homeRow = teamSeasonRows.find((r: { teamId: number }) => r.teamId === fixture.homeTeamId);
+  const awayRow = teamSeasonRows.find((r: { teamId: number }) => r.teamId === fixture.awayTeamId);
 
   /** Season totals (this season only) -> average per match. */
   function rowToPerMatch(row: typeof homeRow): TeamStatsPer90 {
@@ -756,18 +772,6 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
           away: rowToPerMatch(awayRow),
         }
       : undefined;
-
-  const leagueKeyForCache = fixture.league ?? "Unknown";
-  const last5Home = await prisma.teamFixtureCache.findMany({
-    where: { teamId: fixture.homeTeamId, season: fixture.season, league: leagueKeyForCache },
-    orderBy: { fixtureDate: "desc" },
-    take: 5,
-  });
-  const last5Away = await prisma.teamFixtureCache.findMany({
-    where: { teamId: fixture.awayTeamId, season: fixture.season, league: leagueKeyForCache },
-    orderBy: { fixtureDate: "desc" },
-    take: 5,
-  });
 
   function last5ToPerMatch(rows: { goalsFor: number; goalsAgainst: number; xg: number | null; corners: number; yellowCards: number; redCards: number }[]): TeamStatsPer90 {
     if (rows.length === 0) return { xgPer90: null, goalsPer90: 0, concededPer90: 0, cornersPer90: 0, cardsPer90: 0 };
