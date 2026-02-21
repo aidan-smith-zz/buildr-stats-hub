@@ -8,6 +8,10 @@ import {
 } from "@/lib/footballApi";
 import { ensureLineupIfWithinWindow, getLineupForFixture } from "@/lib/lineupService";
 
+/** Prisma client with TeamFixtureCache (avoids TS errors when generated client is out of date). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = prisma as typeof prisma & { teamFixtureCache: any };
+
 /** Fixture including leagueId (schema has it; Prisma payload may omit until client is regenerated) */
 type FixtureWithLeagueId = { leagueId?: number | null; league?: string | null };
 
@@ -135,7 +139,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
   const fixtureIdsToProcess = fixtureIds.slice(0, limit);
 
   type CachedFixtureStats = { corners: number; yellowCards: number; redCards: number; xg: number | null };
-  const existingCache = await prisma.teamFixtureCache.findMany({
+  const existingCache = await db.teamFixtureCache.findMany({
     where: {
       teamId,
       season,
@@ -166,7 +170,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
     apiCallsThisInvocation++;
     const stat = await fetchFixtureStatistics(fixtureIds[i], teamApiId);
     if (stat && meta) {
-      await prisma.teamFixtureCache.upsert({
+      await db.teamFixtureCache.upsert({
         where: {
           teamId_season_league_apiFixtureId: {
             teamId,
@@ -203,7 +207,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
 
   // All fixtures processed (from cache or API). Aggregate from DB and write season row.
   const apiFixtureIds = fixtureIdsToProcess.map((id) => String(id));
-  const cacheRows = await prisma.teamFixtureCache.findMany({
+  const cacheRows = await db.teamFixtureCache.findMany({
     where: {
       teamId,
       season,
@@ -596,12 +600,12 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
       ...leagueFilterForTeamStats,
     },
   });
-  const last5HomeQuery = prisma.teamFixtureCache.findMany({
+  const last5HomeQuery = db.teamFixtureCache.findMany({
     where: { teamId: fixture.homeTeamId, season: fixture.season, league: leagueKeyForCache },
     orderBy: { fixtureDate: "desc" },
     take: 5,
   });
-  const last5AwayQuery = prisma.teamFixtureCache.findMany({
+  const last5AwayQuery = db.teamFixtureCache.findMany({
     where: { teamId: fixture.awayTeamId, season: fixture.season, league: leagueKeyForCache },
     orderBy: { fixtureDate: "desc" },
     take: 5,
