@@ -72,14 +72,6 @@ export type FixtureStatsResponse = {
   };
 };
 
-const TEAM_STATS_TIMEZONE = "Europe/London";
-
-/** Start of today in UTC for "already fetched today" check (same calendar day in London). */
-function getTeamStatsDayStart(now: Date = new Date()): Date {
-  const dateKey = now.toLocaleDateString("en-CA", { timeZone: TEAM_STATS_TIMEZONE });
-  return new Date(`${dateKey}T00:00:00.000Z`);
-}
-
 const MAX_FIXTURES_PER_SEASON = 38;
 
 /** Delay between fixture-statistics API calls. Lower = faster warmup but higher risk of rate limits. Set FOOTBALL_API_DELAY_MS to 2000+ if you hit limits. */
@@ -95,9 +87,9 @@ const TEAM_STATS_CHUNK_SIZE = 20;
 export type EnsureTeamSeasonStatsResult = { done: boolean };
 
 /**
- * Aggregate team stats for this season only: goals/conceded from fixtures list,
- * corners/cards/xG from fixture statistics (up to 38 fixtures per team).
- * Cached once per day per team/season/league.
+ * Aggregate team stats for this season: goals/conceded from API fixture list,
+ * corners/cards/xG from fixture statistics. Data is kept in DB (never cleared overnight).
+ * Only fetches fixture statistics for fixtures not already in TeamFixtureCache (incremental).
  * When maxApiCallsPerInvocation is set, only does that many API calls per call and returns { done: false } until all are cached.
  */
 async function ensureTeamSeasonStatsCornersAndCards(
@@ -110,27 +102,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
 ): Promise<EnsureTeamSeasonStatsResult> {
   const maxCalls = options?.maxApiCallsPerInvocation;
 
-  const existing = await prisma.teamSeasonStats.findFirst({
-    where: {
-      teamId,
-      season,
-      OR: [{ league: leagueKey }, leagueId != null ? { leagueId } : { league: leagueKey }],
-    },
-  });
-  if (existing) {
-    return { done: true };
-  }
-
   const resource = `teamSeasonCorners:${teamId}:${season}:${leagueKey}`;
-  const dayStart = getTeamStatsDayStart();
-
-  const lastLog = await prisma.apiFetchLog.findFirst({
-    where: { resource, success: true },
-    orderBy: { fetchedAt: "desc" },
-  });
-  if (lastLog && lastLog.fetchedAt >= dayStart) {
-    return { done: true };
-  }
 
   const { fixtureIds, goalsFor, goalsAgainst, played, fixtures: fixturesMeta } = await fetchTeamFixturesWithGoals(teamApiId, season, leagueId);
   const minutesPlayed = played * 90;
@@ -266,8 +238,12 @@ async function ensureTeamSeasonStatsCornersAndCards(
   return { done: true };
 }
 
+/** Skip refetching player stats for a team if we already updated within this many ms. */
+const PLAYER_STATS_REFRESH_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24h
+
 /**
- * Fetch and store player season stats for a team from the API
+ * Fetch and store player season stats for a team from the API.
+ * Skips the API call if this team/season/league was already refreshed recently (incremental).
  */
 async function fetchAndStorePlayerStats(
   teamId: number,
@@ -277,6 +253,17 @@ async function fetchAndStorePlayerStats(
   leagueId?: number,
 ): Promise<void> {
   try {
+    const leagueKey = league || "Unknown";
+    const recent = await prisma.playerSeasonStats.findFirst({
+      where: { teamId, season, league: leagueKey },
+      orderBy: { updatedAt: "desc" },
+      select: { updatedAt: true },
+    });
+    const skipThreshold = new Date(Date.now() - PLAYER_STATS_REFRESH_COOLDOWN_MS);
+    if (recent && recent.updatedAt >= skipThreshold) {
+      return; // Already refreshed recently; use DB data
+    }
+
     let rawStats = await fetchPlayerSeasonStatsByTeam({
       teamExternalId: teamApiId,
       season,

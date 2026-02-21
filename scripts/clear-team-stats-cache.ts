@@ -3,27 +3,22 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 /**
- * Clears team season stats cache so the next fixture load will refetch
- * standings + corners/cards from the API. Use this if you're seeing all zeros.
+ * Clears only the team-stats fetch log so the next refresh will re-run incremental
+ * update (only fetches fixtures not already in DB). Season-to-date team stats and
+ * TeamFixtureCache are NOT cleared – we keep them permanently.
  *
  * Usage: npx tsx scripts/clear-team-stats-cache.ts
  */
 async function clearTeamStatsCache() {
   try {
-    console.log("Clearing team stats cache...");
-
-    const deletedStats = await prisma.teamSeasonStats.deleteMany({});
-    console.log(`  TeamSeasonStats: ${deletedStats.count}`);
-
-    const deletedCache = await prisma.teamFixtureCache.deleteMany({});
-    console.log(`  TeamFixtureCache (last-5): ${deletedCache.count}`);
+    console.log("Clearing team stats fetch log (season data is kept)...");
 
     const deletedLogs = await prisma.apiFetchLog.deleteMany({
       where: { resource: { startsWith: "teamSeasonCorners:" } },
     });
     console.log(`  ApiFetchLog (teamSeasonCorners): ${deletedLogs.count}`);
 
-    console.log("✅ Done. Reload a fixture to refetch goals, conceded, corners, and cards.");
+    console.log("✅ Done. Next refresh will only fetch any missing fixtures.");
   } catch (error) {
     console.error("Error clearing team stats cache:", error);
     throw error;
