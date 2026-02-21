@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getFixtureStats } from "@/lib/statsService";
 
+/** Hobby plan max 60s. Use chunked warm (GET /api/fixtures/[id]/warm?part=home|away) to prefill player stats. */
+export const maxDuration = 60;
+
 type RouteParams = {
   params: Promise<{
     id: string;

@@ -74,7 +74,7 @@ function getTeamStatsDayStart(now: Date = new Date()): Date {
 const MAX_FIXTURES_PER_SEASON = 38;
 
 /** Delay between fixture-statistics API calls to avoid bursting the provider's per-minute rate limit. Both teams run in parallel, so use ~4s to stay under 30/min. */
-const FIXTURE_STATS_DELAY_MS = Number(process.env.FOOTBALL_API_DELAY_MS) || 4000;
+const FIXTURE_STATS_DELAY_MS = Number(process.env.FOOTBALL_API_DELAY_MS) || 2000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -279,6 +279,52 @@ async function fetchAndStorePlayerStats(
   }
 }
 
+const LEAGUE_ID_MAP: Record<string, number> = {
+  "Premier League": 39,
+  "Championship": 40,
+  "English League Championship": 40,
+  "EFL Championship": 40,
+  "The Championship": 40,
+  "English Championship": 40,
+  "UEFA Champions League": 2,
+  "UEFA Europa League": 3,
+  "Champions League": 2,
+  "Europa League": 3,
+  "Scottish Championship": 179,
+  "Scottish Premiership": 179,
+  "FA Cup": 45,
+};
+
+/**
+ * Warm one part of fixture stats (stays under 60s for Vercel Hobby).
+ * Call with part=home then part=away so the full stats route can serve from DB.
+ */
+export async function warmFixturePart(
+  fixtureId: number,
+  part: "home" | "away",
+): Promise<{ ok: true; teamId: number }> {
+  const fixture = await prisma.fixture.findUnique({
+    where: { id: fixtureId },
+    include: { homeTeam: true, awayTeam: true },
+  });
+  if (!fixture) throw new Error("Fixture not found");
+  const leagueId =
+    (fixture as FixtureWithLeagueId).leagueId ??
+    (fixture.league ? LEAGUE_ID_MAP[fixture.league] : undefined);
+  const team = part === "home" ? fixture.homeTeam : fixture.awayTeam;
+  const teamId = part === "home" ? fixture.homeTeamId : fixture.awayTeamId;
+  if (team.apiId) {
+    await fetchAndStorePlayerStats(
+      teamId,
+      team.apiId,
+      fixture.season,
+      fixture.league,
+      leagueId,
+    );
+  }
+  return { ok: true, teamId };
+}
+
 export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsResponse | null> {
   const fixture = await prisma.fixture.findUnique({
     where: { id: fixtureId },
@@ -311,91 +357,58 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
   const teamsNeedingStats = teamIds.filter((tid) => (countByTeam.get(tid) ?? 0) < MIN_PLAYERS_PER_TEAM);
 
   if (teamsNeedingStats.length > 0) {
-    // Prefer fixture.leagueId from DB (set when we store fixtures). Fallback: league name -> id for API calls.
-    const leagueIdMap: Record<string, number> = {
-      "Premier League": 39,
-      "Championship": 40,
-      "English League Championship": 40,
-      "EFL Championship": 40,
-      "The Championship": 40,
-      "English Championship": 40,
-      "UEFA Champions League": 2,
-      "UEFA Europa League": 3,
-      "Champions League": 2,
-      "Europa League": 3,
-      "Scottish Championship": 179,
-      "Scottish Premiership": 179,
-      "FA Cup": 45,
-    };
     const leagueId =
       fixtureWithLeagueId.leagueId ??
-      (fixture.league ? leagueIdMap[fixture.league] : undefined);
+      (fixture.league ? LEAGUE_ID_MAP[fixture.league] : undefined);
 
-    // Fetch stats for each team that needs them
-    await Promise.allSettled(
-      teamsNeedingStats.map(async (teamId) => {
-        const team = teamId === fixture.homeTeamId ? fixture.homeTeam : fixture.awayTeam;
-        if (team.apiId) {
-          try {
-            await fetchAndStorePlayerStats(
-              teamId,
-              team.apiId,
-              fixture.season,
-              fixture.league,
-              leagueId,
-            );
-          } catch (error) {
-            console.error("[statsService] Failed to fetch stats for team");
-            // Continue even if one team fails
-          }
+    // Fetch stats for each team that needs them (serial to respect downstream rate limit)
+    for (const teamId of teamsNeedingStats) {
+      const team = teamId === fixture.homeTeamId ? fixture.homeTeam : fixture.awayTeam;
+      if (team.apiId) {
+        try {
+          await fetchAndStorePlayerStats(
+            teamId,
+            team.apiId,
+            fixture.season,
+            fixture.league,
+            leagueId,
+          );
+        } catch (error) {
+          console.error("[statsService] Failed to fetch stats for team");
         }
-      })
-    );
+      }
+      if (teamsNeedingStats.indexOf(teamId) < teamsNeedingStats.length - 1) {
+        await sleep(FIXTURE_STATS_DELAY_MS);
+      }
+    }
   }
 
-  // Ensure season-level team stats for both teams (once per day per team/season/league)
+  // Ensure season-level team stats for both teams (once per day per team/season/league). Serial to respect rate limit.
   const leagueIdForTeamStats =
     fixtureWithLeagueId.leagueId ??
-    (fixture.league
-      ? {
-          "Premier League": 39,
-          Championship: 40,
-          "English League Championship": 40,
-          "EFL Championship": 40,
-          "The Championship": 40,
-          "English Championship": 40,
-          "UEFA Champions League": 2,
-          "UEFA Europa League": 3,
-          "Champions League": 2,
-          "Europa League": 3,
-          "Scottish Championship": 179,
-          "Scottish Premiership": 179,
-          "FA Cup": 45,
-        }[fixture.league]
-      : undefined);
+    (fixture.league ? LEAGUE_ID_MAP[fixture.league] : undefined);
 
   const leagueKeyForTeamStats = fixture.league ?? "Unknown";
   if (leagueIdForTeamStats != null) {
-    await Promise.allSettled([
-      fixture.homeTeam.apiId
-        ? ensureTeamSeasonStatsCornersAndCards(
-            fixture.homeTeamId,
-            fixture.homeTeam.apiId,
-            fixture.season,
-            leagueKeyForTeamStats,
-            leagueIdForTeamStats,
-          )
-        : Promise.resolve(),
-      fixture.awayTeam.apiId
-        ? ensureTeamSeasonStatsCornersAndCards(
-            fixture.awayTeamId,
-            fixture.awayTeam.apiId,
-            fixture.season,
-            leagueKeyForTeamStats,
-            leagueIdForTeamStats,
-          )
-        : Promise.resolve(),
-    ]);
+    if (fixture.homeTeam.apiId) {
+      await ensureTeamSeasonStatsCornersAndCards(
+        fixture.homeTeamId,
+        fixture.homeTeam.apiId,
+        fixture.season,
+        leagueKeyForTeamStats,
+        leagueIdForTeamStats,
+      );
+      await sleep(FIXTURE_STATS_DELAY_MS);
+    }
+    if (fixture.awayTeam.apiId) {
+      await ensureTeamSeasonStatsCornersAndCards(
+        fixture.awayTeamId,
+        fixture.awayTeam.apiId,
+        fixture.season,
+        leagueKeyForTeamStats,
+        leagueIdForTeamStats,
+      );
+    }
   }
 
   // Lineup: fetch from API only if within 30 min of kickoff and no lineup in DB; then always read from DB

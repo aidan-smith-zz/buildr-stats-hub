@@ -3,6 +3,21 @@ import "server-only";
 const FOOTBALL_API_BASE_URL = process.env.FOOTBALL_API_BASE_URL;
 const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY;
 
+/** Min ms between outgoing requests to stay under rate limit (e.g. 6000 = 10/min). Set FOOTBALL_API_MIN_INTERVAL_MS to override. */
+const MIN_INTERVAL_MS = Number(process.env.FOOTBALL_API_MIN_INTERVAL_MS) || 6000;
+
+const rateLimitState = { lastRequestAt: 0 };
+
+async function rateLimitedFetch(url: string, init: RequestInit): Promise<Response> {
+  const now = Date.now();
+  const elapsed = now - rateLimitState.lastRequestAt;
+  if (elapsed < MIN_INTERVAL_MS) {
+    await new Promise((r) => setTimeout(r, MIN_INTERVAL_MS - elapsed));
+  }
+  rateLimitState.lastRequestAt = Date.now();
+  return fetch(url, init);
+}
+
 if (!FOOTBALL_API_BASE_URL) {
   console.warn(
     "[footballApi] FOOTBALL_API_BASE_URL is not set. Configure it in your environment variables.",
@@ -105,7 +120,7 @@ async function request<T>(path: string, searchParams?: Record<string, string | n
     }
   }
 
-  const res = await fetch(url.toString(), {
+  const res = await rateLimitedFetch(url.toString(), {
     headers: {
       "x-apisports-key": FOOTBALL_API_KEY,
     },
@@ -164,7 +179,7 @@ async function requestPage<T>(
   for (const [key, value] of Object.entries(searchParams)) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
-  const res = await fetch(url.toString(), {
+  const res = await rateLimitedFetch(url.toString(), {
     headers: { "x-apisports-key": FOOTBALL_API_KEY },
     cache: "no-store",
   });
