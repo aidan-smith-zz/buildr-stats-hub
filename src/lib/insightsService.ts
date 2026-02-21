@@ -170,6 +170,7 @@ async function loadLast5ByTeam(
 
 type PlayerWithStats = {
   player: { id: number; name: string };
+  teamId: number;
   teamName: string;
   stats: PlayerSeasonStatsRow;
 };
