@@ -27,20 +27,57 @@ function formatKoTime(date: Date): string {
   });
 }
 
-function groupByLeague(fixtures: FixtureSummary[]): Map<string, FixtureSummary[]> {
+/** Default order within each KO time: SPFL → EPL → Championship → UCL → UEL → FA Cup. */
+const LEAGUE_ORDER: number[] = [179, 39, 40, 2, 3, 45];
+
+/** Consistent display names for competitions (professional, no acronyms). */
+const LEAGUE_DISPLAY_NAMES: Record<number, string> = {
+  39: "Premier League",
+  40: "Championship",
+  2: "Champions League",
+  3: "Europa League",
+  179: "Scottish Premiership",
+  45: "FA Cup",
+};
+
+function leagueDisplayName(league: string | null, leagueId: number | null): string {
+  if (leagueId != null && LEAGUE_DISPLAY_NAMES[leagueId]) return LEAGUE_DISPLAY_NAMES[leagueId];
+  return league ?? "Other";
+}
+
+function leagueSortIndex(leagueId: number | null): number {
+  if (leagueId == null) return LEAGUE_ORDER.length;
+  const i = LEAGUE_ORDER.indexOf(leagueId);
+  return i === -1 ? LEAGUE_ORDER.length : i;
+}
+
+/** Filter to required leagues and sort by kick-off time (earliest first). */
+function fixturesByKickOff(fixtures: FixtureSummary[]): FixtureSummary[] {
   const filtered = fixtures.filter(
     (f) => f.leagueId != null && (REQUIRED_LEAGUE_IDS as readonly number[]).includes(f.leagueId)
   );
-  const map = new Map<string, FixtureSummary[]>();
-  for (const f of filtered) {
-    const league = f.league ?? "Other";
-    if (!map.has(league)) map.set(league, []);
-    map.get(league)!.push(f);
+  return filtered.slice().sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
+/** Group fixtures by kick-off time (same time = same group) for spacing between time slots. */
+function groupByKickOffTime(fixtures: FixtureSummary[]): { timeKey: string; fixtures: FixtureSummary[] }[] {
+  const map = new Map<number, FixtureSummary[]>();
+  for (const f of fixtures) {
+    const d = new Date(f.date);
+    const startOfMinute = new Date(d);
+    startOfMinute.setSeconds(0, 0);
+    const key = startOfMinute.getTime();
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(f);
   }
-  for (const arr of map.values()) {
-    arr.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }
-  return map;
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([timeKey, fixtures]) => ({
+      timeKey: String(timeKey),
+      fixtures: fixtures.slice().sort(
+        (a, b) => leagueSortIndex(a.leagueId) - leagueSortIndex(b.leagueId)
+      ),
+    }));
 }
 
 function TeamCrest({
@@ -102,10 +139,10 @@ function pickRandom<T>(arr: T[], count: number): T[] {
 
 export function TodayFixturesList({ fixtures, showHero = true }: Props) {
   const todayKey = todayDateKey();
-  const byLeague = groupByLeague(fixtures);
+  const sortedFixtures = fixturesByKickOff(fixtures);
+  const timeGroups = groupByKickOffTime(sortedFixtures);
   const displayDate = formatDisplayDate(todayKey);
-  const filteredFixtures = Array.from(byLeague.values()).flat();
-  const [randomFixture1, randomFixture2] = pickRandom(filteredFixtures, 2);
+  const [randomFixture1, randomFixture2] = pickRandom(sortedFixtures, 2);
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -125,7 +162,7 @@ export function TodayFixturesList({ fixtures, showHero = true }: Props) {
           </section>
         )}
 
-        {byLeague.size === 0 ? (
+        {sortedFixtures.length === 0 ? (
           <div className="rounded-2xl border border-neutral-200 bg-white p-10 text-center shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
               No fixtures for today in the selected leagues.
@@ -133,70 +170,70 @@ export function TodayFixturesList({ fixtures, showHero = true }: Props) {
           </div>
         ) : (
           <div className="space-y-10">
-            {Array.from(byLeague.entries()).map(([league, leagueFixtures]) => (
-              <section key={league}>
-                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                  {league}
-                </h2>
-                <ul className="space-y-2">
-                  {leagueFixtures.map((f) => {
-                    const home = f.homeTeam.shortName ?? f.homeTeam.name;
-                    const away = f.awayTeam.shortName ?? f.awayTeam.name;
-                    const slug = leagueToSlug(f.league);
-                    const match = matchSlug(home, away);
-                    const href = `/fixtures/${todayKey}/${slug}/${match}`;
-                    const koTime = formatKoTime(new Date(f.date));
-                    const now = new Date();
-                    const kickoff = new Date(f.date);
-                    const twoAndHalfHoursMs = 2.5 * 60 * 60 * 1000;
-                    const isLive =
-                      kickoff <= now && now.getTime() - kickoff.getTime() < twoAndHalfHoursMs;
-                    return (
-                      <FixtureRowLink
-                        key={f.id}
-                        href={href}
-                        className="group flex items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-3 shadow-sm transition-all hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700 sm:gap-4 sm:px-5 sm:py-4"
-                      >
-                        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
-                          <TeamCrest
-                            crestUrl={f.homeTeam.crestUrl}
-                            alt={home}
-                          />
-                          <span className="truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm md:text-base">
-                            {home}
-                          </span>
-                          <span className="shrink-0 text-[10px] font-medium text-neutral-400 dark:text-neutral-500 sm:text-sm">
-                            vs
-                          </span>
-                          <TeamCrest
-                            crestUrl={f.awayTeam.crestUrl}
-                            alt={away}
-                          />
-                          <span className="truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm md:text-base">
-                            {away}
-                          </span>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-                          <span className="text-xs text-neutral-500 dark:text-neutral-400 sm:text-sm">
-                            {koTime}
-                          </span>
-                          {isLive && (
-                            <span
-                              className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/50 dark:text-green-300 sm:text-xs"
-                              aria-label="Match live"
-                            >
-                              Live
-                            </span>
-                          )}
-                          <span className="rounded-lg bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 transition-colors group-hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:group-hover:bg-neutral-700 sm:px-3 sm:py-1.5 sm:text-sm">
-                            View Stats
-                          </span>
-                        </div>
-                      </FixtureRowLink>
-                    );
-                  })}
-                </ul>
-              </section>
+            {timeGroups.map(({ timeKey, fixtures: groupFixtures }) => (
+              <ul key={timeKey} className="space-y-2">
+                {groupFixtures.map((f) => {
+              const home = f.homeTeam.shortName ?? f.homeTeam.name;
+              const away = f.awayTeam.shortName ?? f.awayTeam.name;
+              const slug = leagueToSlug(f.league);
+              const match = matchSlug(home, away);
+              const href = `/fixtures/${todayKey}/${slug}/${match}`;
+              const koTime = formatKoTime(new Date(f.date));
+              const now = new Date();
+              const kickoff = new Date(f.date);
+              const twoAndHalfHoursMs = 2.5 * 60 * 60 * 1000;
+              const isLive =
+                kickoff <= now && now.getTime() - kickoff.getTime() < twoAndHalfHoursMs;
+              const competitionName = leagueDisplayName(f.league, f.leagueId);
+              return (
+                <FixtureRowLink
+                  key={f.id}
+                  href={href}
+                  className="group flex flex-col gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-3 shadow-sm transition-all hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700 sm:gap-2 sm:px-5 sm:py-4"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className="text-[11px] font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400 sm:text-xs"
+                      aria-label={`Competition: ${competitionName}`}
+                    >
+                      {competitionName}
+                    </span>
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400 sm:text-sm">
+                      {koTime}
+                    </span>
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2 sm:gap-4">
+                    <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
+                      <TeamCrest crestUrl={f.homeTeam.crestUrl} alt={home} />
+                      <span className="min-w-0 truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm md:text-base">
+                        {home}
+                      </span>
+                      <span className="shrink-0 text-[10px] font-medium text-neutral-400 dark:text-neutral-500 sm:text-sm">
+                        vs
+                      </span>
+                      <TeamCrest crestUrl={f.awayTeam.crestUrl} alt={away} />
+                      <span className="min-w-0 truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm md:text-base">
+                        {away}
+                      </span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                      {isLive && (
+                        <span
+                          className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/50 dark:text-green-300 sm:text-xs"
+                          aria-label="Match live"
+                        >
+                          Live
+                        </span>
+                      )}
+                      <span className="rounded-lg bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 transition-colors group-hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:group-hover:bg-neutral-700 sm:px-3 sm:py-1.5 sm:text-sm">
+                        View Stats
+                      </span>
+                    </div>
+                  </div>
+                </FixtureRowLink>
+              );
+                })}
+              </ul>
             ))}
           </div>
         )}

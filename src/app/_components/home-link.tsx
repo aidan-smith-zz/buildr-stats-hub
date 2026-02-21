@@ -35,7 +35,9 @@ export function HomeLink() {
           <b>stats</b>Buildr
         </span>
       </Link>
-      {isNavigating && <NavigationLoadingOverlay />}
+      {isNavigating && (
+          <NavigationLoadingOverlay message="Building your Stats" italic />
+        )}
     </>
   );
 }
