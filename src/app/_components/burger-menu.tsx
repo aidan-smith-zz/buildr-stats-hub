@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 
 /** Today's date YYYY-MM-DD (Europe/London) for AI insights URL */
 function todayDateKey(): string {
@@ -67,27 +67,26 @@ export function BurgerMenu() {
           role="menu"
           onClick={(e) => e.stopPropagation()}
         >
-          <Link
+          <NavLinkWithOverlay
             href="/"
             className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
-            role="menuitem"
           >
             Home
-          </Link>
-          <Link
+          </NavLinkWithOverlay>
+          <NavLinkWithOverlay
             href={formHref}
             className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
-            role="menuitem"
           >
-            Form table
-          </Link>
-          <Link
+            Form
+          </NavLinkWithOverlay>
+          <NavLinkWithOverlay
             href={insightsHref}
             className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
-            role="menuitem"
+            message="Loading insights…"
+            italic={false}
           >
             AI Insights
-          </Link>
+          </NavLinkWithOverlay>
         </nav>
       )}
     </div>

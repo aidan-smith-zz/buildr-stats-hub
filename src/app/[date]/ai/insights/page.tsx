@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
+import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { generateInsights } from "@/lib/insightsService";
 import { prisma } from "@/lib/prisma";
 
@@ -42,12 +42,12 @@ export default async function AIInsightsPage({
       <main className="mx-auto max-w-2xl px-4 pt-6 pb-10 sm:px-6 sm:pt-8 sm:pb-12">
         <div className="mb-8">
           <div className="flex items-center justify-between">
-            <Link
+            <NavLinkWithOverlay
               href="/"
               className="text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors"
             >
               ← Back to fixtures
-            </Link>
+            </NavLinkWithOverlay>
             <ShareUrlButton className="rounded-lg border border-slate-600 bg-slate-800/50 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700/50 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700" />
           </div>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -86,12 +86,12 @@ export default async function AIInsightsPage({
               No insights yet for this date. Stats are generated from fixtures and team/player data
               in the database — warm a few fixtures first to see insights here.
             </p>
-            <Link
+            <NavLinkWithOverlay
               href="/"
               className="mt-4 inline-block text-sm font-medium text-violet-400 hover:text-violet-300"
             >
               View today&apos;s fixtures →
-            </Link>
+            </NavLinkWithOverlay>
           </div>
         ) : (
           <ul className="space-y-4">
@@ -110,12 +110,12 @@ export default async function AIInsightsPage({
                         : "Player · Season"}
                   </span>
                   {insight.href && (
-                    <Link
+                    <NavLinkWithOverlay
                       href={insight.href}
                       className="text-xs font-medium text-violet-400 hover:text-violet-300"
                     >
                       View fixture →
-                    </Link>
+                    </NavLinkWithOverlay>
                   )}
                 </div>
               </li>

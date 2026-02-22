@@ -1,10 +1,10 @@
-import Link from "next/link";
 import {
   getLast5StatsForDate,
   getLast10StatsForDate,
   getSeasonStatsForDate,
 } from "@/lib/insightsService";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
+import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { FormTableClient } from "./form-table-client";
 
 export const dynamic = "force-dynamic";
@@ -43,12 +43,12 @@ export default async function FormPage({
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <div className="mb-8">
           <div className="flex items-center justify-between">
-            <Link
+            <NavLinkWithOverlay
               href="/"
               className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
             >
               ← Back to fixtures
-            </Link>
+            </NavLinkWithOverlay>
             <ShareUrlButton className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700" />
           </div>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
@@ -65,12 +65,12 @@ export default async function FormPage({
               No form data yet for this date. Warm today&apos;s fixtures to see
               last 5, last 10 and season averages here.
             </p>
-            <Link
+            <NavLinkWithOverlay
               href="/"
               className="mt-4 inline-block text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400"
             >
               View today&apos;s fixtures →
-            </Link>
+            </NavLinkWithOverlay>
           </div>
         ) : (
           <FormTableClient last5={last5} last10={last10} season={season} />
