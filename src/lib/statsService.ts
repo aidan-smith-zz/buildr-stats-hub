@@ -76,8 +76,8 @@ export type FixtureStatsResponse = {
 
 const MAX_FIXTURES_PER_SEASON = 38;
 
-/** Delay between fixture-statistics API calls. Lower = faster warmup but higher risk of rate limits. Set FOOTBALL_API_DELAY_MS to 2000+ if you hit limits. */
-const FIXTURE_STATS_DELAY_MS = Number(process.env.FOOTBALL_API_DELAY_MS) || 500;
+/** Extra delay between fixture-statistics API calls (optional). The main throttle is FOOTBALL_API_MIN_INTERVAL_MS in footballApi. Set FOOTBALL_API_DELAY_MS to 500+ if you still hit limits. */
+const FIXTURE_STATS_DELAY_MS = Number(process.env.FOOTBALL_API_DELAY_MS) || 0;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

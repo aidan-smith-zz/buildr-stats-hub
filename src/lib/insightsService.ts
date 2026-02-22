@@ -110,9 +110,13 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
     }
   }
 
+  /** Minimum appearances before we show per-game rate insights (avoids "1 goal in 1 game = 1 per game" nonsense). */
+  const MIN_APPEARANCES_FOR_RATE = 5;
+
   // Player season (from PlayerSeasonStats) — full name and team so everyone knows who it is
   for (const p of playersWithStats) {
-    const appearances = Math.max(1, p.stats.appearances || (p.stats.minutes > 0 ? 1 : 0));
+    const rawAppearances = p.stats.appearances ?? (p.stats.minutes > 0 ? Math.max(1, Math.round(p.stats.minutes / 90)) : 0);
+    const appearances = Math.max(1, rawAppearances);
     const goalsPerGame = (p.stats.goals ?? 0) / appearances;
     const assistsPerGame = (p.stats.assists ?? 0) / appearances;
     const foulsPerGame = (p.stats.fouls ?? 0) / appearances;
@@ -126,22 +130,30 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
     const label = `${fullName} (${teamLabel})`;
     const fixture = teamIdToFixture.get(p.teamId);
     const href = fixture ? fixtureToHref(fixture, dateKey) : undefined;
-    if (goalsPerGame >= 0.3) {
-      insights.push({ type: "player_season", text: `${label} has averaged over ${goalsPerGame < 0.5 ? "0.5" : Math.floor(goalsPerGame)} goal${Math.floor(goalsPerGame) !== 1 ? "s" : ""} per game this season.`, href });
+
+    const hasEnoughGames = appearances >= MIN_APPEARANCES_FOR_RATE;
+    const totalGoals = p.stats.goals ?? 0;
+
+    if (hasEnoughGames && goalsPerGame >= 0.3) {
+      const showOverOneGoal = goalsPerGame >= 1 && totalGoals >= 5;
+      const textVal = showOverOneGoal ? Math.floor(goalsPerGame) : goalsPerGame < 0.5 ? "0.5" : Math.floor(goalsPerGame);
+      insights.push({ type: "player_season", text: `${label} has averaged over ${textVal} goal${textVal !== 1 ? "s" : ""} per game this season.`, href });
     }
-    if (foulsPerGame >= 0.8) {
+    if (hasEnoughGames && foulsPerGame >= 0.8) {
       insights.push({ type: "player_season", text: `${label} has averaged over ${Math.floor(foulsPerGame)} foul${Math.floor(foulsPerGame) !== 1 ? "s" : ""} per game this season.`, href });
     }
-    if (shotsPerGame > 0 && shotsPerGame <= 2.5) {
+    if (hasEnoughGames && shotsPerGame > 0 && shotsPerGame <= 2.5) {
       insights.push({ type: "player_season", text: `${label} has averaged under ${Math.ceil(shotsPerGame * 2) / 2} shots per game this season.`, href });
     }
-    if (shotsPerGame >= 2) {
+    if (hasEnoughGames && shotsPerGame >= 2) {
       insights.push({ type: "player_season", text: `${label} has averaged over ${Math.floor(shotsPerGame)} shots per game this season.`, href });
     }
-    if (assistsPerGame >= 0.2) {
-      insights.push({ type: "player_season", text: `${label} has averaged over ${assistsPerGame < 0.5 ? "0.5" : Math.floor(assistsPerGame)} assist${Math.floor(assistsPerGame) !== 1 ? "s" : ""} per game this season.`, href });
+    if (hasEnoughGames && assistsPerGame >= 0.2) {
+      const showOverOneAssist = assistsPerGame >= 1 && (p.stats.assists ?? 0) >= 5;
+      const textVal = showOverOneAssist ? Math.floor(assistsPerGame) : assistsPerGame < 0.5 ? "0.5" : Math.floor(assistsPerGame);
+      insights.push({ type: "player_season", text: `${label} has averaged over ${textVal} assist${textVal !== 1 ? "s" : ""} per game this season.`, href });
     }
-    if (tacklesPerGame >= 1.5) {
+    if (hasEnoughGames && tacklesPerGame >= 1.5) {
       insights.push({ type: "player_season", text: `${label} has averaged over ${Math.floor(tacklesPerGame)} tackle${Math.floor(tacklesPerGame) !== 1 ? "s" : ""} per game this season.`, href });
     }
   }

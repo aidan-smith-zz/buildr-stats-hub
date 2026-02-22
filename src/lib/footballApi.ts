@@ -3,8 +3,8 @@ import "server-only";
 const FOOTBALL_API_BASE_URL = process.env.FOOTBALL_API_BASE_URL;
 const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY;
 
-/** Min ms between outgoing requests to stay under rate limit (e.g. 6000 = 10/min). Set FOOTBALL_API_MIN_INTERVAL_MS to override. */
-const MIN_INTERVAL_MS = Number(process.env.FOOTBALL_API_MIN_INTERVAL_MS) || 6000;
+/** Min ms between outgoing requests to stay under rate limit (e.g. 3000 = ~20/min). Set FOOTBALL_API_MIN_INTERVAL_MS to override. */
+const MIN_INTERVAL_MS = Number(process.env.FOOTBALL_API_MIN_INTERVAL_MS) || 1000;
 
 const rateLimitState = { lastRequestAt: 0 };
 
