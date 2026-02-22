@@ -184,6 +184,14 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
               Explore team season averages and in-depth player statistics to uncover meaningful
               trends and make informed, data-driven match insights.
             </p>
+            <div className="mt-4">
+              <NavLinkWithOverlay
+                href={`/${todayKey}/form`}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+              >
+                Form table →
+              </NavLinkWithOverlay>
+            </div>
           </section>
         )}
 

@@ -29,7 +29,9 @@ export function BurgerMenu() {
     };
   }, [open]);
 
-  const insightsHref = `/${todayDateKey()}/ai/insights`;
+  const dateKey = todayDateKey();
+  const insightsHref = `/${dateKey}/ai/insights`;
+  const formHref = `/${dateKey}/form`;
 
   return (
     <div className="relative flex items-center">
@@ -71,6 +73,13 @@ export function BurgerMenu() {
             role="menuitem"
           >
             Home
+          </Link>
+          <Link
+            href={formHref}
+            className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            role="menuitem"
+          >
+            Form table
           </Link>
           <Link
             href={insightsHref}

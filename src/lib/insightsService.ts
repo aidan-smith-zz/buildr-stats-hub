@@ -6,6 +6,18 @@ const db = prisma as typeof prisma & { teamFixtureCache: { findMany: (args: { wh
 
 export type Insight = { text: string; type: "team_last5" | "team_season" | "player_season"; href?: string };
 
+/** Per-team last-5 summary for the AI page "Last 5 form" section. */
+export type Last5TeamSummary = {
+  teamName: string;
+  teamId: number;
+  gamesPlayed: number;
+  avgGoalsFor: number;
+  avgGoalsAgainst: number;
+  avgCorners: number;
+  avgCards: number;
+  href?: string;
+};
+
 type FixtureWithTeams = { date: Date; league: string | null; homeTeam: { name: string; shortName: string | null }; awayTeam: { name: string; shortName: string | null } };
 
 function fixtureToHref(fixture: FixtureWithTeams, dateKey: string): string {
@@ -163,21 +175,263 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
   return insights.slice(0, 8);
 }
 
-async function loadLast5ByTeam(
-  teamIds: number[]
-): Promise<Map<number, { goalsFor: number; goalsAgainst: number; corners: number; yellowCards: number; redCards: number }[]>> {
-  if (teamIds.length === 0) return new Map();
-  const cache = await db.teamFixtureCache.findMany({
-    where: { teamId: { in: teamIds } },
-    orderBy: { fixtureDate: "desc" },
+/** Load last-5 stats for today's teams for the AI page "Last 5 form" section. */
+export async function getLast5StatsForDate(dateKey: string): Promise<Last5TeamSummary[]> {
+  const { dayStart, spilloverEnd } = dayBoundsForDate(dateKey);
+
+  const fixtures = await prisma.fixture.findMany({
+    where: {
+      date: { gte: dayStart, lte: spilloverEnd },
+      leagueId: { in: [...REQUIRED_LEAGUE_IDS] },
+    },
+    include: { homeTeam: true, awayTeam: true },
   });
-  const byTeam = new Map<number, typeof cache>();
-  for (const row of cache) {
-    if (!byTeam.has(row.teamId)) byTeam.set(row.teamId, []);
-    const arr = byTeam.get(row.teamId)!;
-    if (arr.length < 5) arr.push(row);
+
+  if (fixtures.length === 0) return [];
+
+  const teamIds = Array.from(
+    new Set(fixtures.flatMap((f) => [f.homeTeamId, f.awayTeamId]))
+  );
+
+  const [teamCacheByTeam] = await Promise.all([loadLast5ByTeam(teamIds)]);
+
+  const teamIdToFixture = new Map<number, (typeof fixtures)[0]>();
+  for (const f of fixtures) {
+    teamIdToFixture.set(f.homeTeamId, f);
+    teamIdToFixture.set(f.awayTeamId, f);
   }
-  return byTeam as Map<number, { goalsFor: number; goalsAgainst: number; corners: number; yellowCards: number; redCards: number }[]>;
+
+  const out: Last5TeamSummary[] = [];
+
+  for (const [teamId, rows] of teamCacheByTeam.entries()) {
+    if (rows.length < 3) continue;
+    const team = fixtures.flatMap((f) => [f.homeTeam, f.awayTeam]).find((t) => t.id === teamId);
+    const name = team?.shortName ?? team?.name ?? "Unknown";
+    const fixture = teamIdToFixture.get(teamId);
+    const href = fixture ? fixtureToHref(fixture, dateKey) : undefined;
+    const n = rows.length;
+    out.push({
+      teamId,
+      teamName: name,
+      gamesPlayed: n,
+      avgGoalsFor: rows.reduce((s, r) => s + r.goalsFor, 0) / n,
+      avgGoalsAgainst: rows.reduce((s, r) => s + r.goalsAgainst, 0) / n,
+      avgCorners: rows.reduce((s, r) => s + r.corners, 0) / n,
+      avgCards: rows.reduce((s, r) => s + r.yellowCards + r.redCards, 0) / n,
+      href,
+    });
+  }
+
+  out.sort((a, b) => a.teamName.localeCompare(b.teamName));
+  return out;
+}
+
+/** Load last-N stats for today's teams (used for last 10; last 5 uses getLast5StatsForDate). */
+export async function getLastNStatsForDate(dateKey: string, n: number): Promise<Last5TeamSummary[]> {
+  const { dayStart, spilloverEnd } = dayBoundsForDate(dateKey);
+  const fixtures = await prisma.fixture.findMany({
+    where: { date: { gte: dayStart, lte: spilloverEnd }, leagueId: { in: [...REQUIRED_LEAGUE_IDS] } },
+    include: { homeTeam: true, awayTeam: true },
+  });
+  if (fixtures.length === 0) return [];
+  const teamIds = Array.from(new Set(fixtures.flatMap((f) => [f.homeTeamId, f.awayTeamId])));
+  const teamCacheByTeam = await loadLastNByTeam(teamIds, n);
+  const teamIdToFixture = new Map<number, (typeof fixtures)[0]>();
+  for (const f of fixtures) {
+    teamIdToFixture.set(f.homeTeamId, f);
+    teamIdToFixture.set(f.awayTeamId, f);
+  }
+  const out: Last5TeamSummary[] = [];
+  for (const [teamId, rows] of teamCacheByTeam.entries()) {
+    if (rows.length < 3) continue;
+    const team = fixtures.flatMap((f) => [f.homeTeam, f.awayTeam]).find((t) => t.id === teamId);
+    const name = team?.shortName ?? team?.name ?? "Unknown";
+    const fixture = teamIdToFixture.get(teamId);
+    const href = fixture ? fixtureToHref(fixture, dateKey) : undefined;
+    const gamesPlayed = rows.length;
+    out.push({
+      teamId,
+      teamName: name,
+      gamesPlayed,
+      avgGoalsFor: rows.reduce((s, r) => s + r.goalsFor, 0) / gamesPlayed,
+      avgGoalsAgainst: rows.reduce((s, r) => s + r.goalsAgainst, 0) / gamesPlayed,
+      avgCorners: rows.reduce((s, r) => s + r.corners, 0) / gamesPlayed,
+      avgCards: rows.reduce((s, r) => s + r.yellowCards + r.redCards, 0) / gamesPlayed,
+      href,
+    });
+  }
+  out.sort((a, b) => a.teamName.localeCompare(b.teamName));
+  return out;
+}
+
+/** Load last-10 stats for today's teams. */
+export async function getLast10StatsForDate(dateKey: string): Promise<Last5TeamSummary[]> {
+  return getLastNStatsForDate(dateKey, 10);
+}
+
+/** Season averages for today's teams (from TeamSeasonStats). */
+export async function getSeasonStatsForDate(dateKey: string): Promise<Last5TeamSummary[]> {
+  const { dayStart, spilloverEnd } = dayBoundsForDate(dateKey);
+  const fixtures = await prisma.fixture.findMany({
+    where: { date: { gte: dayStart, lte: spilloverEnd }, leagueId: { in: [...REQUIRED_LEAGUE_IDS] } },
+    include: { homeTeam: true, awayTeam: true },
+  });
+  if (fixtures.length === 0) return [];
+  const teamIds = Array.from(new Set(fixtures.flatMap((f) => [f.homeTeamId, f.awayTeamId])));
+  const teamSeasonRows = await prisma.teamSeasonStats.findMany({
+    where: { teamId: { in: teamIds } },
+    include: { team: true },
+  });
+  const teamIdToFixture = new Map<number, (typeof fixtures)[0]>();
+  for (const f of fixtures) {
+    teamIdToFixture.set(f.homeTeamId, f);
+    teamIdToFixture.set(f.awayTeamId, f);
+  }
+  const byTeam = new Map<
+    number,
+    { matches: number; goalsFor: number; goalsAgainst: number; corners: number; cards: number; teamName: string; href?: string }
+  >();
+  for (const row of teamSeasonRows) {
+    const matches = row.minutesPlayed / 90;
+    if (matches < 1) continue;
+    const existing = byTeam.get(row.teamId);
+    if (existing && matches <= existing.matches) continue;
+    const fixture = teamIdToFixture.get(row.teamId);
+    const href = fixture ? fixtureToHref(fixture, dateKey) : undefined;
+    byTeam.set(row.teamId, {
+      matches,
+      goalsFor: row.goalsFor,
+      goalsAgainst: row.goalsAgainst,
+      corners: row.corners,
+      cards: row.yellowCards + row.redCards,
+      teamName: row.team.shortName ?? row.team.name,
+      href,
+    });
+  }
+  const out: Last5TeamSummary[] = [];
+  for (const [teamId, v] of byTeam.entries()) {
+    out.push({
+      teamId,
+      teamName: v.teamName,
+      gamesPlayed: Math.round(v.matches),
+      avgGoalsFor: v.goalsFor / v.matches,
+      avgGoalsAgainst: v.goalsAgainst / v.matches,
+      avgCorners: v.corners / v.matches,
+      avgCards: v.cards / v.matches,
+      href: v.href,
+    });
+  }
+  out.sort((a, b) => a.teamName.localeCompare(b.teamName));
+  return out;
+}
+
+/** Form (last 5, last 10, season) for specific teams — e.g. the two teams on the fixture match page. */
+export async function getFormForTeams(
+  teamIds: number[],
+  dateKey: string,
+  hrefByTeamId?: Map<number, string>
+): Promise<{ last5: Last5TeamSummary[]; last10: Last5TeamSummary[]; season: Last5TeamSummary[] }> {
+  if (teamIds.length === 0) return { last5: [], last10: [], season: [] };
+  const teams = await prisma.team.findMany({
+    where: { id: { in: teamIds } },
+    select: { id: true, name: true, shortName: true },
+  });
+  const nameByTeamId = new Map(teams.map((t) => [t.id, t.shortName ?? t.name]));
+
+  const [cache5, cache10, seasonRows] = await Promise.all([
+    loadLastNByTeam(teamIds, 5),
+    loadLastNByTeam(teamIds, 10),
+    prisma.teamSeasonStats.findMany({
+      where: { teamId: { in: teamIds } },
+      include: { team: true },
+    }),
+  ]);
+
+  const build = (rows: CacheRow[], teamId: number): Last5TeamSummary | null => {
+    if (rows.length < 3) return null;
+    const n = rows.length;
+    return {
+      teamId,
+      teamName: nameByTeamId.get(teamId) ?? "Unknown",
+      gamesPlayed: n,
+      avgGoalsFor: rows.reduce((s, r) => s + r.goalsFor, 0) / n,
+      avgGoalsAgainst: rows.reduce((s, r) => s + r.goalsAgainst, 0) / n,
+      avgCorners: rows.reduce((s, r) => s + r.corners, 0) / n,
+      avgCards: rows.reduce((s, r) => s + r.yellowCards + r.redCards, 0) / n,
+      href: hrefByTeamId?.get(teamId),
+    };
+  };
+
+  const last5: Last5TeamSummary[] = [];
+  const last10: Last5TeamSummary[] = [];
+  for (const teamId of teamIds) {
+    const b5 = build(cache5.get(teamId) ?? [], teamId);
+    if (b5) last5.push(b5);
+    const b10 = build(cache10.get(teamId) ?? [], teamId);
+    if (b10) last10.push(b10);
+  }
+
+  const season: Last5TeamSummary[] = [];
+  const byTeamSeason = new Map<
+    number,
+    { matches: number; goalsFor: number; goalsAgainst: number; corners: number; cards: number }
+  >();
+  for (const row of seasonRows) {
+    const matches = row.minutesPlayed / 90;
+    if (matches < 1) continue;
+    const existing = byTeamSeason.get(row.teamId);
+    if (existing && matches <= existing.matches) continue;
+    byTeamSeason.set(row.teamId, {
+      matches,
+      goalsFor: row.goalsFor,
+      goalsAgainst: row.goalsAgainst,
+      corners: row.corners,
+      cards: row.yellowCards + row.redCards,
+    });
+  }
+  for (const teamId of teamIds) {
+    const v = byTeamSeason.get(teamId);
+    if (!v) continue;
+    season.push({
+      teamId,
+      teamName: nameByTeamId.get(teamId) ?? "Unknown",
+      gamesPlayed: Math.round(v.matches),
+      avgGoalsFor: v.goalsFor / v.matches,
+      avgGoalsAgainst: v.goalsAgainst / v.matches,
+      avgCorners: v.corners / v.matches,
+      avgCards: v.cards / v.matches,
+      href: hrefByTeamId?.get(teamId),
+    });
+  }
+
+  return { last5, last10, season };
+}
+
+type CacheRow = { goalsFor: number; goalsAgainst: number; corners: number; yellowCards: number; redCards: number };
+
+function loadLastNByTeam(
+  teamIds: number[],
+  n: number
+): Promise<Map<number, CacheRow[]>> {
+  if (teamIds.length === 0) return Promise.resolve(new Map());
+  return db.teamFixtureCache
+    .findMany({
+      where: { teamId: { in: teamIds } },
+      orderBy: { fixtureDate: "desc" },
+    })
+    .then((cache) => {
+      const byTeam = new Map<number, CacheRow[]>();
+      for (const row of cache) {
+        if (!byTeam.has(row.teamId)) byTeam.set(row.teamId, []);
+        const arr = byTeam.get(row.teamId)!;
+        if (arr.length < n) arr.push(row);
+      }
+      return byTeam;
+    });
+}
+
+function loadLast5ByTeam(teamIds: number[]): Promise<Map<number, CacheRow[]>> {
+  return loadLastNByTeam(teamIds, 5);
 }
 
 type PlayerWithStats = {

@@ -5,6 +5,8 @@ import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { TodayFixturesDashboard } from "@/app/_components/today-fixtures-dashboard";
+import { MatchFormTable } from "@/app/_components/match-form-table";
+import { getFormForTeams } from "@/lib/insightsService";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,17 @@ export default async function FixtureMatchPage({
     redirect("/");
   }
 
+  const fixtureHref = `/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
+  const hrefByTeamId = new Map<number, string>([
+    [fixture.homeTeam.id, fixtureHref],
+    [fixture.awayTeam.id, fixtureHref],
+  ]);
+  const form = await getFormForTeams(
+    [fixture.homeTeam.id, fixture.awayTeam.id],
+    dateKey,
+    hrefByTeamId
+  );
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
@@ -52,6 +65,11 @@ export default async function FixtureMatchPage({
           initialSelectedId={String(fixture.id)}
           hideFixtureSelector
         />
+        {(form.last5.length > 0 || form.last10.length > 0 || form.season.length > 0) && (
+          <section className="mt-10">
+            <MatchFormTable last5={form.last5} last10={form.last10} season={form.season} />
+          </section>
+        )}
         <section className="mt-12 border-t border-neutral-200 pt-10 dark:border-neutral-800">
           <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-6 dark:border-violet-800/50 dark:bg-violet-950/20">
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
