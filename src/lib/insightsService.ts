@@ -4,7 +4,7 @@ import { leagueToSlug, matchSlug } from "@/lib/slugs";
 
 const db = prisma as typeof prisma & { teamFixtureCache: { findMany: (args: { where?: object; orderBy?: object }) => Promise<{ teamId: number; goalsFor: number; goalsAgainst: number; corners: number; yellowCards: number; redCards: number }[]> } };
 
-export type Insight = { text: string; type: "team_last5" | "team_season" | "player_season"; href?: string };
+export type Insight = { text: string; type: "team_last5" | "team_last10" | "team_season" | "player_season"; href?: string };
 
 /** Per-team last-5 summary for the AI page "Last 5 form" section. */
 export type Last5TeamSummary = {
@@ -57,12 +57,13 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
     new Set(fixtures.flatMap((f) => [f.homeTeamId, f.awayTeamId]))
   );
 
-  const [teamSeasonRows, teamCacheByTeam, playersWithStats] = await Promise.all([
+  const [teamSeasonRows, teamCacheByTeam, teamCacheLast10, playersWithStats] = await Promise.all([
     prisma.teamSeasonStats.findMany({
       where: { teamId: { in: teamIds } },
       include: { team: true },
     }),
     loadLast5ByTeam(teamIds),
+    loadLastNByTeam(teamIds, 10),
     loadPlayersWithSeasonStats(teamIds),
   ]);
 
@@ -74,7 +75,7 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
 
   const insights: Insight[] = [];
 
-  // Team last 5 (from TeamFixtureCache)
+  // Team last 5 (from TeamFixtureCache) — club-focused facts
   for (const [teamId, rows] of teamCacheByTeam.entries()) {
     if (rows.length < 3) continue;
     const team = fixtures.flatMap((f) => [f.homeTeam, f.awayTeam]).find((t) => t.id === teamId);
@@ -86,6 +87,15 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
     const avgCorners = rows.reduce((s, r) => s + r.corners, 0) / rows.length;
     const avgCards = rows.reduce((s, r) => s + r.yellowCards + r.redCards, 0) / rows.length;
 
+    // Consecutive games without scoring (from most recent)
+    let goallessRun = 0;
+    for (const r of rows) {
+      if (r.goalsFor === 0) goallessRun++;
+      else break;
+    }
+    if (goallessRun >= 2) {
+      insights.push({ type: "team_last5", text: `${name} haven't scored in their last ${goallessRun} game${goallessRun !== 1 ? "s" : ""}.`, href });
+    }
     if (avgGoalsFor >= 1.5) {
       insights.push({ type: "team_last5", text: `${name} have averaged over ${Math.floor(avgGoalsFor)} goal${Math.floor(avgGoalsFor) !== 1 ? "s" : ""} a game in their last ${rows.length} matches.`, href });
     }
@@ -93,14 +103,47 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
       insights.push({ type: "team_last5", text: `${name} have conceded under ${Math.ceil(avgGoalsAgainst * 10) / 10} goals per game in their last ${rows.length} matches.`, href });
     }
     if (avgCorners >= 4) {
-      insights.push({ type: "team_last5", text: `${name} have averaged over ${Math.floor(avgCorners)} corners per game in their last ${rows.length} matches.`, href });
+      insights.push({ type: "team_last5", text: `${name} are averaging ${Math.floor(avgCorners)} corners per match in their last ${rows.length} games.`, href });
     }
     if (avgCards >= 2) {
       insights.push({ type: "team_last5", text: `${name} have averaged over ${Math.floor(avgCards)} cards per game in their last ${rows.length} matches.`, href });
     }
   }
 
-  // Team season (from TeamSeasonStats)
+  // Team last 10 (from TeamFixtureCache) — e.g. "X are averaging N corners in the last 10 games"
+  for (const [teamId, rows] of teamCacheLast10.entries()) {
+    if (rows.length < 6) continue;
+    const team = fixtures.flatMap((f) => [f.homeTeam, f.awayTeam]).find((t) => t.id === teamId);
+    const name = team?.shortName ?? team?.name ?? "They";
+    const fixture = teamIdToFixture.get(teamId);
+    const href = fixture ? fixtureToHref(fixture, dateKey) : undefined;
+    const n = rows.length;
+    const avgGoalsFor = rows.reduce((s, r) => s + r.goalsFor, 0) / n;
+    const avgGoalsAgainst = rows.reduce((s, r) => s + r.goalsAgainst, 0) / n;
+    const avgCorners = rows.reduce((s, r) => s + r.corners, 0) / n;
+    const avgCards = rows.reduce((s, r) => s + r.yellowCards + r.redCards, 0) / n;
+
+    let goallessRun = 0;
+    for (const r of rows) {
+      if (r.goalsFor === 0) goallessRun++;
+      else break;
+    }
+    if (goallessRun >= 3) {
+      insights.push({ type: "team_last10", text: `${name} haven't scored in their last ${goallessRun} games.`, href });
+    }
+    if (avgGoalsFor >= 1.5) {
+      insights.push({ type: "team_last10", text: `${name} have averaged over ${Math.floor(avgGoalsFor)} goal${Math.floor(avgGoalsFor) !== 1 ? "s" : ""} per game in their last ${n} games.`, href });
+    }
+    if (avgCorners >= 4) {
+      insights.push({ type: "team_last10", text: `${name} are averaging ${Math.floor(avgCorners)} corners per match in their last ${n} games.`, href });
+    }
+    if (avgCards >= 1.5) {
+      const cardsFloor = Math.floor(avgCards);
+      insights.push({ type: "team_last10", text: `${name} have averaged over ${cardsFloor} card${cardsFloor !== 1 ? "s" : ""} per game in their last ${n} games.`, href });
+    }
+  }
+
+  // Team season (from TeamSeasonStats) — club-focused facts
   for (const row of teamSeasonRows) {
     const matches = row.minutesPlayed / 90;
     if (matches < 1) continue;
@@ -112,13 +155,16 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
     const cardsPerMatch = (row.yellowCards + row.redCards) / matches;
 
     if (goalsPerMatch >= 1.5) {
-      insights.push({ type: "team_season", text: `${name} average over ${Math.floor(goalsPerMatch)} goal${Math.floor(goalsPerMatch) !== 1 ? "s" : ""} per game this season.`, href });
+      const n = Math.floor(goalsPerMatch);
+      insights.push({ type: "team_season", text: `${name} are averaging ${n} goal${n !== 1 ? "s" : ""} per game this season.`, href });
     }
-    if (cornersPerMatch >= 5) {
-      insights.push({ type: "team_season", text: `${name} average over ${Math.floor(cornersPerMatch)} corners per game this season.`, href });
+    if (cornersPerMatch >= 4) {
+      const n = Math.floor(cornersPerMatch);
+      insights.push({ type: "team_season", text: `${name} are averaging ${n} corners per match this season.`, href });
     }
     if (cardsPerMatch >= 2) {
-      insights.push({ type: "team_season", text: `${name} average over ${Math.floor(cardsPerMatch)} cards per game this season.`, href });
+      const n = Math.floor(cardsPerMatch);
+      insights.push({ type: "team_season", text: `${name} are averaging ${n} cards per game this season.`, href });
     }
   }
 
@@ -167,6 +213,11 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
     }
     if (hasEnoughGames && tacklesPerGame >= 1.5) {
       insights.push({ type: "player_season", text: `${label} has averaged over ${Math.floor(tacklesPerGame)} tackle${Math.floor(tacklesPerGame) !== 1 ? "s" : ""} per game this season.`, href });
+    }
+    if (hasEnoughGames && cardsPerGame >= 0.8) {
+      const n = cardsPerGame >= 1 ? Math.floor(cardsPerGame) : 0.5;
+      const cardWord = n === 1 ? "card" : "cards";
+      insights.push({ type: "player_season", text: `${label} has averaged over ${n === 0.5 ? "0.5" : n} ${cardWord} per game this season.`, href });
     }
   }
 

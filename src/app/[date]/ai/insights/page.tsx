@@ -1,4 +1,5 @@
 import { ShareUrlButton } from "@/app/_components/share-url-button";
+import { RefreshInsightsButton } from "@/app/_components/refresh-insights-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { generateInsights } from "@/lib/insightsService";
 import { prisma } from "@/lib/prisma";
@@ -54,9 +55,12 @@ export default async function AIInsightsPage({
             AI Insights
           </h1>
           <p className="mt-1 text-slate-400">{displayDate}</p>
-          <span className="mt-2 inline-flex items-center rounded-full bg-violet-500/20 px-3 py-1 text-xs font-medium text-violet-300 ring-1 ring-violet-500/30">
-            <span>Powered by AI - as of <b>now</b></span>
-          </span>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center rounded-full bg-violet-500/20 px-3 py-1 text-xs font-medium text-violet-300 ring-1 ring-violet-500/30">
+              <span>Powered by AI - as of <b>now</b></span>
+            </span>
+            <RefreshInsightsButton className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800/50 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700/50 hover:border-slate-500 disabled:opacity-60 disabled:cursor-not-allowed" />
+          </div>
         </div>
 
         {liveScores.length > 0 && (
@@ -105,9 +109,11 @@ export default async function AIInsightsPage({
                   <span className="text-xs text-slate-500">
                     {insight.type === "team_last5"
                       ? "Last 5"
-                      : insight.type === "team_season"
-                        ? "Season"
-                        : "Player · Season"}
+                      : insight.type === "team_last10"
+                        ? "Last 10"
+                        : insight.type === "team_season"
+                          ? "Season"
+                          : "Player · Season"}
                   </span>
                   {insight.href && (
                     <NavLinkWithOverlay

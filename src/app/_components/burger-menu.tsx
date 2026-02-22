@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
+import { NavigationLoadingOverlay } from "@/app/_components/navigation-loading-overlay";
 
 /** Today's date YYYY-MM-DD (Europe/London) for AI insights URL */
 function todayDateKey(): string {
@@ -12,9 +13,11 @@ function todayDateKey(): string {
 export function BurgerMenu() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   useEffect(() => {
     setOpen(false);
+    setIsNavigating(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -32,6 +35,11 @@ export function BurgerMenu() {
   const dateKey = todayDateKey();
   const insightsHref = `/${dateKey}/ai/insights`;
   const formHref = `/${dateKey}/form`;
+
+  const handleMenuClick = (e: React.MouseEvent) => {
+    setOpen(false);
+    setIsNavigating(true);
+  };
 
   return (
     <div className="relative flex items-center">
@@ -67,27 +75,35 @@ export function BurgerMenu() {
           role="menu"
           onClick={(e) => e.stopPropagation()}
         >
-          <NavLinkWithOverlay
+          <Link
             href="/"
+            onClick={handleMenuClick}
             className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            role="menuitem"
           >
             Home
-          </NavLinkWithOverlay>
-          <NavLinkWithOverlay
+          </Link>
+          <Link
             href={formHref}
+            onClick={handleMenuClick}
             className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            role="menuitem"
           >
-            Form
-          </NavLinkWithOverlay>
-          <NavLinkWithOverlay
+            Form table
+          </Link>
+          <Link
             href={insightsHref}
+            onClick={handleMenuClick}
             className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
-            message="Loading insights…"
-            italic={false}
+            role="menuitem"
           >
             AI Insights
-          </NavLinkWithOverlay>
+          </Link>
         </nav>
+      )}
+
+      {isNavigating && (
+        <NavigationLoadingOverlay message="Building your Stats" italic />
       )}
     </div>
   );
