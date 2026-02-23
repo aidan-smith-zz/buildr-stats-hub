@@ -29,6 +29,17 @@ const SORT_OPTIONS: { value: PlayerSortKey; label: string }[] = [
 /** statusShort values from live API that mean the match is finished */
 const LIVE_FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);
 
+/** Order for lineup display: GK first, then defenders, midfielders, forwards. */
+function lineupPositionOrder(position: string | null): number {
+  if (!position) return 4;
+  const p = position.toLowerCase();
+  if (p.includes("goalkeeper") || p === "g" || p === "gk") return 0;
+  if (p.includes("defender") || p === "d" || ["cb", "lb", "rb", "lwb", "rwb"].some((x) => p.includes(x))) return 1;
+  if (p.includes("midfielder") || p === "m" || ["cm", "dm", "lm", "rm", "am", "cdm", "cam"].some((x) => p.includes(x))) return 2;
+  if (p.includes("forward") || p.includes("attacker") || p === "f" || p === "s" || ["st", "cf", "lw", "rw", "ss"].some((x) => p.includes(x))) return 3;
+  return 4;
+}
+
 function TeamCrestOrShirt({
   crestUrl,
   alt,
@@ -656,10 +667,18 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
               const team = stats.teams[lineupTab === "home" ? 0 : 1];
               const starting = team.players
                 .filter((p) => p.lineupStatus === "starting")
-                .sort((a, b) => (a.shirtNumber ?? 99) - (b.shirtNumber ?? 99));
+                .sort(
+                  (a, b) =>
+                    lineupPositionOrder(a.position) - lineupPositionOrder(b.position) ||
+                    (a.shirtNumber ?? 99) - (b.shirtNumber ?? 99),
+                );
               const subs = team.players
                 .filter((p) => p.lineupStatus === "substitute")
-                .sort((a, b) => (a.shirtNumber ?? 99) - (b.shirtNumber ?? 99));
+                .sort(
+                  (a, b) =>
+                    lineupPositionOrder(a.position) - lineupPositionOrder(b.position) ||
+                    (a.shirtNumber ?? 99) - (b.shirtNumber ?? 99),
+                );
               return (
                 <>
                   <ul className="space-y-1 text-sm text-neutral-700 dark:text-neutral-300">
