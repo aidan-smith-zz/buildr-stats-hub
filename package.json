@@ -5,9 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "dev:webpack": "next dev --webpack",
-    "build": "prisma generate && next build",
+    "build": "npx prisma generate && next build",
     "start": "next start",
-    "postinstall": "prisma generate",
+    "postinstall": "npx prisma generate",
     "lint": "eslint",
     "clear-fixtures": "npx tsx scripts/clear-fixtures.ts",
     "warm-today": "npx tsx scripts/warm-today-fixtures.ts",

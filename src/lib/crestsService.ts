@@ -8,7 +8,7 @@ import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
  * then fetch each team's crest from the API and store it in the DB.
  * Crests are stored on Team and kept for as long as the team is referenced (today or upcoming).
  */
-export async function refreshTeamCrests(): Promise<{ updated: number; failed: number }> {
+export async function refreshTeamCrests(): Promise<{ updated: number; failed: number; total: number }> {
   const leagueIds = [...REQUIRED_LEAGUE_IDS];
 
   const [fixtureTeams, upcomingRows] = await Promise.all([
