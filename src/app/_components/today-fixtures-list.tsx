@@ -165,9 +165,8 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
   const timeGroups = groupByKickOffTime(sortedFixtures);
   const displayDate = formatDisplayDate(todayKey);
   const billboardFixtures = fixturesWithValidUrls(sortedFixtures);
-  const [picked1, picked2] = pickDeterministic(billboardFixtures, 2, todayKey);
+  const [picked1] = pickDeterministic(billboardFixtures, 2, todayKey);
   const randomFixture1 = picked1 ?? null;
-  const randomFixture2 = picked2 ?? picked1 ?? null;
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -318,29 +317,20 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
                 </NavLinkWithOverlay>
               )}
             </div>
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:shadow-neutral-800/50">
+            <NavLinkWithOverlay
+              href={`/${todayKey}/form`}
+              className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:shadow-neutral-800/50"
+            >
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                Team Averages & Match Trends
+                Form table
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-                Compare team averages/patterns for goals, corners, and cards across the season
+                Last 5, last 10 and season form for all teams playing today. Sortable by goals, corners, cards and more.
               </p>
-              {randomFixture2 ? (
-                <FixtureStatsLink
-                  href={getFixtureUrl(randomFixture2)}
-                  className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-                >
-                  Today's stats →
-                </FixtureStatsLink>
-              ) : (
-                <NavLinkWithOverlay
-                  href={`/fixtures/${todayKey}`}
-                  className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-                >
-                  View fixtures →
-                </NavLinkWithOverlay>
-              )}
-            </div>
+              <span className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200">
+                View form table →
+              </span>
+            </NavLinkWithOverlay>
           </div>
         </section>
       </main>
