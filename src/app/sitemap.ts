@@ -1,7 +1,10 @@
 import type { MetadataRoute } from "next";
-import { getOrRefreshTodayFixtures } from "@/lib/fixturesService";
+import {
+  getOrRefreshTodayFixtures,
+  getFixturesForDatePreview,
+} from "@/lib/fixturesService";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
-import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
+import { leagueToSlug, matchSlug, todayDateKey, nextDateKeys } from "@/lib/slugs";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
@@ -10,17 +13,18 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const now = new Date();
   const entries: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: "daily",
       priority: 1,
     },
   ];
 
   try {
-    const fixtures = await getOrRefreshTodayFixtures(new Date());
+    const fixtures = await getOrRefreshTodayFixtures(now);
     const dateKey = todayDateKey();
     const filtered = fixtures.filter(
       (f) =>
@@ -30,7 +34,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     entries.push({
       url: `${baseUrl}/fixtures/${dateKey}`,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: "daily",
       priority: 0.9,
     });
@@ -42,13 +46,34 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const match = matchSlug(home, away);
       entries.push({
         url: `${baseUrl}/fixtures/${dateKey}/${leagueSlug}/${match}`,
-        lastModified: new Date(),
+        lastModified: now,
         changeFrequency: "daily",
         priority: 0.8,
       });
     }
   } catch (err) {
-    console.error("[sitemap] Failed to fetch fixtures:", err);
+    console.error("[sitemap] Failed to fetch today fixtures:", err);
+  }
+
+  // Next 14 days: preview fixture URLs for SEO (same leagues as today)
+  for (const dayKey of nextDateKeys(14)) {
+    try {
+      const dayFixtures = await getFixturesForDatePreview(dayKey);
+      for (const f of dayFixtures) {
+        const leagueSlug = leagueToSlug(f.league ?? null);
+        const home = f.homeTeam.shortName ?? f.homeTeam.name;
+        const away = f.awayTeam.shortName ?? f.awayTeam.name;
+        const match = matchSlug(home, away);
+        entries.push({
+          url: `${baseUrl}/fixtures/${dayKey}/${leagueSlug}/${match}`,
+          lastModified: now,
+          changeFrequency: "daily",
+          priority: 0.8,
+        });
+      }
+    } catch (err) {
+      console.error("[sitemap] Failed to fetch fixtures for", dayKey, err);
+    }
   }
 
   return entries;
