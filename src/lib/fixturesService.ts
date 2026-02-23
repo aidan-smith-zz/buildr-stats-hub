@@ -6,6 +6,7 @@ import {
   getTeamExternalId,
   type RawFixture,
 } from "@/lib/footballApi";
+import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
 import type { Fixture, Team } from "@prisma/client";
 
@@ -41,6 +42,63 @@ function getCurrentSeasonYear(now: Date = new Date()): number {
   const year = parseInt(dateKey.slice(0, 4), 10);
   const month = parseInt(dateKey.slice(5, 7), 10);
   return month >= 8 ? year : year - 1;
+}
+
+/** Season year for a given date key (YYYY-MM-DD). Used for preview fetches. */
+function getSeasonYearForDate(dateKey: string): number {
+  const year = parseInt(dateKey.slice(0, 4), 10);
+  const month = parseInt(dateKey.slice(5, 7), 10);
+  return month >= 8 ? year : year - 1;
+}
+
+const FIXTURES_TIMEZONE_PREVIEW = "Europe/London";
+
+/**
+ * Fetch fixtures for a given date from the API only (no DB). For use in SSG preview pages and generateStaticParams.
+ * Filters to REQUIRED_LEAGUE_IDS.
+ */
+export async function getFixturesForDatePreview(dateKey: string): Promise<RawFixture[]> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return [];
+  const season = getSeasonYearForDate(dateKey);
+  const results = await Promise.all(
+    REQUIRED_LEAGUE_IDS.map((leagueId) =>
+      fetchTodayFixtures({
+        date: dateKey,
+        leagueId,
+        season,
+        timezone: FIXTURES_TIMEZONE_PREVIEW,
+      })
+    )
+  );
+  const seen = new Set<string>();
+  const flat = results.flat().filter((raw) => {
+    const key = getFixtureExternalId(raw);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  flat.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  return flat;
+}
+
+/**
+ * Resolve a single fixture for preview by date, league slug, and match slug. Returns null if not found.
+ */
+export async function getFixturePreview(
+  dateKey: string,
+  leagueSlug: string,
+  matchSlugParam: string
+): Promise<RawFixture | null> {
+  const fixtures = await getFixturesForDatePreview(dateKey);
+  return (
+    fixtures.find((f) => {
+      const slug = leagueToSlug(f.league ?? null);
+      const home = f.homeTeam.shortName ?? f.homeTeam.name;
+      const away = f.awayTeam.shortName ?? f.awayTeam.name;
+      const m = matchSlug(home, away);
+      return slug === leagueSlug && m === matchSlugParam;
+    }) ?? null
+  );
 }
 
 /**

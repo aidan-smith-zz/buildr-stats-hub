@@ -6,6 +6,8 @@ import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
 export const dynamic = "force-dynamic";
+/** Prevent sitemap from being cached so it reflects latest fixtures after warm-today. */
+export const revalidate = 0;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [

@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
-import { getOrRefreshTodayFixtures } from "@/lib/fixturesService";
+import {
+  getOrRefreshTodayFixtures,
+  getFixturesForDatePreview,
+} from "@/lib/fixturesService";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { leagueToSlug, matchSlug, nextDateKeys } from "@/lib/slugs";
 import { prisma } from "@/lib/prisma";
+
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 const MIN_PLAYERS_PER_TEAM = 11;
 
@@ -81,6 +87,36 @@ export async function GET() {
       label: `${f.homeTeam.shortName ?? f.homeTeam.name} vs ${f.awayTeam.shortName ?? f.awayTeam.name}`,
     }));
 
+    // Warm next 14 days preview pages (fetch each URL so they are built/cached)
+    let previewsWarmed = 0;
+    for (const dateKey of nextDateKeys(14)) {
+      try {
+        const dayFixtures = await getFixturesForDatePreview(dateKey);
+        for (const f of dayFixtures) {
+          const leagueSlug = leagueToSlug(f.league ?? null);
+          const home = f.homeTeam.shortName ?? f.homeTeam.name;
+          const away = f.awayTeam.shortName ?? f.awayTeam.name;
+          const match = matchSlug(home, away);
+          const url = `${baseUrl}/fixtures/${dateKey}/${leagueSlug}/${match}`;
+          try {
+            await fetch(url, { cache: "no-store" });
+            previewsWarmed += 1;
+          } catch {
+            // Skip failed fetches
+          }
+        }
+      } catch {
+        // Skip this date
+      }
+    }
+
+    // Request sitemap so it regenerates with today's fixtures (and any CDN cache gets updated)
+    try {
+      await fetch(`${baseUrl}/sitemap.xml`, { cache: "no-store" });
+    } catch {
+      // Ignore
+    }
+
     return NextResponse.json({
       ok: true,
       message:
@@ -90,6 +126,7 @@ export async function GET() {
       total: list.length,
       totalToday: filtered.length,
       fixtures: list,
+      previewsWarmed,
     });
   } catch (err) {
     console.error("[warm-today] Fatal:", err);
