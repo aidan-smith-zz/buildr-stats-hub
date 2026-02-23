@@ -240,14 +240,24 @@ function FixturePreviewContent({
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
             Match Preview
           </h2>
-          <p className="mt-3 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-            {home} face {away} in the {league} on {displayDate}. This fixture
-            preview will update with detailed team statistics, player performance
-            data, and AI-generated insights closer to kick-off. Season averages
-            including goals, corners, shots per 90, and cards will be added 24
-            hours before the match. Check back for confirmed lineups and live
-            match data.
-          </p>
+          <div className="mt-3 space-y-3 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+            <p>
+              {home} take on {away} in the {league} on {displayDate}. This match
+              preview includes upcoming team statistics, player performance data
+              and AI-powered betting insights ahead of kick-off.
+            </p>
+            <p>
+              Historical trends such as goals scored and conceded, average
+              corners, cards per match and shots per 90 will be analysed as the
+              fixture approaches. Confirmed starting lineups, live score updates
+              and in-play match statistics will also be available once the game
+              begins.
+            </p>
+            <p>
+              Explore data-driven insights for {home} vs {away} and uncover key
+              performance trends before placing any bet builder selections.
+            </p>
+          </div>
         </section>
 
         <section className="mt-10">
