@@ -168,56 +168,127 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
     }
   }
 
-  /** Minimum appearances before we show per-game rate insights (avoids "1 goal in 1 game = 1 per game" nonsense). */
-  const MIN_APPEARANCES_FOR_RATE = 5;
+  /** Only show player insights for those with more than 6 full games (540 mins). */
+  const MIN_MINUTES_FOR_PLAYER_INSIGHTS = 6 * 90; // 540
+  /** Need at least this many eligible players to compute percentile bands (otherwise skip player insights). */
+  const MIN_PLAYERS_FOR_BANDS = 4;
 
-  // Player season (from PlayerSeasonStats) — full name and team so everyone knows who it is
+  type PlayerMetric = {
+    p: (typeof playersWithStats)[0];
+    appearances: number;
+    minutes: number;
+    goalsPerGame: number;
+    assistsPerGame: number;
+    foulsPerGame: number;
+    shotsPerGame: number;
+    tacklesPerGame: number;
+    cardsPerGame: number;
+    yellowCardsPer90: number;
+    label: string;
+    href: string | undefined;
+  };
+
+  const eligible: PlayerMetric[] = [];
   for (const p of playersWithStats) {
-    const rawAppearances = p.stats.appearances ?? (p.stats.minutes > 0 ? Math.max(1, Math.round(p.stats.minutes / 90)) : 0);
+    const minutes = p.stats.minutes ?? 0;
+    if (minutes < MIN_MINUTES_FOR_PLAYER_INSIGHTS) continue;
+    const rawAppearances = p.stats.appearances ?? Math.max(1, Math.round(minutes / 90));
     const appearances = Math.max(1, rawAppearances);
-    const goalsPerGame = (p.stats.goals ?? 0) / appearances;
-    const assistsPerGame = (p.stats.assists ?? 0) / appearances;
-    const foulsPerGame = (p.stats.fouls ?? 0) / appearances;
-    const shotsPerGame = (p.stats.shots ?? 0) / appearances;
-    const shotsOnTargetPerGame = (p.stats.shotsOnTarget ?? 0) / appearances;
-    const tacklesPerGame = (p.stats.tackles ?? 0) / appearances;
-    const cardsPerGame = ((p.stats.yellowCards ?? 0) + (p.stats.redCards ?? 0)) / appearances;
-
+    const fixture = teamIdToFixture.get(p.teamId);
+    const href = fixture ? fixtureToHref(fixture, dateKey) : undefined;
     const fullName = p.player.name;
     const teamLabel = p.teamName;
     const label = `${fullName} (${teamLabel})`;
-    const fixture = teamIdToFixture.get(p.teamId);
-    const href = fixture ? fixtureToHref(fixture, dateKey) : undefined;
+    eligible.push({
+      p,
+      appearances,
+      minutes,
+      goalsPerGame: (p.stats.goals ?? 0) / appearances,
+      assistsPerGame: (p.stats.assists ?? 0) / appearances,
+      foulsPerGame: (p.stats.fouls ?? 0) / appearances,
+      shotsPerGame: (p.stats.shots ?? 0) / appearances,
+      tacklesPerGame: (p.stats.tackles ?? 0) / appearances,
+      cardsPerGame: ((p.stats.yellowCards ?? 0) + (p.stats.redCards ?? 0)) / appearances,
+      yellowCardsPer90: minutes >= 90 ? ((p.stats.yellowCards ?? 0) / minutes) * 90 : 0,
+      label,
+      href,
+    });
+  }
 
-    const hasEnoughGames = appearances >= MIN_APPEARANCES_FOR_RATE;
-    const totalGoals = p.stats.goals ?? 0;
+  if (eligible.length >= MIN_PLAYERS_FOR_BANDS) {
+    const p75 = (arr: number[]) => percentile(arr, 75);
+    const p25 = (arr: number[]) => percentile(arr, 25);
+    const goalsArr = eligible.map((e) => e.goalsPerGame);
+    const assistsArr = eligible.map((e) => e.assistsPerGame);
+    const foulsArr = eligible.map((e) => e.foulsPerGame);
+    const shotsArr = eligible.map((e) => e.shotsPerGame);
+    const tacklesArr = eligible.map((e) => e.tacklesPerGame);
+    const cardsArr = eligible.map((e) => e.cardsPerGame);
+    const yellowPer90Arr = eligible.filter((e) => (e.p.stats.yellowCards ?? 0) > 0).map((e) => e.yellowCardsPer90);
 
-    if (hasEnoughGames && goalsPerGame >= 0.3) {
-      const showOverOneGoal = goalsPerGame >= 1 && totalGoals >= 5;
-      const textVal = showOverOneGoal ? Math.floor(goalsPerGame) : goalsPerGame < 0.5 ? "0.5" : Math.floor(goalsPerGame);
-      insights.push({ type: "player_season", text: `${label} has averaged over ${textVal} goal${textVal !== 1 ? "s" : ""} per game this season.`, href });
-    }
-    if (hasEnoughGames && foulsPerGame >= 0.8) {
-      insights.push({ type: "player_season", text: `${label} has averaged over ${Math.floor(foulsPerGame)} foul${Math.floor(foulsPerGame) !== 1 ? "s" : ""} per game this season.`, href });
-    }
-    if (hasEnoughGames && shotsPerGame > 0 && shotsPerGame <= 2.5) {
-      insights.push({ type: "player_season", text: `${label} has averaged under ${Math.ceil(shotsPerGame * 2) / 2} shots per game this season.`, href });
-    }
-    if (hasEnoughGames && shotsPerGame >= 2) {
-      insights.push({ type: "player_season", text: `${label} has averaged over ${Math.floor(shotsPerGame)} shots per game this season.`, href });
-    }
-    if (hasEnoughGames && assistsPerGame >= 0.2) {
-      const showOverOneAssist = assistsPerGame >= 1 && (p.stats.assists ?? 0) >= 5;
-      const textVal = showOverOneAssist ? Math.floor(assistsPerGame) : assistsPerGame < 0.5 ? "0.5" : Math.floor(assistsPerGame);
-      insights.push({ type: "player_season", text: `${label} has averaged over ${textVal} assist${textVal !== 1 ? "s" : ""} per game this season.`, href });
-    }
-    if (hasEnoughGames && tacklesPerGame >= 1.5) {
-      insights.push({ type: "player_season", text: `${label} has averaged over ${Math.floor(tacklesPerGame)} tackle${Math.floor(tacklesPerGame) !== 1 ? "s" : ""} per game this season.`, href });
-    }
-    if (hasEnoughGames && cardsPerGame >= 0.8) {
-      const n = cardsPerGame >= 1 ? Math.floor(cardsPerGame) : 0.5;
-      const cardWord = n === 1 ? "card" : "cards";
-      insights.push({ type: "player_season", text: `${label} has averaged over ${n === 0.5 ? "0.5" : n} ${cardWord} per game this season.`, href });
+    const goalsP75 = p75(goalsArr);
+    const assistsP75 = p75(assistsArr);
+    const foulsP75 = p75(foulsArr);
+    const foulsP25 = p25(foulsArr);
+    const shotsP75 = p75(shotsArr);
+    const shotsP25 = p25(shotsArr);
+    const tacklesP75 = p75(tacklesArr);
+    const cardsP75 = p75(cardsArr);
+    const yellowP75 = yellowPer90Arr.length >= 2 ? p75(yellowPer90Arr) : 0;
+
+    for (const e of eligible) {
+      // High scorers (top quarter) — show value we're sure they're at or above (floor to 1 decimal)
+      if (e.goalsPerGame >= goalsP75 && e.goalsPerGame >= 0.5) {
+        const display = e.goalsPerGame >= 1 ? Math.floor(e.goalsPerGame) : Math.floor(e.goalsPerGame * 10) / 10;
+        const s = display !== 1 ? "s" : "";
+        insights.push({ type: "player_season", text: `${e.label} has averaged at least ${display} goal${s} per game this season (top quarter among today's players).`, href: e.href });
+      }
+      // High assisters (top quarter)
+      if (e.assistsPerGame >= assistsP75 && e.assistsPerGame >= 0.5) {
+        const display = e.assistsPerGame >= 1 ? Math.floor(e.assistsPerGame) : Math.floor(e.assistsPerGame * 10) / 10;
+        const s = display !== 1 ? "s" : "";
+        insights.push({ type: "player_season", text: `${e.label} has averaged at least ${display} assist${s} per game this season.`, href: e.href });
+      }
+      // High foulers (top quarter)
+      if (e.foulsPerGame >= foulsP75 && e.foulsPerGame >= 0.5) {
+        insights.push({ type: "player_season", text: `${e.label} has averaged over ${Math.floor(e.foulsPerGame)} foul${Math.floor(e.foulsPerGame) !== 1 ? "s" : ""} per game this season.`, href: e.href });
+      }
+      // Clean player (bottom quarter fouls)
+      if (e.foulsPerGame <= foulsP25 && foulsP25 < 1 && e.appearances >= 6) {
+        insights.push({ type: "player_season", text: `${e.label} commits very few fouls per game compared to others playing today.`, href: e.href });
+      }
+      // High volume shooter (top quarter)
+      if (e.shotsPerGame >= shotsP75 && e.shotsPerGame >= 0.5) {
+        insights.push({ type: "player_season", text: `${e.label} has averaged over ${Math.floor(e.shotsPerGame)} shots per game this season.`, href: e.href });
+      }
+      // Rare shooter (bottom quarter) — only say "under X" when strictly below X
+      if (e.shotsPerGame <= shotsP25 && shotsP25 < 2 && e.appearances >= 6) {
+        const underThreshold = Math.ceil(shotsP25 * 2) / 2;
+        if (e.shotsPerGame < underThreshold) {
+          insights.push({ type: "player_season", text: `${e.label} averages under ${underThreshold} shots per game this season.`, href: e.href });
+        } else {
+          const display = e.shotsPerGame >= 1 ? Math.floor(e.shotsPerGame) : Math.floor(e.shotsPerGame * 10) / 10;
+          if (display >= 0.5) {
+            insights.push({ type: "player_season", text: `${e.label} averages ${display} shots per game this season (bottom quarter among today's players).`, href: e.href });
+          }
+        }
+      }
+      // Ball winner (top quarter tackles)
+      if (e.tacklesPerGame >= tacklesP75 && e.tacklesPerGame >= 0.5) {
+        insights.push({ type: "player_season", text: `${e.label} has averaged over ${Math.floor(e.tacklesPerGame)} tackle${Math.floor(e.tacklesPerGame) !== 1 ? "s" : ""} per game this season.`, href: e.href });
+      }
+      // Card magnet (top quarter cards per game)
+      if (e.cardsPerGame >= cardsP75 && e.cardsPerGame >= 0.5) {
+        const n = e.cardsPerGame >= 1 ? Math.floor(e.cardsPerGame) : 0.5;
+        const cardWord = n === 1 ? "card" : "cards";
+        insights.push({ type: "player_season", text: `${e.label} has averaged over ${n === 0.5 ? "0.5" : n} ${cardWord} per game this season.`, href: e.href });
+      }
+      // Booking risk (top quarter yellow per 90, only if they have at least one yellow)
+      if ((e.p.stats.yellowCards ?? 0) > 0 && e.yellowCardsPer90 >= yellowP75 && e.yellowCardsPer90 >= 0.5 && yellowP75 > 0) {
+        const rate = Math.round(e.yellowCardsPer90 * 10) / 10;
+        const cardWord = rate === 1 ? "yellow card" : "yellow cards";
+        insights.push({ type: "player_season", text: `${e.label} is averaging ${rate} ${cardWord} per 90 minutes this season (high among today's players).`, href: e.href });
+      }
     }
   }
 
@@ -527,6 +598,19 @@ async function loadPlayersWithSeasonStats(teamIds: number[]): Promise<PlayerWith
       redCards: r.redCards,
     },
   }));
+}
+
+/** Get value at percentile p (0–100). Uses linear interpolation. Sorts a copy of the array. */
+function percentile(arr: number[], p: number): number {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  if (sorted.length === 1) return sorted[0];
+  const idx = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  const t = idx - lo;
+  return sorted[lo] * (1 - t) + sorted[hi] * t;
 }
 
 function shuffle<T>(arr: T[]): void {
