@@ -97,6 +97,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<PlayerSortKey>("goals");
   const [activeTab, setActiveTab] = useState<"home" | "away">("home");
+  const [lineupTab, setLineupTab] = useState<"home" | "away">("home");
   const [shareLabel, setShareLabel] = useState<"Share" | "Copied!" | "Shared!">("Share");
   const [teamStatsView, setTeamStatsView] = useState<"season" | "last5">("season");
   const [liveScore, setLiveScore] = useState<{
@@ -149,6 +150,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
   // Reset to home tab when fixture changes
   useEffect(() => {
     setActiveTab("home");
+    setLineupTab("home");
   }, [selectedId]);
 
   // Sync from URL when initialSelectedId changes (e.g. client nav to another match)
@@ -391,7 +393,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                         {scoreLabel}
                       </span>
                     ) : (
-                      <span className="min-w-[4rem] text-center text-lg text-neutral-400">–</span>
+                      <span className="min-w-[4rem] text-center text-lg font-light tabular-nums text-neutral-400">−</span>
                     )}
                     <TeamCrestOrShirt
                       crestUrl={stats!.fixture.awayTeam.crestUrl}
@@ -434,9 +436,9 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                   <span className={isLive ? "font-semibold text-green-600 dark:text-green-400" : ""}>
                     {timeOrMinutes}
                   </span>
-                  <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                  <span className="text-neutral-300 dark:text-neutral-600" aria-hidden> | </span>
                   <span>{selectedFixture.league ?? "League"}</span>
-                  <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                  <span className="text-neutral-300 dark:text-neutral-600" aria-hidden> | </span>
                   <span
                     className={
                       isNotStarted
@@ -465,15 +467,15 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                   <span className="font-medium text-neutral-900 dark:text-neutral-50">{homeName}</span>
                   <span className="text-neutral-400">vs</span>
                   <span className="font-medium text-neutral-900 dark:text-neutral-50">{awayName}</span>
-                  <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                  <span className="text-neutral-300 dark:text-neutral-600" aria-hidden> | </span>
                   <span className={isLive ? "font-semibold text-green-600 dark:text-green-400" : "text-neutral-600 dark:text-neutral-400"}>
                     {timeOrMinutes}
                   </span>
-                  <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                  <span className="text-neutral-300 dark:text-neutral-600" aria-hidden> | </span>
                   <span className="text-neutral-600 dark:text-neutral-400">
                     {selectedFixture.league ?? "League"}
                   </span>
-                  <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                  <span className="text-neutral-300 dark:text-neutral-600" aria-hidden> | </span>
                   <span
                     className={
                       isNotStarted
@@ -512,8 +514,8 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                   </h2>
                   <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                     {teamStatsView === "season"
-                      ? `Season ${stats.fixture.season} — average per match`
-                      : "Last 5 matches — average per match"}
+                      ? `Season ${stats.fixture.season}: average per match`
+                      : "Last 5 matches: average per match"}
                   </p>
                 </div>
                 <select
@@ -562,7 +564,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                               {stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
                             </td>
                             <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                              {data.home.xgPer90 != null ? data.home.xgPer90.toFixed(2) : "–"}
+                              {data.home.xgPer90 != null ? data.home.xgPer90.toFixed(2) : "—"}
                             </td>
                             <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
                               {data.home.goalsPer90.toFixed(2)}
@@ -582,7 +584,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                               {stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
                             </td>
                             <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                              {data.away.xgPer90 != null ? data.away.xgPer90.toFixed(2) : "–"}
+                              {data.away.xgPer90 != null ? data.away.xgPer90.toFixed(2) : "—"}
                             </td>
                             <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
                               {data.away.goalsPer90.toFixed(2)}
@@ -605,6 +607,98 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
               </div>
             </>
           ) : null}
+        </section>
+      )}
+
+      {/* Team lineups – only when lineup data has been retrieved */}
+      {selectedId && !error && stats?.hasLineup && stats.teams?.length >= 2 && (
+        <section className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-6 p-4">
+          <header className="border-b border-neutral-200 pb-4 dark:border-neutral-800">
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+              Team lineups
+            </h2>
+            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+              Starting XI and substitutes
+            </p>
+          </header>
+          <div className="mt-4 border-b border-neutral-200 dark:border-neutral-800">
+            <div className="flex gap-1" role="tablist" aria-label="Lineup team">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={lineupTab === "home"}
+                onClick={() => setLineupTab("home")}
+                className={`rounded-t-lg border border-b-0 px-4 py-3 text-sm font-medium transition-colors ${
+                  lineupTab === "home"
+                    ? "border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+                    : "border-transparent bg-neutral-100/50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:bg-neutral-800/50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
+                }`}
+              >
+                {stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={lineupTab === "away"}
+                onClick={() => setLineupTab("away")}
+                className={`rounded-t-lg border border-b-0 px-4 py-3 text-sm font-medium transition-colors ${
+                  lineupTab === "away"
+                    ? "border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+                    : "border-transparent bg-neutral-100/50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:bg-neutral-800/50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
+                }`}
+              >
+                {stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
+              </button>
+            </div>
+          </div>
+          <div className="rounded-b-lg border border-t-0 border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900/80">
+            {(() => {
+              const team = stats.teams[lineupTab === "home" ? 0 : 1];
+              const starting = team.players
+                .filter((p) => p.lineupStatus === "starting")
+                .sort((a, b) => (a.shirtNumber ?? 99) - (b.shirtNumber ?? 99));
+              const subs = team.players
+                .filter((p) => p.lineupStatus === "substitute")
+                .sort((a, b) => (a.shirtNumber ?? 99) - (b.shirtNumber ?? 99));
+              return (
+                <>
+                  <ul className="space-y-1 text-sm text-neutral-700 dark:text-neutral-300">
+                    {starting.map((p) => (
+                      <li key={p.playerId} className="flex items-baseline gap-2">
+                        <span className={`w-6 shrink-0 tabular-nums ${p.shirtNumber != null ? "text-neutral-500 dark:text-neutral-400" : "text-neutral-400 dark:text-neutral-500"}`}>
+                          {p.shirtNumber ?? "·"}
+                        </span>
+                        <span>
+                          {p.name}
+                          {p.position ? ` (${p.position})` : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {subs.length > 0 && (
+                    <>
+                      <p className="mt-4 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                        Substitutes
+                      </p>
+                      <ul className="mt-1 space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+                        {subs.map((p) => (
+                          <li key={p.playerId} className="flex items-baseline gap-2">
+                            <span className={`w-6 shrink-0 tabular-nums ${p.shirtNumber != null ? "text-neutral-500 dark:text-neutral-400" : "text-neutral-400 dark:text-neutral-500"}`}>
+                              {p.shirtNumber ?? "·"}
+                            </span>
+                            <span>
+                              {p.name}
+                              {p.position ? ` (${p.position})` : ""}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </>
+              );
+            })()}
+          </div>
         </section>
       )}
 

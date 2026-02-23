@@ -141,6 +141,14 @@ export default async function FixtureMatchPage({
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+          <div className="mb-6">
+            <NavLinkWithOverlay
+              href="/"
+              className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+            >
+              ← Back to fixtures
+            </NavLinkWithOverlay>
+          </div>
           <h1 className="sr-only">
             {fixture.homeTeam.shortName ?? fixture.homeTeam.name} vs{" "}
             {fixture.awayTeam.shortName ?? fixture.awayTeam.name} – stats

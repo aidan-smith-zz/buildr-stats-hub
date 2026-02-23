@@ -185,16 +185,10 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
               <NavLinkWithOverlay
-                href={`/${todayKey}/form`}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-              >
-                Form table →
-              </NavLinkWithOverlay>
-              <NavLinkWithOverlay
                 href="/fixtures/upcoming"
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
               >
-                Upcoming (14 days) →
+                Upcoming fixtures (14 days) →
               </NavLinkWithOverlay>
             </div>
           </section>
