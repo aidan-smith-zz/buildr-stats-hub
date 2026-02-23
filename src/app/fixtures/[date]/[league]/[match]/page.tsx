@@ -270,15 +270,6 @@ function FixturePreviewContent({
             <li>AI-powered match insights (available before kick-off)</li>
           </ul>
         </section>
-
-        <div className="mt-10 border-t border-neutral-200 pt-8 dark:border-neutral-800">
-          <NavLinkWithOverlay
-            href="/"
-            className="text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400"
-          >
-            ← Back to fixtures
-          </NavLinkWithOverlay>
-        </div>
       </main>
     </div>
   );

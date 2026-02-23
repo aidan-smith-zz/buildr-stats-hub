@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   getOrRefreshTodayFixtures,
   getFixturesForDatePreview,
+  refreshUpcomingFixturesTable,
 } from "@/lib/fixturesService";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { leagueToSlug, matchSlug, nextDateKeys } from "@/lib/slugs";
@@ -17,8 +18,10 @@ const MIN_PLAYERS_PER_TEAM = 11;
  * Use the script which calls GET /api/fixtures/[id]/stats per fixture to warm.
  */
 export async function GET() {
+  const now = new Date();
   try {
-    const fixtures = await getOrRefreshTodayFixtures(new Date());
+    await refreshUpcomingFixturesTable(now);
+    const fixtures = await getOrRefreshTodayFixtures(now);
     const filtered = fixtures.filter(
       (f) => f.leagueId != null && (REQUIRED_LEAGUE_IDS as readonly number[]).includes(f.leagueId)
     );
@@ -87,11 +90,12 @@ export async function GET() {
       label: `${f.homeTeam.shortName ?? f.homeTeam.name} vs ${f.awayTeam.shortName ?? f.awayTeam.name}`,
     }));
 
-    // Warm next 14 days preview pages (fetch each URL so they are built/cached)
+    // Warm next 14 days preview pages (fetch from DB; table was just refreshed above)
+    const { getUpcomingFixturesFromDb } = await import("@/lib/fixturesService");
+    const upcomingByDate = await getUpcomingFixturesFromDb();
     let previewsWarmed = 0;
-    for (const dateKey of nextDateKeys(14)) {
+    for (const { dateKey, fixtures: dayFixtures } of upcomingByDate) {
       try {
-        const dayFixtures = await getFixturesForDatePreview(dateKey);
         for (const f of dayFixtures) {
           const leagueSlug = leagueToSlug(f.league ?? null);
           const home = f.homeTeam.shortName ?? f.homeTeam.name;
@@ -106,7 +110,7 @@ export async function GET() {
           }
         }
       } catch {
-        // Skip this date
+        // Skip
       }
     }
 

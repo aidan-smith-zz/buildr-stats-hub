@@ -223,3 +223,25 @@ model LiveScoreCache {
 
   @@map("LiveScoreCache")
 }
+
+/** Cached upcoming fixtures (next 14 days) for preview pages and sitemap. Populated by warm-today; cleared when out of date. */
+model UpcomingFixture {
+  id               Int      @id @default(autoincrement())
+  dateKey          String   // YYYY-MM-DD (Europe/London)
+  kickoff          DateTime // Full ISO for display/sort
+  league           String?
+  leagueId         Int?
+  homeTeamName     String
+  homeTeamShortName String?
+  awayTeamName     String
+  awayTeamShortName String?
+  homeTeamApiId    String   // API-Football team id (for crest refresh)
+  awayTeamApiId    String   // API-Football team id (for crest refresh)
+  apiFixtureId     String   // API-Football fixture id for deduplication
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dateKey, apiFixtureId])
+  @@index([dateKey])
+}

@@ -10,12 +10,13 @@ import { refreshTeamCrests } from "@/lib/crestsService";
  */
 export async function POST() {
   try {
-    const { updated, failed } = await refreshTeamCrests();
+    const { updated, failed, total } = await refreshTeamCrests();
     return NextResponse.json({
       ok: true,
-      message: `Crests refreshed. ${updated} updated, ${failed} failed.`,
+      message: `Crests refreshed. ${updated}/${total ?? updated + failed} updated, ${failed} failed.`,
       updated,
       failed,
+      total: total ?? updated + failed,
     });
   } catch (err) {
     console.error("[api/teams/crests/refresh]", err);

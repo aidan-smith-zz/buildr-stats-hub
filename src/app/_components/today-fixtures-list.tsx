@@ -183,12 +183,18 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
               Explore team season averages and in-depth player statistics to uncover meaningful
               trends and make informed, data-driven match insights.
             </p>
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
               <NavLinkWithOverlay
                 href={`/${todayKey}/form`}
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
               >
                 Form table →
+              </NavLinkWithOverlay>
+              <NavLinkWithOverlay
+                href="/fixtures/upcoming"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+              >
+                Upcoming (14 days) →
               </NavLinkWithOverlay>
             </div>
           </section>
@@ -202,6 +208,9 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
           </div>
         ) : (
           <div className="space-y-10">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50 sm:text-lg">
+              Today&apos;s fixtures
+            </h2>
             {timeGroups.map(({ timeKey, fixtures: groupFixtures }) => (
               <ul key={timeKey} className="space-y-2">
                 {groupFixtures.map((f) => {

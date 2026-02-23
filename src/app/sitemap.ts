@@ -1,10 +1,10 @@
 import type { MetadataRoute } from "next";
 import {
   getOrRefreshTodayFixtures,
-  getFixturesForDatePreview,
+  getUpcomingFixturesFromDb,
 } from "@/lib/fixturesService";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
-import { leagueToSlug, matchSlug, todayDateKey, nextDateKeys } from "@/lib/slugs";
+import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
@@ -55,10 +55,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] Failed to fetch today fixtures:", err);
   }
 
-  // Next 14 days: preview fixture URLs for SEO (same leagues as today)
-  for (const dayKey of nextDateKeys(14)) {
-    try {
-      const dayFixtures = await getFixturesForDatePreview(dayKey);
+  // Next 14 days: preview fixture URLs from DB (populated by warm-today)
+  try {
+    const upcomingByDate = await getUpcomingFixturesFromDb();
+    for (const { dateKey: dayKey, fixtures: dayFixtures } of upcomingByDate) {
       for (const f of dayFixtures) {
         const leagueSlug = leagueToSlug(f.league ?? null);
         const home = f.homeTeam.shortName ?? f.homeTeam.name;
@@ -71,9 +71,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           priority: 0.8,
         });
       }
-    } catch (err) {
-      console.error("[sitemap] Failed to fetch fixtures for", dayKey, err);
     }
+  } catch (err) {
+    console.error("[sitemap] Failed to fetch upcoming fixtures:", err);
   }
 
   return entries;

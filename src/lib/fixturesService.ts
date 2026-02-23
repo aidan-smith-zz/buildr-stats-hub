@@ -6,7 +6,7 @@ import {
   getTeamExternalId,
   type RawFixture,
 } from "@/lib/footballApi";
-import { leagueToSlug, matchSlug } from "@/lib/slugs";
+import { leagueToSlug, matchSlug, nextDateKeys, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
 import type { Fixture, Team } from "@prisma/client";
 
@@ -83,12 +83,15 @@ export async function getFixturesForDatePreview(dateKey: string): Promise<RawFix
 
 /**
  * Resolve a single fixture for preview by date, league slug, and match slug. Returns null if not found.
+ * Tries UpcomingFixture table first (when dateKey >= today), then falls back to API.
  */
 export async function getFixturePreview(
   dateKey: string,
   leagueSlug: string,
   matchSlugParam: string
 ): Promise<RawFixture | null> {
+  const fromDb = await getFixturePreviewFromDb(dateKey, leagueSlug, matchSlugParam);
+  if (fromDb) return fromDb;
   const fixtures = await getFixturesForDatePreview(dateKey);
   return (
     fixtures.find((f) => {
@@ -99,6 +102,205 @@ export async function getFixturePreview(
       return slug === leagueSlug && m === matchSlugParam;
     }) ?? null
   );
+}
+
+/** Map UpcomingFixture row to RawFixture shape for preview pages. */
+function upcomingRowToRaw(row: {
+  apiFixtureId: string;
+  kickoff: Date;
+  league: string | null;
+  leagueId: number | null;
+  homeTeamName: string;
+  homeTeamShortName: string | null;
+  awayTeamName: string;
+  awayTeamShortName: string | null;
+}): RawFixture {
+  return {
+    id: row.apiFixtureId,
+    date: row.kickoff.toISOString(),
+    league: row.league ?? undefined,
+    leagueId: row.leagueId ?? undefined,
+    homeTeam: {
+      id: row.apiFixtureId,
+      name: row.homeTeamName,
+      shortName: row.homeTeamShortName ?? undefined,
+    },
+    awayTeam: {
+      id: row.apiFixtureId,
+      name: row.awayTeamName,
+      shortName: row.awayTeamShortName ?? undefined,
+    },
+  };
+}
+
+/**
+ * Find a single upcoming fixture by date and slug. Returns RawFixture shape or null.
+ */
+export async function getFixturePreviewFromDb(
+  dateKey: string,
+  leagueSlug: string,
+  matchSlugParam: string
+): Promise<RawFixture | null> {
+  const rows = await prisma.upcomingFixture.findMany({
+    where: { dateKey },
+    orderBy: { kickoff: "asc" },
+  });
+  for (const row of rows) {
+    const slug = leagueToSlug(row.league ?? null);
+    const home = row.homeTeamShortName ?? row.homeTeamName;
+    const away = row.awayTeamShortName ?? row.awayTeamName;
+    const m = matchSlug(home, away);
+    if (slug === leagueSlug && m === matchSlugParam) {
+      return upcomingRowToRaw(row);
+    }
+  }
+  return null;
+}
+
+/** RawFixture with optional crestUrl on home/away for upcoming list display. */
+export type UpcomingFixtureWithCrests = RawFixture & {
+  homeTeam: RawFixture["homeTeam"] & { crestUrl?: string | null };
+  awayTeam: RawFixture["awayTeam"] & { crestUrl?: string | null };
+};
+
+export type UpcomingFixtureByDate = { dateKey: string; fixtures: UpcomingFixtureWithCrests[] };
+
+/**
+ * Get upcoming fixtures from DB (next 14 days). Returns grouped by dateKey with team crest URLs. Empty if table not yet populated.
+ */
+export async function getUpcomingFixturesFromDb(): Promise<UpcomingFixtureByDate[]> {
+  const today = todayDateKey();
+  const rows = await prisma.upcomingFixture.findMany({
+    where: { dateKey: { gte: today } },
+    orderBy: [{ dateKey: "asc" }, { kickoff: "asc" }],
+  });
+  const apiIds = [...new Set(rows.flatMap((r) => [r.homeTeamApiId, r.awayTeamApiId]))];
+  const teams = await prisma.team.findMany({
+    where: { apiId: { in: apiIds } },
+    select: { apiId: true, crestUrl: true },
+  });
+  const crestByApiId = new Map<string, string | null>();
+  for (const t of teams) {
+    if (t.apiId != null) crestByApiId.set(t.apiId, t.crestUrl);
+  }
+  const byDate = new Map<string, UpcomingFixtureWithCrests[]>();
+  for (const row of rows) {
+    const raw = upcomingRowToRaw(row);
+    const fixture: UpcomingFixtureWithCrests = {
+      ...raw,
+      homeTeam: {
+        ...raw.homeTeam,
+        crestUrl: crestByApiId.get(row.homeTeamApiId) ?? null,
+      },
+      awayTeam: {
+        ...raw.awayTeam,
+        crestUrl: crestByApiId.get(row.awayTeamApiId) ?? null,
+      },
+    };
+    const list = byDate.get(row.dateKey) ?? [];
+    list.push(fixture);
+    byDate.set(row.dateKey, list);
+  }
+  return Array.from(byDate.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([dateKey, fixtures]) => ({ dateKey, fixtures }));
+}
+
+/**
+ * Delete upcoming fixtures whose dateKey is before today (out of date).
+ */
+export async function clearOutdatedUpcomingFixtures(now: Date = new Date()): Promise<number> {
+  const todayKey = now.toLocaleDateString("en-CA", { timeZone: FIXTURES_TIMEZONE });
+  const result = await prisma.upcomingFixture.deleteMany({
+    where: { dateKey: { lt: todayKey } },
+  });
+  return result.count;
+}
+
+/**
+ * Refresh the UpcomingFixture table: clear out-of-date rows, then fetch next 14 days from API and upsert.
+ * Call from warm-today so the table stays populated and clean.
+ */
+export async function refreshUpcomingFixturesTable(now: Date = new Date()): Promise<void> {
+  await clearOutdatedUpcomingFixtures(now);
+  const todayKey = now.toLocaleDateString("en-CA", { timeZone: FIXTURES_TIMEZONE });
+
+  for (const dateKey of nextDateKeys(14)) {
+    if (dateKey <= todayKey) continue;
+    try {
+      const fixtures = await getFixturesForDatePreview(dateKey);
+      const leagueCountry = null;
+      for (const raw of fixtures) {
+        const homeCountry = raw.homeTeam.country ?? raw.leagueCountry ?? leagueCountry;
+        const awayCountry = raw.awayTeam.country ?? raw.leagueCountry ?? leagueCountry;
+        await Promise.all([
+          prisma.team.upsert({
+            where: { apiId: getTeamExternalId(raw.homeTeam) },
+            update: {
+              name: raw.homeTeam.name,
+              shortName: raw.homeTeam.shortName ?? undefined,
+              country: homeCountry,
+            },
+            create: {
+              apiId: getTeamExternalId(raw.homeTeam),
+              name: raw.homeTeam.name,
+              shortName: raw.homeTeam.shortName ?? undefined,
+              country: homeCountry,
+            },
+          }),
+          prisma.team.upsert({
+            where: { apiId: getTeamExternalId(raw.awayTeam) },
+            update: {
+              name: raw.awayTeam.name,
+              shortName: raw.awayTeam.shortName ?? undefined,
+              country: awayCountry,
+            },
+            create: {
+              apiId: getTeamExternalId(raw.awayTeam),
+              name: raw.awayTeam.name,
+              shortName: raw.awayTeam.shortName ?? undefined,
+              country: awayCountry,
+            },
+          }),
+        ]);
+        const apiId = String(getFixtureExternalId(raw));
+        const homeTeamApiId = getTeamExternalId(raw.homeTeam);
+        const awayTeamApiId = getTeamExternalId(raw.awayTeam);
+        const kickoff = new Date(raw.date);
+        await prisma.upcomingFixture.upsert({
+          where: {
+            dateKey_apiFixtureId: { dateKey, apiFixtureId: apiId },
+          },
+          update: {
+            kickoff,
+            league: raw.league ?? null,
+            leagueId: raw.leagueId ?? null,
+            homeTeamName: raw.homeTeam.name,
+            homeTeamShortName: raw.homeTeam.shortName ?? null,
+            awayTeamName: raw.awayTeam.name,
+            awayTeamShortName: raw.awayTeam.shortName ?? null,
+            homeTeamApiId,
+            awayTeamApiId,
+          },
+          create: {
+            dateKey,
+            kickoff,
+            league: raw.league ?? null,
+            leagueId: raw.leagueId ?? null,
+            homeTeamName: raw.homeTeam.name,
+            homeTeamShortName: raw.homeTeam.shortName ?? null,
+            awayTeamName: raw.awayTeam.name,
+            awayTeamShortName: raw.awayTeam.shortName ?? null,
+            homeTeamApiId,
+            awayTeamApiId,
+            apiFixtureId: apiId,
+          },
+        });
+      }
+    } catch {
+      // Skip this date on API failure
+    }
+  }
 }
 
 /**

@@ -92,6 +92,14 @@ export function BurgerMenu() {
             Form table
           </Link>
           <Link
+            href="/fixtures/upcoming"
+            onClick={handleMenuClick}
+            className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            role="menuitem"
+          >
+            Upcoming fixtures
+          </Link>
+          <Link
             href={insightsHref}
             onClick={handleMenuClick}
             className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
