@@ -30,9 +30,16 @@ const SORT_OPTIONS: { value: PlayerSortKey; label: string }[] = [
 const LIVE_FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);
 
 /** Order for lineup display: GK first, then defenders, midfielders, forwards. */
-function lineupPositionOrder(position: string | null): number {
-  if (!position) return 4;
-  const p = position.toLowerCase();
+function lineupPositionOrder(
+  position: string | null,
+  shirtNumber: number | null,
+): number {
+  // When position is missing, treat common GK numbers as goalkeeper so they sort first
+  if (!position || position.trim() === "") {
+    if (shirtNumber === 1 || shirtNumber === 13) return 0;
+    return 4;
+  }
+  const p = position.toLowerCase().trim();
   if (p.includes("goalkeeper") || p === "g" || p === "gk") return 0;
   if (p.includes("defender") || p === "d" || ["cb", "lb", "rb", "lwb", "rwb"].some((x) => p.includes(x))) return 1;
   if (p.includes("midfielder") || p === "m" || ["cm", "dm", "lm", "rm", "am", "cdm", "cam"].some((x) => p.includes(x))) return 2;
@@ -669,14 +676,14 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                 .filter((p) => p.lineupStatus === "starting")
                 .sort(
                   (a, b) =>
-                    lineupPositionOrder(a.position) - lineupPositionOrder(b.position) ||
+                    lineupPositionOrder(a.position, a.shirtNumber) - lineupPositionOrder(b.position, b.shirtNumber) ||
                     (a.shirtNumber ?? 99) - (b.shirtNumber ?? 99),
                 );
               const subs = team.players
                 .filter((p) => p.lineupStatus === "substitute")
                 .sort(
                   (a, b) =>
-                    lineupPositionOrder(a.position) - lineupPositionOrder(b.position) ||
+                    lineupPositionOrder(a.position, a.shirtNumber) - lineupPositionOrder(b.position, b.shirtNumber) ||
                     (a.shirtNumber ?? 99) - (b.shirtNumber ?? 99),
                 );
               return (
