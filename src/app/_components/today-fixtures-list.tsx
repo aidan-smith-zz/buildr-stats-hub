@@ -1,4 +1,4 @@
-import { FixtureRowLink, FixtureStatsLink, NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
+import { FixtureRowLink, NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
@@ -124,49 +124,11 @@ type Props = {
   todayKey?: string;
 };
 
-function getFixtureUrl(fixture: FixtureSummary): string {
-  const dateKey = new Date(fixture.date).toLocaleDateString("en-CA", { timeZone: "Europe/London" });
-  const leagueSlug = leagueToSlug(fixture.league);
-  const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
-  const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
-  return `/fixtures/${dateKey}/${leagueSlug}/${matchSlug(home, away)}`;
-}
-
-/** Deterministic "random" pick so server and client render the same (avoids hydration mismatch). */
-function pickDeterministic<T>(arr: T[], count: number, seed: string): T[] {
-  if (arr.length === 0) return [];
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
-  const next = () => {
-    h = (Math.imul(16807, h) | 0) % 2147483647;
-    return (h >>> 0) / 2147483647;
-  };
-  const result: T[] = [];
-  for (let i = 0; i < count; i++) {
-    result.push(arr[Math.floor(next() * arr.length)]);
-  }
-  return result;
-}
-
-/** Fixtures that will produce valid billboard CTA URLs (have league and teams). */
-function fixturesWithValidUrls(fixtures: FixtureSummary[]): FixtureSummary[] {
-  return fixtures.filter(
-    (f) =>
-      f.league != null &&
-      f.league.length > 0 &&
-      (f.homeTeam?.name ?? f.homeTeam?.shortName) != null &&
-      (f.awayTeam?.name ?? f.awayTeam?.shortName) != null
-  );
-}
-
 export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKeyProp }: Props) {
   const todayKey = todayKeyProp ?? todayDateKey();
   const sortedFixtures = fixturesByKickOff(fixtures);
   const timeGroups = groupByKickOffTime(sortedFixtures);
   const displayDate = formatDisplayDate(todayKey);
-  const billboardFixtures = fixturesWithValidUrls(sortedFixtures);
-  const [picked1] = pickDeterministic(billboardFixtures, 2, todayKey);
-  const randomFixture1 = picked1 ?? null;
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -282,46 +244,37 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
           </h2>
           <div className="grid gap-6 sm:grid-cols-2">
             <NavLinkWithOverlay
-              href={`/${todayKey}/ai/insights`}
+              href={`/fixtures/${todayKey}/ai-insights`}
               className="rounded-2xl border border-violet-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-violet-800/50 dark:bg-neutral-900 dark:hover:shadow-violet-900/20 dark:hover:border-violet-700/50 sm:col-span-2"
               message="Loading insights…"
               italic={false}
             >
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                New AI Insights
+                New AI insights
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
                 We scan today's fixtures & stats then we surface the trends that matter
               </p>
               <span className="mt-4 inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400">
-                See AI Insights →
+                See AI insights →
               </span>
             </NavLinkWithOverlay>
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:shadow-neutral-800/50">
+            <NavLinkWithOverlay
+              href={`/fixtures/${todayKey}/matchday-insights`}
+              className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:shadow-neutral-800/50"
+            >
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                Season Player Performance Stats
+                Matchday insights
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-                Detailed player statistics including shots per 90, goals, assists, and disciplinary records
+                Top players and teams across today&apos;s fixtures: shots on target, shots, fouls, xG and cards per 90.
               </p>
-              {randomFixture1 ? (
-                <FixtureStatsLink
-                  href={getFixtureUrl(randomFixture1)}
-                  className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-                >
-                  View match stats →
-                </FixtureStatsLink>
-              ) : (
-                <NavLinkWithOverlay
-                  href={`/fixtures/${todayKey}`}
-                  className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-                >
-                  View fixtures →
-                </NavLinkWithOverlay>
-              )}
-            </div>
+              <span className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200">
+                View matchday insights →
+              </span>
+            </NavLinkWithOverlay>
             <NavLinkWithOverlay
-              href={`/${todayKey}/form`}
+              href={`/fixtures/${todayKey}/form`}
               className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:shadow-neutral-800/50"
             >
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">

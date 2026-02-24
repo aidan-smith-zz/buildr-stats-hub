@@ -33,8 +33,9 @@ export function BurgerMenu() {
   }, [open]);
 
   const dateKey = todayDateKey();
-  const insightsHref = `/${dateKey}/ai/insights`;
-  const formHref = `/${dateKey}/form`;
+  const insightsHref = `/fixtures/${dateKey}/ai-insights`;
+  const formHref = `/fixtures/${dateKey}/form`;
+  const matchdayInsightsHref = `/fixtures/${dateKey}/matchday-insights`;
 
   const handleMenuClick = (e: React.MouseEvent) => {
     setOpen(false);
@@ -92,6 +93,14 @@ export function BurgerMenu() {
             Form table
           </Link>
           <Link
+            href={matchdayInsightsHref}
+            onClick={handleMenuClick}
+            className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            role="menuitem"
+          >
+            Matchday insights
+          </Link>
+          <Link
             href="/fixtures/upcoming"
             onClick={handleMenuClick}
             className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
@@ -105,7 +114,7 @@ export function BurgerMenu() {
             className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
             role="menuitem"
           >
-            AI Insights
+            AI insights
           </Link>
         </nav>
       )}

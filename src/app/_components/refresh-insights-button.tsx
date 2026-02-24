@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { NavigationLoadingOverlay } from "@/app/_components/navigation-loading-overlay";
 
 type Props = {
   className?: string;
@@ -14,29 +15,35 @@ export function RefreshInsightsButton({ className }: Props) {
   const handleRefresh = () => {
     setRefreshing(true);
     router.refresh();
-    setTimeout(() => setRefreshing(false), 800);
+    // Keep overlay visible until refresh completes (Next.js doesn't expose a promise; use a minimum duration)
+    setTimeout(() => setRefreshing(false), 1500);
   };
 
   return (
-    <button
-      type="button"
-      onClick={handleRefresh}
-      disabled={refreshing}
-      className={className}
-      aria-label="Refresh insights"
-    >
-      {refreshing ? (
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
-          Refreshing…
-        </span>
-      ) : (
-        <span className="inline-flex items-center gap-1.5">
-          <RefreshIcon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          Refresh insights
-        </span>
+    <>
+      <button
+        type="button"
+        onClick={handleRefresh}
+        disabled={refreshing}
+        className={className}
+        aria-label="Refresh insights"
+      >
+        {refreshing ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+            Refreshing…
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5">
+            <RefreshIcon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            Refresh insights
+          </span>
+        )}
+      </button>
+      {refreshing && (
+        <NavigationLoadingOverlay message="Refreshing insights…" italic={false} />
       )}
-    </button>
+    </>
   );
 }
 

@@ -38,13 +38,15 @@ export default async function AIInsightsPage({
     year: "numeric",
   });
 
+  const fixturesHref = `/fixtures/${dateKey}`;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
       <main className="mx-auto max-w-2xl px-4 pt-6 pb-10 sm:px-6 sm:pt-8 sm:pb-12">
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <NavLinkWithOverlay
-              href="/"
+              href={fixturesHref}
               className="text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors"
             >
               ← Back to fixtures
@@ -52,7 +54,7 @@ export default async function AIInsightsPage({
             <ShareUrlButton className="rounded-lg border border-slate-600 bg-slate-800/50 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700/50 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700" />
           </div>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-            AI Insights
+            AI insights
           </h1>
           <p className="mt-1 text-slate-400">{displayDate}</p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -91,7 +93,7 @@ export default async function AIInsightsPage({
               in the database — warm a few fixtures first to see insights here.
             </p>
             <NavLinkWithOverlay
-              href="/"
+              href={fixturesHref}
               className="mt-4 inline-block text-sm font-medium text-violet-400 hover:text-violet-300"
             >
               View today&apos;s fixtures →

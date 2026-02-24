@@ -38,6 +38,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.9,
     });
+    entries.push(
+      { url: `${baseUrl}/fixtures/${dateKey}/ai-insights`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+      { url: `${baseUrl}/fixtures/${dateKey}/form`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+      { url: `${baseUrl}/fixtures/${dateKey}/matchday-insights`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    );
 
     for (const f of filtered) {
       const leagueSlug = leagueToSlug(f.league);
@@ -59,6 +64,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const upcomingByDate = await getUpcomingFixturesFromDb();
     for (const { dateKey: dayKey, fixtures: dayFixtures } of upcomingByDate) {
+      entries.push(
+        { url: `${baseUrl}/fixtures/${dayKey}/ai-insights`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+        { url: `${baseUrl}/fixtures/${dayKey}/form`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+        { url: `${baseUrl}/fixtures/${dayKey}/matchday-insights`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+      );
       for (const f of dayFixtures) {
         const leagueSlug = leagueToSlug(f.league ?? null);
         const home = f.homeTeam.shortName ?? f.homeTeam.name;

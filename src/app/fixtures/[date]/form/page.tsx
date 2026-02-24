@@ -37,6 +37,7 @@ export default async function FormPage({
   );
 
   const hasData = last5.length > 0 || last10.length > 0 || season.length > 0;
+  const fixturesHref = `/fixtures/${dateKey}`;
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -44,7 +45,7 @@ export default async function FormPage({
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <NavLinkWithOverlay
-              href="/"
+              href={fixturesHref}
               className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
             >
               ← Back to fixtures
@@ -66,7 +67,7 @@ export default async function FormPage({
               last 5, last 10 and season averages here.
             </p>
             <NavLinkWithOverlay
-              href="/"
+              href={fixturesHref}
               className="mt-4 inline-block text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400"
             >
               View today&apos;s fixtures →

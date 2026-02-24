@@ -88,7 +88,7 @@ export async function generateMetadata({
     const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
     const league = fixture.league ?? "Football";
     const year = getYear(dateKey);
-    const title = `${home} vs ${away} Preview, Stats & AI Insights | ${league} ${year}`;
+    const title = `${home} vs ${away} Preview, Stats & AI insights | ${league} ${year}`;
     const description = `Preview for ${home} vs ${away} including upcoming team stats, player performance data and AI-powered football insights.`;
     const canonical = `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
     return {
@@ -112,7 +112,7 @@ export async function generateMetadata({
   const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
   const league = fixture.league ?? "Football";
   const year = getYear(dateKey);
-  const title = `${home} vs ${away} Preview, Stats & AI Insights | ${league} ${year}`;
+  const title = `${home} vs ${away} Preview, Stats & AI insights | ${league} ${year}`;
   const description = `Preview for ${home} vs ${away} including upcoming team stats, player performance data and AI-powered football insights.`;
   const canonical = `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
   return {
@@ -143,7 +143,7 @@ export default async function FixtureMatchPage({
         <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <div className="mb-6">
             <NavLinkWithOverlay
-              href="/"
+              href={`/fixtures/${dateKey}`}
               className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
             >
               ← Back to fixtures
@@ -161,19 +161,19 @@ export default async function FixtureMatchPage({
           <section className="mt-12 border-t border-neutral-200 pt-10 dark:border-neutral-800">
             <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-6 dark:border-violet-800/50 dark:bg-violet-950/20">
               <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                New AI Insights
+                New AI insights
               </h2>
               <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                 We scan today&apos;s fixtures & stats then we surface the trends
                 that matter
               </p>
               <NavLinkWithOverlay
-                href={`/${dateKey}/ai/insights`}
+                href={`/fixtures/${dateKey}/ai-insights`}
                 className="mt-4 inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400"
                 message="Loading insights…"
                 italic={false}
               >
-                See today&apos;s AI Insights →
+                See today&apos;s AI insights →
               </NavLinkWithOverlay>
             </div>
           </section>
@@ -194,7 +194,7 @@ export default async function FixtureMatchPage({
           </p>
           <div className="mt-6 flex justify-center">
             <NavLinkWithOverlay
-              href="/"
+              href={`/fixtures/${dateKey}`}
               className="text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400"
             >
               ← Back to fixtures
@@ -228,7 +228,7 @@ function FixturePreviewContent({
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <div className="mb-8">
           <NavLinkWithOverlay
-            href="/"
+            href={`/fixtures/${dateKey}`}
             className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
           >
             ← Back to fixtures
