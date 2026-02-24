@@ -18,6 +18,15 @@ export type Last5TeamSummary = {
   href?: string;
 };
 
+/** Fixture row for Form Edge: used with Last5TeamSummary to compute edge = homeRating - awayRating. */
+export type FormEdgeFixture = {
+  homeTeamId: number;
+  awayTeamId: number;
+  homeName: string;
+  awayName: string;
+  href: string;
+};
+
 type FixtureWithTeams = { date: Date; league: string | null; homeTeam: { name: string; shortName: string | null }; awayTeam: { name: string; shortName: string | null } };
 
 function fixtureToHref(fixture: FixtureWithTeams, dateKey: string): string {
@@ -389,6 +398,26 @@ export async function getLastNStatsForDate(dateKey: string, n: number): Promise<
 /** Load last-10 stats for today's teams. */
 export async function getLast10StatsForDate(dateKey: string): Promise<Last5TeamSummary[]> {
   return getLastNStatsForDate(dateKey, 10);
+}
+
+/** Fixtures for the date with team ids and names, for Form Edge section (same order as form tables). */
+export async function getFormEdgeFixtures(dateKey: string): Promise<FormEdgeFixture[]> {
+  const { dayStart, spilloverEnd } = dayBoundsForDate(dateKey);
+  const fixtures = await prisma.fixture.findMany({
+    where: {
+      date: { gte: dayStart, lte: spilloverEnd },
+      leagueId: { in: [...REQUIRED_LEAGUE_IDS] },
+    },
+    include: { homeTeam: true, awayTeam: true },
+    orderBy: { date: "asc" },
+  });
+  return fixtures.map((f) => ({
+    homeTeamId: f.homeTeamId,
+    awayTeamId: f.awayTeamId,
+    homeName: f.homeTeam.shortName ?? f.homeTeam.name,
+    awayName: f.awayTeam.shortName ?? f.awayTeam.name,
+    href: fixtureToHref(f, dateKey),
+  }));
 }
 
 /** Season averages for today's teams (from TeamSeasonStats). */

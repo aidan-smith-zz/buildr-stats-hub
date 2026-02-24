@@ -2,9 +2,11 @@ import {
   getLast5StatsForDate,
   getLast10StatsForDate,
   getSeasonStatsForDate,
+  getFormEdgeFixtures,
 } from "@/lib/insightsService";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
+import { FormEdgeSection } from "./form-edge-section";
 import { FormTableClient } from "./form-table-client";
 
 export const dynamic = "force-dynamic";
@@ -25,10 +27,11 @@ export default async function FormPage({
   const { date: dateParam } = await params;
   const dateKey = normalizeDateKey(dateParam);
 
-  const [last5, last10, season] = await Promise.all([
+  const [last5, last10, season, formEdgeFixtures] = await Promise.all([
     getLast5StatsForDate(dateKey),
     getLast10StatsForDate(dateKey),
     getSeasonStatsForDate(dateKey),
+    getFormEdgeFixtures(dateKey),
   ]);
 
   const displayDate = new Date(dateKey + "T12:00:00.000Z").toLocaleDateString(
@@ -74,7 +77,16 @@ export default async function FormPage({
             </NavLinkWithOverlay>
           </div>
         ) : (
-          <FormTableClient last5={last5} last10={last10} season={season} />
+          <>
+            <section className="mb-10">
+              <FormTableClient last5={last5} last10={last10} season={season} />
+            </section>
+            <FormEdgeSection
+              fixtures={formEdgeFixtures}
+              last10={last10}
+              season={season}
+            />
+          </>
         )}
       </main>
     </div>

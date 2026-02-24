@@ -82,7 +82,7 @@ export function FormTableClient({ last5, last10, season }: Props) {
           ))}
         </div>
       </div>
-      <div className="overflow-x-auto">
+      <div className="max-h-[320px] overflow-auto overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-800/50">
