@@ -788,7 +788,6 @@ export async function getFixtureStats(
     },
     orderBy: [{ teamId: "asc" }, { minutes: "desc" }],
   });
-  // Load team-season rows for this fixture's teams and season only (this season or none).
   const teamSeasonRowsQuery = prisma.teamSeasonStats.findMany({
     where: {
       teamId: { in: [fixture.homeTeamId, fixture.awayTeamId] },
