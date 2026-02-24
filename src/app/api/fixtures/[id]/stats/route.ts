@@ -40,10 +40,9 @@ export async function GET(_request: Request, { params }: RouteParams) {
   }
 
   return NextResponse.json(stats, {
-    // Stats are season-to-date and typically change at most daily.
-    // This hints that responses can be cached briefly at the edge if desired.
+    // Shorter max-age so team stats show soon after warm; stale-while-revalidate for speed.
     headers: {
-      "Cache-Control": "public, max-age=300",
+      "Cache-Control": "public, max-age=60, stale-while-revalidate=120",
     },
   });
 }
