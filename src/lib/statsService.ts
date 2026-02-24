@@ -1018,7 +1018,7 @@ export async function getFixtureStats(
 
   const teamStatsUnavailableReason =
     (homeRow || awayRow) && !teamStats
-      ? "Season stats are empty (API plan may not include fixture list or statistics for this league)."
+      ? "Season stats are not available for this competition yet."
       : undefined;
 
   return {

@@ -20,8 +20,12 @@ function getFixtureErrorDisplay(err: unknown): { message: string; showConfigHint
   }
   const isMissingLeagueId =
     typeof raw === "string" && raw.includes("leagueId") && raw.includes("does not exist");
+  const hasApiReference = typeof raw === "string" && /\bapi\b|plan limitation|rate limit/i.test(raw);
+  const safeMessage = hasApiReference
+    ? "Something went wrong loading fixtures. Please try again later."
+    : raw || "Could not load fixtures.";
   return {
-    message: isMissingLeagueId ? raw : raw || "Could not load fixtures.",
+    message: isMissingLeagueId ? raw : safeMessage,
     showConfigHints: true,
   };
 }

@@ -20,7 +20,7 @@ export default function Error({
           Something went wrong
         </h1>
         <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6">
-          We couldn’t load the page. This is often due to a database or API connection issue.
+          We couldn’t load the page. Please try again in a moment.
         </p>
         <button
           type="button"

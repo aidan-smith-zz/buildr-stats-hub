@@ -521,7 +521,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
         </div>
       )}
 
-      {/* Team Stats – hide completely if request failed or no team stats. Show reason when stats unavailable (e.g. API plan limit). */}
+      {/* Team Stats – hide completely if request failed or no team stats. Show reason when stats unavailable. */}
       {selectedId && !error && (loading || stats?.teamStats || stats?.teamStatsUnavailableReason) && (
         <section className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-6 p-4">
           {loading ? null : stats?.teamStats ? (
