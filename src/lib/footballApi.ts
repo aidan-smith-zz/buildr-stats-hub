@@ -11,6 +11,9 @@ import "server-only";
 const FOOTBALL_API_BASE_URL = process.env.FOOTBALL_API_BASE_URL;
 const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY;
 
+/** All API requests use this season only (e.g. standings?league=39&season=2025). */
+export const API_SEASON = "2025";
+
 /** Min ms between outgoing requests to stay under rate limit (e.g. 3000 = ~20/min). Set FOOTBALL_API_MIN_INTERVAL_MS to override. */
 const MIN_INTERVAL_MS = Number(process.env.FOOTBALL_API_MIN_INTERVAL_MS) || 1000;
 
@@ -269,9 +272,11 @@ export async function fetchTodayFixtures(
     throw new Error(`Invalid date format: ${params.date}. Expected YYYY-MM-DD`);
   }
 
-  const baseParams: Record<string, string | number> = { date: params.date };
+  const baseParams: Record<string, string | number> = {
+    date: params.date,
+    season: API_SEASON,
+  };
   if (params.leagueId !== undefined) baseParams.league = params.leagueId;
-  if (params.season !== undefined) baseParams.season = params.season;
   if (params.timezone !== undefined) baseParams.timezone = params.timezone;
 
   const allFixtures: ApiFootballFixture[] = [];
@@ -384,8 +389,8 @@ export async function fetchPlayerSeasonStatsByTeam(
 
   const baseParams: Record<string, string | number> = {
     team: params.teamExternalId,
+    season: API_SEASON,
   };
-  if (params.season !== undefined) baseParams.season = params.season;
   if (params.leagueId !== undefined) baseParams.league = params.leagueId;
 
   // API-Football returns 20 results per page; fetch all pages
@@ -455,7 +460,7 @@ export async function fetchPlayerSeasonStatsByTeam(
           id: stat.team.id,
           name: stat.team.name,
         },
-        season: params.season ?? "Unknown", // Season will be set from fixture when storing
+        season: API_SEASON,
         league: String(params.leagueId ?? ""),
         stats: {
           appearances: getAppearances(stat, minutes),
@@ -518,13 +523,13 @@ function parseFixtureGoals(
  */
 export async function fetchTeamFixturesWithGoals(
   teamApiId: string | number,
-  season: string | number,
+  _season: string | number,
   leagueId: string | number,
 ): Promise<TeamFixturesWithGoals> {
   const path = "/fixtures";
   const baseParams: Record<string, string | number> = {
     team: teamApiId,
-    season: String(season),
+    season: API_SEASON,
     league: leagueId,
   };
 
@@ -565,7 +570,7 @@ export async function fetchTeamFixturesWithGoals(
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[footballApi] fetchTeamFixturesWithGoals error", { team: teamApiId, season, league: leagueId, error: msg });
+    console.error("[footballApi] fetchTeamFixturesWithGoals error", { team: teamApiId, season: API_SEASON, league: leagueId, error: msg });
     return { fixtureIds: [], goalsFor: 0, goalsAgainst: 0, played: 0, fixtures: [] };
   }
 }

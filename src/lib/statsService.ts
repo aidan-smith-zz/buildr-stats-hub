@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
+  API_SEASON,
   fetchFixtureScoreWithTeams,
   fetchFixtureStatistics,
   fetchPlayerSeasonStatsByTeam,
@@ -576,7 +577,7 @@ export async function warmFixturePart(
       const r = await ensureTeamSeasonStatsCornersAndCards(
         fixture.homeTeamId,
         fixture.homeTeam.apiId!,
-        fixture.season,
+        API_SEASON,
         leagueKey,
         leagueId,
         { maxApiCallsPerInvocation: TEAM_STATS_BOTH_CHUNK_PER_TEAM },
@@ -587,7 +588,7 @@ export async function warmFixturePart(
       const r = await ensureTeamSeasonStatsCornersAndCards(
         fixture.awayTeamId,
         fixture.awayTeam.apiId!,
-        fixture.season,
+        API_SEASON,
         leagueKey,
         leagueId,
         { maxApiCallsPerInvocation: TEAM_STATS_BOTH_CHUNK_PER_TEAM },
@@ -613,7 +614,7 @@ export async function warmFixturePart(
     const result = await ensureTeamSeasonStatsCornersAndCards(
       teamId,
       team.apiId,
-      fixture.season,
+      API_SEASON,
       leagueKey,
       leagueId,
       { maxApiCallsPerInvocation: TEAM_STATS_CHUNK_SIZE },
@@ -640,7 +641,7 @@ export async function warmFixturePart(
     await fetchAndStorePlayerStats(
       teamId,
       team.apiId,
-      fixture.season,
+      API_SEASON,
       fixture.league,
       leagueId,
     );
@@ -678,7 +679,7 @@ export async function getFixtureStats(
 
   const teamStatsWhere = (teamId: number) => ({
     teamId,
-    season: fixture.season,
+    season: API_SEASON,
     ...(leagueIdForTeamStats != null
       ? { OR: [{ league: leagueKeyForTeamStats }, { leagueId: leagueIdForTeamStats }] }
       : { league: leagueKeyForTeamStats }),
@@ -693,7 +694,7 @@ export async function getFixtureStats(
         by: ["teamId"],
         where: {
           teamId: { in: teamIds },
-          season: fixture.season,
+          season: API_SEASON,
           ...leagueFilter,
         },
         _count: { id: true },
@@ -723,7 +724,7 @@ export async function getFixtureStats(
           await fetchAndStorePlayerStats(
             teamId,
             team.apiId,
-            fixture.season,
+            API_SEASON,
             fixture.league,
             leagueId,
           );
@@ -743,7 +744,7 @@ export async function getFixtureStats(
       await ensureTeamSeasonStatsCornersAndCards(
         fixture.homeTeamId,
         fixture.homeTeam.apiId,
-        fixture.season,
+        API_SEASON,
         leagueKeyForTeamStats,
         leagueIdForTeamStats,
       );
@@ -753,7 +754,7 @@ export async function getFixtureStats(
       await ensureTeamSeasonStatsCornersAndCards(
         fixture.awayTeamId,
         fixture.awayTeam.apiId,
-        fixture.season,
+        API_SEASON,
         leagueKeyForTeamStats,
         leagueIdForTeamStats,
       );
@@ -778,7 +779,7 @@ export async function getFixtureStats(
   const playerStatsQuery = prisma.playerSeasonStats.findMany({
     where: {
       teamId: { in: teamIds },
-      season: fixture.season,
+      season: API_SEASON,
       ...leagueFilter,
     },
     include: {
@@ -787,20 +788,20 @@ export async function getFixtureStats(
     },
     orderBy: [{ teamId: "asc" }, { minutes: "desc" }],
   });
-  // Load all team-season rows for these teams (no league filter) so we always find data when it exists; pick best row per team below.
+  // Load team-season rows for this fixture's teams and season only (this season or none).
   const teamSeasonRowsQuery = prisma.teamSeasonStats.findMany({
     where: {
       teamId: { in: [fixture.homeTeamId, fixture.awayTeamId] },
-      season: fixture.season,
+      season: API_SEASON,
     },
   });
   const last5HomeQuery = db.teamFixtureCache.findMany({
-    where: { teamId: fixture.homeTeamId, season: fixture.season, league: leagueKeyForCache },
+    where: { teamId: fixture.homeTeamId, season: API_SEASON, league: leagueKeyForCache },
     orderBy: { fixtureDate: "desc" },
     take: 5,
   });
   const last5AwayQuery = db.teamFixtureCache.findMany({
-    where: { teamId: fixture.awayTeamId, season: fixture.season, league: leagueKeyForCache },
+    where: { teamId: fixture.awayTeamId, season: API_SEASON, league: leagueKeyForCache },
     orderBy: { fixtureDate: "desc" },
     take: 5,
   });
@@ -882,7 +883,7 @@ export async function getFixtureStats(
     status: fixture.status,
     league: fixture.league,
     leagueId: fixtureWithLeagueId.leagueId ?? null,
-    season: fixture.season,
+    season: API_SEASON,
     homeTeam: {
       id: fixture.homeTeam.id,
       name: fixture.homeTeam.name,

@@ -1,3 +1,4 @@
+import { API_SEASON } from "@/lib/footballApi";
 import { NextResponse } from "next/server";
 import {
   getOrRefreshTodayFixtures,
@@ -42,8 +43,8 @@ export async function GET(request: Request) {
     const keys = filtered.flatMap((f) => {
       const league = f.league ?? "Unknown";
       return [
-        { teamId: f.homeTeam.id, season: f.season, league },
-        { teamId: f.awayTeam.id, season: f.season, league },
+        { teamId: f.homeTeam.id, season: API_SEASON, league },
+        { teamId: f.awayTeam.id, season: API_SEASON, league },
       ];
     });
     const [playerCounts, teamStatsExisting] = await Promise.all([
@@ -79,12 +80,12 @@ export async function GET(request: Request) {
 
     const needsWarm = filtered.filter((f) => {
       const league = f.league ?? "Unknown";
-      const homePlayerCount = playerCountMap.get(`${f.homeTeam.id}:${f.season}:${league}`) ?? 0;
-      const awayPlayerCount = playerCountMap.get(`${f.awayTeam.id}:${f.season}:${league}`) ?? 0;
+      const homePlayerCount = playerCountMap.get(`${f.homeTeam.id}:${API_SEASON}:${league}`) ?? 0;
+      const awayPlayerCount = playerCountMap.get(`${f.awayTeam.id}:${API_SEASON}:${league}`) ?? 0;
       const needsPlayerStats =
         homePlayerCount < MIN_PLAYERS_PER_TEAM || awayPlayerCount < MIN_PLAYERS_PER_TEAM;
-      const homeHasTeamStats = teamStatsKeys.has(`${f.homeTeam.id}:${f.season}:${league}`);
-      const awayHasTeamStats = teamStatsKeys.has(`${f.awayTeam.id}:${f.season}:${league}`);
+      const homeHasTeamStats = teamStatsKeys.has(`${f.homeTeam.id}:${API_SEASON}:${league}`);
+      const awayHasTeamStats = teamStatsKeys.has(`${f.awayTeam.id}:${API_SEASON}:${league}`);
       const needsTeamStats = !homeHasTeamStats || !awayHasTeamStats;
       return needsPlayerStats || needsTeamStats;
     });

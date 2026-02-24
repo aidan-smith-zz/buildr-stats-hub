@@ -1,6 +1,7 @@
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { prisma } from "@/lib/prisma";
 import {
+  API_SEASON,
   fetchTodayFixtures,
   getFixtureExternalId,
   getTeamExternalId,
@@ -36,21 +37,6 @@ function dayBoundsUtc(dateKey: string) {
   return { dayStart, dayEnd, spilloverEnd };
 }
 
-/** Current season year for API (e.g. 2024 for 2024-25). European season runs Aug–May. */
-function getCurrentSeasonYear(now: Date = new Date()): number {
-  const dateKey = getTodayDateKey(now);
-  const year = parseInt(dateKey.slice(0, 4), 10);
-  const month = parseInt(dateKey.slice(5, 7), 10);
-  return month >= 8 ? year : year - 1;
-}
-
-/** Season year for a given date key (YYYY-MM-DD). Used for preview fetches. */
-function getSeasonYearForDate(dateKey: string): number {
-  const year = parseInt(dateKey.slice(0, 4), 10);
-  const month = parseInt(dateKey.slice(5, 7), 10);
-  return month >= 8 ? year : year - 1;
-}
-
 const FIXTURES_TIMEZONE_PREVIEW = "Europe/London";
 
 /**
@@ -59,13 +45,11 @@ const FIXTURES_TIMEZONE_PREVIEW = "Europe/London";
  */
 export async function getFixturesForDatePreview(dateKey: string): Promise<RawFixture[]> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return [];
-  const season = getSeasonYearForDate(dateKey);
   const results = await Promise.all(
     REQUIRED_LEAGUE_IDS.map((leagueId) =>
       fetchTodayFixtures({
         date: dateKey,
         leagueId,
-        season,
         timezone: FIXTURES_TIMEZONE_PREVIEW,
       })
     )
@@ -426,10 +410,9 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
     let message: string | undefined;
 
     try {
-      const season = getCurrentSeasonYear(now);
       const results = await Promise.all(
         REQUIRED_LEAGUE_IDS.map((leagueId) =>
-          fetchTodayFixtures({ date: dateKey, leagueId, season, timezone: FIXTURES_TIMEZONE })
+          fetchTodayFixtures({ date: dateKey, leagueId, timezone: FIXTURES_TIMEZONE })
         )
       );
       const seen = new Set<string>();
@@ -490,7 +473,7 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
               // Then upsert fixture
               const fixtureData = {
                 date: new Date(raw.date),
-                season: String(raw.season ?? ""),
+                season: API_SEASON,
                 league: raw.league ?? null,
                 leagueId: raw.leagueId ?? null,
                 status: raw.status ?? "UNKNOWN",
@@ -569,7 +552,7 @@ function mapFixtureToSummary(f: FixtureWithTeams): FixtureSummary {
     statusShort: f.liveScoreCache?.statusShort,
     league: f.league,
     leagueId: f.leagueId ?? null,
-    season: f.season,
+    season: API_SEASON,
     homeTeam: {
       id: f.homeTeam.id,
       name: f.homeTeam.name,

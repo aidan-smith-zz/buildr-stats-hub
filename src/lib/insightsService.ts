@@ -1,3 +1,4 @@
+import { API_SEASON } from "@/lib/footballApi";
 import { prisma } from "@/lib/prisma";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
@@ -100,7 +101,7 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
 
   const [teamSeasonRows, teamCacheByTeam, teamCacheLast10, playersWithStats] = await Promise.all([
     prisma.teamSeasonStats.findMany({
-      where: { teamId: { in: teamIds } },
+      where: { teamId: { in: teamIds }, season: API_SEASON },
       include: { team: true },
     }),
     loadLast5ByTeam(teamIds),
@@ -472,7 +473,7 @@ export async function getSeasonStatsForDate(dateKey: string): Promise<Last5TeamS
   const teamIds = Array.from(new Set(fixtures.flatMap((f) => [f.homeTeamId, f.awayTeamId])));
   const teamIdToLeague = teamIdToLeagueFromFixtures(fixtures);
   const teamSeasonRows = await prisma.teamSeasonStats.findMany({
-    where: { teamId: { in: teamIds } },
+    where: { teamId: { in: teamIds }, season: API_SEASON },
     include: { team: true },
   });
   const teamIdToFixture = new Map<number, (typeof fixtures)[0]>();
@@ -537,7 +538,7 @@ export async function getFormForTeams(
     loadLastNByTeam(teamIds, 5),
     loadLastNByTeam(teamIds, 10),
     prisma.teamSeasonStats.findMany({
-      where: { teamId: { in: teamIds } },
+      where: { teamId: { in: teamIds }, season: API_SEASON },
       include: { team: true },
     }),
   ]);
@@ -611,10 +612,10 @@ function loadLastNByTeam(
   teamIdToLeague?: Map<number, string>
 ): Promise<Map<number, CacheRow[]>> {
   if (teamIds.length === 0) return Promise.resolve(new Map());
-  const where: { teamId: { in: number[] } } | { OR: { teamId: number; league: string }[] } =
+  const where: { teamId: { in: number[] }; season: string } | { OR: { teamId: number; league: string; season: string }[] } =
     teamIdToLeague && teamIdToLeague.size > 0
-      ? { OR: Array.from(teamIdToLeague.entries()).map(([teamId, league]) => ({ teamId, league })) }
-      : { teamId: { in: teamIds } };
+      ? { OR: Array.from(teamIdToLeague.entries()).map(([teamId, league]) => ({ teamId, league, season: API_SEASON })) }
+      : { teamId: { in: teamIds }, season: API_SEASON };
 
   return db.teamFixtureCache
     .findMany({
@@ -658,7 +659,7 @@ type PlayerSeasonStatsRow = {
 async function loadPlayersWithSeasonStats(teamIds: number[]): Promise<PlayerWithStats[]> {
   if (teamIds.length === 0) return [];
   const rows = await prisma.playerSeasonStats.findMany({
-    where: { teamId: { in: teamIds } },
+    where: { teamId: { in: teamIds }, season: API_SEASON },
     include: { player: true, team: true },
   });
   return rows.map((r) => ({
