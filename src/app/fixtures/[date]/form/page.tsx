@@ -67,8 +67,8 @@ export default async function FormPage({
         {!hasData && !hasFixtures ? (
           <div className="rounded-xl border border-neutral-200 bg-white p-10 text-center dark:border-neutral-800 dark:bg-neutral-900">
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              No form data yet for this date. Warm today&apos;s fixtures to see
-              last 5, last 10 and season averages here.
+              No form data yet for this date. Last 5, last 10 and season averages
+              will appear here when available.
             </p>
             <NavLinkWithOverlay
               href={fixturesHref}
@@ -82,7 +82,7 @@ export default async function FormPage({
             {!hasData && hasFixtures ? (
               <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800/50 dark:bg-amber-950/20">
                 <p className="text-sm text-amber-800 dark:text-amber-200">
-                  Form table will show here once fixtures are warmed (run warm-today or open each match page). Form edge below includes all fixtures for this date.
+                  Form table will appear here when stats are ready. The section below shows all fixtures for this date.
                 </p>
               </div>
             ) : null}

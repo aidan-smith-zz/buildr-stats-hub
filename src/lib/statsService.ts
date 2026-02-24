@@ -74,6 +74,8 @@ export type FixtureStatsResponse = {
     home: TeamStatsPer90;
     away: TeamStatsPer90;
   };
+  /** Set when team stats exist in DB but are all zeros (e.g. API plan limit). UI can show an explanation. */
+  teamStatsUnavailableReason?: string;
 };
 
 const MAX_FIXTURES_PER_SEASON = 38;
@@ -111,6 +113,15 @@ async function ensureTeamSeasonStatsCornersAndCards(
   const resource = `teamSeasonCorners:${teamId}:${season}:${leagueKey}`;
 
   const { fixtureIds, goalsFor, goalsAgainst, played, fixtures: fixturesMeta } = await fetchTeamFixturesWithGoals(teamApiId, season, leagueId);
+  if (fixtureIds.length === 0) {
+    console.warn("[statsService] fetchTeamFixturesWithGoals returned no fixtures (possible API plan limit)", {
+      teamId,
+      teamApiId,
+      season,
+      leagueKey,
+      leagueId,
+    });
+  }
   const minutesPlayed = played * 90;
 
   const limit = Math.min(fixtureIds.length, MAX_FIXTURES_PER_SEASON);
@@ -206,6 +217,15 @@ async function ensureTeamSeasonStatsCornersAndCards(
       select: { corners: true, yellowCards: true, redCards: true, xg: true },
     });
     await upsertTeamSeasonStatsFromCache(partialCacheRows);
+    console.log("[statsService] TeamSeasonStats upserted (chunked path)", {
+      teamId,
+      season,
+      leagueKey,
+      goalsFor,
+      goalsAgainst,
+      played,
+      cacheRowsUsed: partialCacheRows.length,
+    });
   }
 
   let apiCallsThisInvocation = 0;
@@ -961,12 +981,14 @@ export async function getFixtureStats(
     };
   }
 
+  const homePerMatch = rowToPerMatch(homeRow);
+  const awayPerMatch = rowToPerMatch(awayRow);
+  const hasMeaningfulStats = (t: TeamStatsPer90) =>
+    t.goalsPer90 > 0 || t.concededPer90 > 0 || t.cornersPer90 > 0 || t.cardsPer90 > 0 || t.xgPer90 != null;
+  // Don't show team stats when both sides are all zeros (e.g. API plan limit returned no fixture/statistics data).
   const teamStats: FixtureStatsResponse["teamStats"] =
-    homeRow || awayRow
-      ? {
-          home: rowToPerMatch(homeRow),
-          away: rowToPerMatch(awayRow),
-        }
+    (homeRow || awayRow) && (hasMeaningfulStats(homePerMatch) || hasMeaningfulStats(awayPerMatch))
+      ? { home: homePerMatch, away: awayPerMatch }
       : undefined;
 
   function last5ToPerMatch(rows: { goalsFor: number; goalsAgainst: number; xg: number | null; corners: number; yellowCards: number; redCards: number }[]): TeamStatsPer90 {
@@ -994,12 +1016,18 @@ export async function getFixtureStats(
 
   const hasLineup = lineupByTeam.size > 0;
 
+  const teamStatsUnavailableReason =
+    (homeRow || awayRow) && !teamStats
+      ? "Season stats are empty (API plan may not include fixture list or statistics for this league)."
+      : undefined;
+
   return {
     fixture: fixtureSummary,
     hasLineup,
     teams,
     teamStats,
     teamStatsLast5,
+    teamStatsUnavailableReason,
   };
 }
 

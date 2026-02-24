@@ -167,7 +167,12 @@ async function request<T>(path: string, searchParams?: Record<string, string | n
       errorMessages.toLowerCase().includes("do not have access");
 
     if (isPlanLimitation) {
-      console.error("[footballApi] API plan limitation");
+      console.error("[footballApi] API plan limitation", {
+        path,
+        params: searchParams ? Object.keys(searchParams || {}) : [],
+        apiError: errorMessages,
+        rawErrors: json.errors,
+      });
       return [];
     }
     console.error("[footballApi] API error:", errorMessages);
@@ -201,7 +206,15 @@ async function requestPage<T>(
   const errorsArray = json.errors ? (Array.isArray(json.errors) ? json.errors : [json.errors]) : [];
   if (errorsArray.length > 0) {
     const errorMessages = errorsArray.map((e: unknown) => typeof e === "string" ? e : JSON.stringify(e)).join("; ");
-    if (errorMessages.toLowerCase().includes("plan")) return { response: [], paging: { current: 1, total: 0 }, results: 0 };
+    if (errorMessages.toLowerCase().includes("plan")) {
+      console.error("[footballApi] API plan limitation (requestPage)", {
+        path,
+        params: Object.keys(searchParams),
+        apiError: errorMessages,
+        rawErrors: json.errors,
+      });
+      return { response: [], paging: { current: 1, total: 0 }, results: 0 };
+    }
     throw new Error(`[footballApi] API errors: ${JSON.stringify(json.errors)}`);
   }
   return {
@@ -550,8 +563,9 @@ export async function fetchTeamFixturesWithGoals(
       played: fixtureIds.length,
       fixtures,
     };
-  } catch {
-    console.error("[footballApi] fetchTeamFixturesWithGoals error");
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[footballApi] fetchTeamFixturesWithGoals error", { team: teamApiId, season, league: leagueId, error: msg });
     return { fixtureIds: [], goalsFor: 0, goalsAgainst: 0, played: 0, fixtures: [] };
   }
 }

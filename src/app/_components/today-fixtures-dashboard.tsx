@@ -521,8 +521,8 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
         </div>
       )}
 
-      {/* Team Stats – hide completely if request failed or no team stats. Blank while loading. */}
-      {selectedId && !error && (loading || stats?.teamStats) && (
+      {/* Team Stats – hide completely if request failed or no team stats. Show reason when stats unavailable (e.g. API plan limit). */}
+      {selectedId && !error && (loading || stats?.teamStats || stats?.teamStatsUnavailableReason) && (
         <section className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-6 p-4">
           {loading ? null : stats?.teamStats ? (
             <>
@@ -625,6 +625,10 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                 </table>
               </div>
             </>
+          ) : stats?.teamStatsUnavailableReason ? (
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              {stats.teamStatsUnavailableReason}
+            </p>
           ) : null}
         </section>
       )}
