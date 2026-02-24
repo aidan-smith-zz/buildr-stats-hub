@@ -70,13 +70,20 @@ function fixtureHref(
 }
 
 /**
- * Load fixtures for a date (today from getOrRefreshTodayFixtures, other dates from DB),
- * then get stats for each (getFixtureStats populates DB if empty). Aggregate into leaderboards.
- * Limits to 20 fixtures to avoid timeout.
+ * Load matchday insights for a date. Reads from MatchdayInsightsCache if present;
+ * otherwise computes from DB (fixtures + getFixtureStats with dbOnly), stores in cache, returns.
+ * Data is stored once per date and reused all day. No API calls.
  */
 export async function getMatchdayInsightsData(
   dateKey: string,
 ): Promise<MatchdayInsightsData> {
+  const cached = await prisma.matchdayInsightsCache.findUnique({
+    where: { dateKey },
+  });
+  if (cached?.payload) {
+    return cached.payload as MatchdayInsightsData;
+  }
+
   const displayDate = new Date(dateKey + "T12:00:00.000Z").toLocaleDateString("en-GB", {
     timeZone: FIXTURES_TZ,
     weekday: "long",
@@ -133,7 +140,7 @@ export async function getMatchdayInsightsData(
   const idsToLoad = fixtureIds.slice(0, MAX_FIXTURES);
 
   const statsResults = await Promise.all(
-    idsToLoad.map((id) => getFixtureStats(id)),
+    idsToLoad.map((id) => getFixtureStats(id, { dbOnly: true })),
   );
 
   const allStats = statsResults.filter(
@@ -260,7 +267,7 @@ export async function getMatchdayInsightsData(
     return sorted.slice(0, 5);
   };
 
-  return {
+  const result: MatchdayInsightsData = {
     dateKey,
     displayDate,
     top5ShotsOnTargetPer90: take5(playerEntries, (e) => e.shotsOnTargetPer90).map((e) => ({
@@ -330,4 +337,11 @@ export async function getMatchdayInsightsData(
       href: e.href,
     })),
   };
+
+  await prisma.matchdayInsightsCache.upsert({
+    where: { dateKey },
+    create: { dateKey, payload: result as object },
+    update: { payload: result as object },
+  });
+  return result;
 }

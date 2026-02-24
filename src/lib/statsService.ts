@@ -447,7 +447,14 @@ export async function warmFixturePart(
   return { ok: true, teamId };
 }
 
-export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsResponse | null> {
+export type GetFixtureStatsOptions = { dbOnly?: boolean };
+
+export async function getFixtureStats(
+  fixtureId: number,
+  options?: GetFixtureStatsOptions,
+): Promise<FixtureStatsResponse | null> {
+  const dbOnly = options?.dbOnly === true;
+
   const fixture = await prisma.fixture.findUnique({
     where: { id: fixtureId },
     include: {
@@ -506,7 +513,7 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
   const countByTeam = new Map(counts.map((c) => [c.teamId, c._count.id]));
   const teamsNeedingStats = teamIds.filter((tid) => (countByTeam.get(tid) ?? 0) < MIN_PLAYERS_PER_TEAM);
 
-  if (teamsNeedingStats.length > 0) {
+  if (!dbOnly && teamsNeedingStats.length > 0) {
     const leagueId =
       fixtureWithLeagueId.leagueId ??
       (fixture.league ? LEAGUE_ID_MAP[fixture.league] : undefined);
@@ -533,7 +540,7 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
   }
 
   // Only ensure team season stats for teams that don't already have them (saves 2 queries per team when cached).
-  if (leagueIdForTeamStats != null) {
+  if (!dbOnly && leagueIdForTeamStats != null) {
     if (fixture.homeTeam.apiId && !homeTeamStatsExisting) {
       await ensureTeamSeasonStatsCornersAndCards(
         fixture.homeTeamId,
@@ -557,7 +564,7 @@ export async function getFixtureStats(fixtureId: number): Promise<FixtureStatsRe
 
   // Only ensure lineup when we don't have one; re-read lineup only if we might have just written it.
   const hadLineup = lineupCount > 0;
-  if (!hadLineup) {
+  if (!dbOnly && !hadLineup) {
     await ensureLineupIfWithinWindow(
       fixture.id,
       fixture.date,

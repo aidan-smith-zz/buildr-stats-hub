@@ -224,6 +224,13 @@ model LiveScoreCache {
   @@map("LiveScoreCache")
 }
 
+/** Cached matchday insights per date. Fetched once per day, stored as JSON for fast read. */
+model MatchdayInsightsCache {
+  dateKey   String   @id // YYYY-MM-DD (Europe/London)
+  payload   Json     // MatchdayInsightsData
+  updatedAt DateTime @updatedAt
+}
+
 /** Cached upcoming fixtures (next 14 days) for preview pages and sitemap. Populated by warm-today; cleared when out of date. */
 model UpcomingFixture {
   id               Int      @id @default(autoincrement())
