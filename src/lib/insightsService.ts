@@ -234,8 +234,10 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
   for (const p of playersWithStats) {
     const minutes = p.stats.minutes ?? 0;
     if (minutes < MIN_MINUTES_FOR_PLAYER_INSIGHTS) continue;
-    const rawAppearances = p.stats.appearances ?? Math.max(1, Math.round(minutes / 90));
-    const appearances = Math.max(1, rawAppearances);
+    // Use at least games implied by minutes so "per game" isn't inflated by low API appearance counts (e.g. 1 goal in 4 games stored as 1 appearance -> 1/1 = 1 per game).
+    const gamesFromMinutes = Math.max(1, Math.round(minutes / 90));
+    const rawAppearances = p.stats.appearances ?? gamesFromMinutes;
+    const appearances = Math.max(rawAppearances, gamesFromMinutes, 1);
     const fixture = teamIdToFixture.get(p.teamId);
     const href = fixture ? fixtureToHref(fixture, dateKey) : undefined;
     const fullName = p.player.name;
