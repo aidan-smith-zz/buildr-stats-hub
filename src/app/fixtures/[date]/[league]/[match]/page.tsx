@@ -210,6 +210,38 @@ export default async function FixtureMatchPage({
   );
 }
 
+function TeamCrest({
+  crestUrl,
+  alt,
+}: {
+  crestUrl: string | null | undefined;
+  alt: string;
+}) {
+  const sizeClass = "h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0 object-contain";
+  if (crestUrl) {
+    return (
+      <img
+        src={crestUrl}
+        alt=""
+        width={56}
+        height={56}
+        className={sizeClass}
+        aria-hidden
+      />
+    );
+  }
+  return (
+    <span
+      className={`${sizeClass} inline-flex items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400`}
+      aria-hidden
+    >
+      <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M12 2.5a1.5 1.5 0 0 0-1.5 1.5v1.2L8 6.5v2l-2 1.5v11h12v-11l-2-1.5v-2l-2.5-2.5V4a1.5 1.5 0 0 0-1.5-1.5zM6 8h2v11H6V8zm10 0h2v11h-2V8z" />
+      </svg>
+    </span>
+  );
+}
+
 function FixturePreviewContent({
   fixture,
   dateKey,
@@ -233,6 +265,24 @@ function FixturePreviewContent({
           >
             ← Back to fixtures
           </NavLinkWithOverlay>
+        </div>
+
+        <div className="mb-6 flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+          <div className="flex flex-col items-center gap-2">
+            <TeamCrest crestUrl={fixture.homeTeam.crestUrl} alt={home} />
+            <span className="text-center text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+              {home}
+            </span>
+          </div>
+          <span className="self-center text-sm font-medium text-neutral-400 dark:text-neutral-500">
+            vs
+          </span>
+          <div className="flex flex-col items-center gap-2">
+            <TeamCrest crestUrl={fixture.awayTeam.crestUrl} alt={away} />
+            <span className="text-center text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+              {away}
+            </span>
+          </div>
         </div>
 
         <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">

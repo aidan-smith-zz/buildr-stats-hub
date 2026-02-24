@@ -43,12 +43,14 @@ export type RawFixture = {
     name: string;
     shortName?: string;
     country?: string;
+    crestUrl?: string | null;
   };
   awayTeam: {
     id: string | number;
     name: string;
     shortName?: string;
     country?: string;
+    crestUrl?: string | null;
   };
 };
 

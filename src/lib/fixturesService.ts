@@ -93,28 +93,45 @@ export async function getFixturePreview(
   const fromDb = await getFixturePreviewFromDb(dateKey, leagueSlug, matchSlugParam);
   if (fromDb) return fromDb;
   const fixtures = await getFixturesForDatePreview(dateKey);
-  return (
-    fixtures.find((f) => {
-      const slug = leagueToSlug(f.league ?? null);
-      const home = f.homeTeam.shortName ?? f.homeTeam.name;
-      const away = f.awayTeam.shortName ?? f.awayTeam.name;
-      const m = matchSlug(home, away);
-      return slug === leagueSlug && m === matchSlugParam;
-    }) ?? null
-  );
+  const fixture = fixtures.find((f) => {
+    const slug = leagueToSlug(f.league ?? null);
+    const home = f.homeTeam.shortName ?? f.homeTeam.name;
+    const away = f.awayTeam.shortName ?? f.awayTeam.name;
+    const m = matchSlug(home, away);
+    return slug === leagueSlug && m === matchSlugParam;
+  }) ?? null;
+  if (!fixture) return null;
+  const homeApiId = String(fixture.homeTeam.id);
+  const awayApiId = String(fixture.awayTeam.id);
+  const teams = await prisma.team.findMany({
+    where: { apiId: { in: [homeApiId, awayApiId] } },
+    select: { apiId: true, crestUrl: true },
+  });
+  const crestByApiId = new Map<string, string | null>();
+  for (const t of teams) {
+    if (t.apiId != null) crestByApiId.set(t.apiId, t.crestUrl);
+  }
+  return {
+    ...fixture,
+    homeTeam: { ...fixture.homeTeam, crestUrl: crestByApiId.get(homeApiId) ?? null },
+    awayTeam: { ...fixture.awayTeam, crestUrl: crestByApiId.get(awayApiId) ?? null },
+  };
 }
 
 /** Map UpcomingFixture row to RawFixture shape for preview pages. */
-function upcomingRowToRaw(row: {
-  apiFixtureId: string;
-  kickoff: Date;
-  league: string | null;
-  leagueId: number | null;
-  homeTeamName: string;
-  homeTeamShortName: string | null;
-  awayTeamName: string;
-  awayTeamShortName: string | null;
-}): RawFixture {
+function upcomingRowToRaw(
+  row: {
+    apiFixtureId: string;
+    kickoff: Date;
+    league: string | null;
+    leagueId: number | null;
+    homeTeamName: string;
+    homeTeamShortName: string | null;
+    awayTeamName: string;
+    awayTeamShortName: string | null;
+  },
+  crests?: { home: string | null; away: string | null },
+): RawFixture {
   return {
     id: row.apiFixtureId,
     date: row.kickoff.toISOString(),
@@ -124,17 +141,19 @@ function upcomingRowToRaw(row: {
       id: row.apiFixtureId,
       name: row.homeTeamName,
       shortName: row.homeTeamShortName ?? undefined,
+      crestUrl: crests?.home ?? undefined,
     },
     awayTeam: {
       id: row.apiFixtureId,
       name: row.awayTeamName,
       shortName: row.awayTeamShortName ?? undefined,
+      crestUrl: crests?.away ?? undefined,
     },
   };
 }
 
 /**
- * Find a single upcoming fixture by date and slug. Returns RawFixture shape or null.
+ * Find a single upcoming fixture by date and slug. Returns RawFixture shape with team crests or null.
  */
 export async function getFixturePreviewFromDb(
   dateKey: string,
@@ -151,7 +170,14 @@ export async function getFixturePreviewFromDb(
     const away = row.awayTeamShortName ?? row.awayTeamName;
     const m = matchSlug(home, away);
     if (slug === leagueSlug && m === matchSlugParam) {
-      return upcomingRowToRaw(row);
+      const [homeTeam, awayTeam] = await Promise.all([
+        prisma.team.findUnique({ where: { apiId: row.homeTeamApiId }, select: { crestUrl: true } }),
+        prisma.team.findUnique({ where: { apiId: row.awayTeamApiId }, select: { crestUrl: true } }),
+      ]);
+      return upcomingRowToRaw(row, {
+        home: homeTeam?.crestUrl ?? null,
+        away: awayTeam?.crestUrl ?? null,
+      });
     }
   }
   return null;
