@@ -86,6 +86,8 @@ function sleep(ms: number): Promise<void> {
 
 /** Max fixture-statistics API calls per invocation so one request stays under ~60s (e.g. 20 * 1s delay + response time). */
 const TEAM_STATS_CHUNK_SIZE = 20;
+/** For League 1/2 combined teamstats (both teams in one request): 28 per team = 56 total, ~56s (fits in 60s). */
+const TEAM_STATS_BOTH_CHUNK_PER_TEAM = 28;
 
 export type EnsureTeamSeasonStatsResult = { done: boolean };
 
@@ -144,7 +146,11 @@ async function ensureTeamSeasonStatsCornersAndCards(
     if (apiCallsThisInvocation > 0) await sleep(FIXTURE_STATS_DELAY_MS);
     apiCallsThisInvocation++;
     const stat = await fetchFixtureStatistics(fixtureIds[i], teamApiId);
-    if (stat && meta) {
+    if (meta) {
+      const corners = stat?.corners ?? 0;
+      const yellowCards = stat?.yellowCards ?? 0;
+      const redCards = stat?.redCards ?? 0;
+      const xg = stat?.xg ?? null;
       await db.teamFixtureCache.upsert({
         where: {
           teamId_season_league_apiFixtureId: {
@@ -162,19 +168,19 @@ async function ensureTeamSeasonStatsCornersAndCards(
           fixtureDate: meta.date,
           goalsFor: meta.goalsFor,
           goalsAgainst: meta.goalsAgainst,
-          xg: stat.xg,
-          corners: stat.corners,
-          yellowCards: stat.yellowCards,
-          redCards: stat.redCards,
+          xg,
+          corners,
+          yellowCards,
+          redCards,
         },
         update: {
           fixtureDate: meta.date,
           goalsFor: meta.goalsFor,
           goalsAgainst: meta.goalsAgainst,
-          xg: stat.xg,
-          corners: stat.corners,
-          yellowCards: stat.yellowCards,
-          redCards: stat.redCards,
+          xg,
+          corners,
+          yellowCards,
+          redCards,
         },
       });
     }
@@ -376,12 +382,14 @@ const LEAGUE_ID_MAP: Record<string, number> = {
   "Scottish Championship": 179,
   "Scottish Premiership": 179,
   "FA Cup": 45,
-  "League One": 43,
-  "English League One": 43,
-  "EFL League One": 43,
-  "League Two": 44,
-  "English League Two": 44,
-  "EFL League Two": 44,
+  "League 41": 41,
+  "League One": 41,
+  "English League One": 41,
+  "EFL League One": 41,
+  "League 42": 42,
+  "League Two": 42,
+  "English League Two": 42,
+  "EFL League Two": 42,
 };
 
 export type WarmPartResult =
@@ -392,12 +400,13 @@ export type WarmPartResult =
 /**
  * Warm one part of fixture stats (stays under 60s for Vercel Hobby).
  * - part=home|away: player season stats for that team.
+ * - part=teamstats: League 1/2 only; both teams in one request (fewer round-trips).
  * - part=teamstats-home|teamstats-away: team season stats (chunked); returns { done } so caller can loop until done.
  * - part=lineup: ensure lineup if within window.
  */
 export async function warmFixturePart(
   fixtureId: number,
-  part: "home" | "away" | "teamstats-home" | "teamstats-away" | "lineup",
+  part: "home" | "away" | "teamstats" | "teamstats-home" | "teamstats-away" | "lineup",
 ): Promise<WarmPartResult> {
   const fixture = await prisma.fixture.findUnique({
     where: { id: fixtureId },
@@ -411,6 +420,39 @@ export async function warmFixturePart(
   const leagueKey = fixture.league ?? "Unknown";
 
   const teamStatsOnly = isTeamStatsOnlyLeague(leagueId);
+
+  if (part === "teamstats") {
+    if (!teamStatsOnly) return { ok: true, done: true };
+    if (leagueId == null) return { ok: true, done: true };
+    const homeOk = fixture.homeTeam.apiId;
+    const awayOk = fixture.awayTeam.apiId;
+    let homeDone = !homeOk;
+    let awayDone = !awayOk;
+    if (homeOk) {
+      const r = await ensureTeamSeasonStatsCornersAndCards(
+        fixture.homeTeamId,
+        fixture.homeTeam.apiId!,
+        fixture.season,
+        leagueKey,
+        leagueId,
+        { maxApiCallsPerInvocation: TEAM_STATS_BOTH_CHUNK_PER_TEAM },
+      );
+      homeDone = r.done;
+    }
+    if (awayOk) {
+      const r = await ensureTeamSeasonStatsCornersAndCards(
+        fixture.awayTeamId,
+        fixture.awayTeam.apiId!,
+        fixture.season,
+        leagueKey,
+        leagueId,
+        { maxApiCallsPerInvocation: TEAM_STATS_BOTH_CHUNK_PER_TEAM },
+      );
+      awayDone = r.done;
+    }
+    return { ok: true, done: homeDone && awayDone };
+  }
+
   if (part === "home" || part === "away" || part === "lineup") {
     if (teamStatsOnly) {
       if (part === "home" || part === "away") return { ok: true, teamId: part === "home" ? fixture.homeTeamId : fixture.awayTeamId };

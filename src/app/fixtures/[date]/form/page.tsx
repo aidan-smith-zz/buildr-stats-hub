@@ -40,6 +40,7 @@ export default async function FormPage({
   );
 
   const hasData = last5.length > 0 || last10.length > 0 || season.length > 0;
+  const hasFixtures = formEdgeFixtures.length > 0;
   const fixturesHref = `/fixtures/${dateKey}`;
 
   return (
@@ -59,11 +60,11 @@ export default async function FormPage({
             Form table
           </h1>
           <p className="mt-1 text-neutral-500 dark:text-neutral-400">
-            {displayDate} · Teams with fixtures today
+            {displayDate} · Teams with fixtures on this date
           </p>
         </div>
 
-        {!hasData ? (
+        {!hasData && !hasFixtures ? (
           <div className="rounded-xl border border-neutral-200 bg-white p-10 text-center dark:border-neutral-800 dark:bg-neutral-900">
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
               No form data yet for this date. Warm today&apos;s fixtures to see
@@ -78,14 +79,25 @@ export default async function FormPage({
           </div>
         ) : (
           <>
-            <section className="mb-10">
-              <FormTableClient last5={last5} last10={last10} season={season} />
-            </section>
-            <FormEdgeSection
-              fixtures={formEdgeFixtures}
-              last10={last10}
-              season={season}
-            />
+            {!hasData && hasFixtures ? (
+              <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800/50 dark:bg-amber-950/20">
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  Form table will show here once fixtures are warmed (run warm-today or open each match page). Form edge below includes all fixtures for this date.
+                </p>
+              </div>
+            ) : null}
+            {hasData ? (
+              <section className="mb-10">
+                <FormTableClient last5={last5} last10={last10} season={season} />
+              </section>
+            ) : null}
+            {hasFixtures ? (
+              <FormEdgeSection
+                fixtures={formEdgeFixtures}
+                last10={last10}
+                season={season}
+              />
+            ) : null}
           </>
         )}
       </main>

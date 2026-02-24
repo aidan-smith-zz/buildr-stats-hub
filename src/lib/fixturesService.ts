@@ -370,6 +370,20 @@ export async function clearTodayFixturesCacheAndData(now: Date = new Date()): Pr
 }
 
 /**
+ * Return today's fixtures from DB only (no API, no refresh). Use for resume so we don't refetch.
+ */
+export async function getTodayFixturesFromDbOnly(now: Date = new Date()): Promise<FixtureSummary[]> {
+  const dateKey = getTodayDateKey(now);
+  const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
+  const rows = await prisma.fixture.findMany({
+    where: { date: { gte: dayStart, lte: spilloverEnd } },
+    orderBy: { date: "asc" },
+    include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
+  });
+  return rows.map(mapFixtureToSummary);
+}
+
+/**
  * Fetch today's fixtures from DB or refresh from API if stale/missing.
  */
 export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise<FixtureSummary[]> {

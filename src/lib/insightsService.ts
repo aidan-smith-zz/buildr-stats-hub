@@ -43,6 +43,35 @@ function dayBoundsForDate(dateKey: string) {
   return { dayStart, spilloverEnd };
 }
 
+/** League names that map to EFL League One (41) / League Two (42) when leagueId is missing in DB. */
+const LEAGUE_ONE_TWO_NAMES = [
+  "League 41",
+  "League 42",
+  "League One",
+  "English League One",
+  "EFL League One",
+  "League 1",
+  "League1",
+  "League Two",
+  "English League Two",
+  "EFL League Two",
+  "League 2",
+  "League2",
+];
+
+/** Where clause for fixtures on a given date in required leagues (including League 1/2 by name if leagueId is null). */
+function fixturesOnDateInRequiredLeagues(dayStart: Date, spilloverEnd: Date) {
+  return {
+    date: { gte: dayStart, lte: spilloverEnd },
+    OR: [
+      { leagueId: { in: [...REQUIRED_LEAGUE_IDS] } },
+      { leagueId: null, league: { in: LEAGUE_ONE_TWO_NAMES } },
+      { leagueId: null, league: { contains: "League One", mode: "insensitive" } },
+      { leagueId: null, league: { contains: "League Two", mode: "insensitive" } },
+    ],
+  };
+}
+
 /**
  * Generate random AI-style insights from today's fixture data in the DB only.
  * No API calls. Uses TeamSeasonStats, TeamFixtureCache (last 5), PlayerSeasonStats.
@@ -51,10 +80,7 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
   const { dayStart, spilloverEnd } = dayBoundsForDate(dateKey);
 
   const fixtures = await prisma.fixture.findMany({
-    where: {
-      date: { gte: dayStart, lte: spilloverEnd },
-      leagueId: { in: [...REQUIRED_LEAGUE_IDS] },
-    },
+    where: fixturesOnDateInRequiredLeagues(dayStart, spilloverEnd),
     include: { homeTeam: true, awayTeam: true },
   });
 
@@ -311,10 +337,7 @@ export async function getLast5StatsForDate(dateKey: string): Promise<Last5TeamSu
   const { dayStart, spilloverEnd } = dayBoundsForDate(dateKey);
 
   const fixtures = await prisma.fixture.findMany({
-    where: {
-      date: { gte: dayStart, lte: spilloverEnd },
-      leagueId: { in: [...REQUIRED_LEAGUE_IDS] },
-    },
+    where: fixturesOnDateInRequiredLeagues(dayStart, spilloverEnd),
     include: { homeTeam: true, awayTeam: true },
   });
 
@@ -361,7 +384,7 @@ export async function getLast5StatsForDate(dateKey: string): Promise<Last5TeamSu
 export async function getLastNStatsForDate(dateKey: string, n: number): Promise<Last5TeamSummary[]> {
   const { dayStart, spilloverEnd } = dayBoundsForDate(dateKey);
   const fixtures = await prisma.fixture.findMany({
-    where: { date: { gte: dayStart, lte: spilloverEnd }, leagueId: { in: [...REQUIRED_LEAGUE_IDS] } },
+    where: fixturesOnDateInRequiredLeagues(dayStart, spilloverEnd),
     include: { homeTeam: true, awayTeam: true },
   });
   if (fixtures.length === 0) return [];
@@ -404,10 +427,7 @@ export async function getLast10StatsForDate(dateKey: string): Promise<Last5TeamS
 export async function getFormEdgeFixtures(dateKey: string): Promise<FormEdgeFixture[]> {
   const { dayStart, spilloverEnd } = dayBoundsForDate(dateKey);
   const fixtures = await prisma.fixture.findMany({
-    where: {
-      date: { gte: dayStart, lte: spilloverEnd },
-      leagueId: { in: [...REQUIRED_LEAGUE_IDS] },
-    },
+    where: fixturesOnDateInRequiredLeagues(dayStart, spilloverEnd),
     include: { homeTeam: true, awayTeam: true },
     orderBy: { date: "asc" },
   });
@@ -424,7 +444,7 @@ export async function getFormEdgeFixtures(dateKey: string): Promise<FormEdgeFixt
 export async function getSeasonStatsForDate(dateKey: string): Promise<Last5TeamSummary[]> {
   const { dayStart, spilloverEnd } = dayBoundsForDate(dateKey);
   const fixtures = await prisma.fixture.findMany({
-    where: { date: { gte: dayStart, lte: spilloverEnd }, leagueId: { in: [...REQUIRED_LEAGUE_IDS] } },
+    where: fixturesOnDateInRequiredLeagues(dayStart, spilloverEnd),
     include: { homeTeam: true, awayTeam: true },
   });
   if (fixtures.length === 0) return [];

@@ -287,12 +287,14 @@ export async function fetchTodayFixtures(
     "Scottish Championship": 179,
     "Scottish Premiership": 179,
     "FA Cup": 45,
-    "League One": 43,
-    "English League One": 43,
-    "EFL League One": 43,
-    "League Two": 44,
-    "English League Two": 44,
-    "EFL League Two": 44,
+    "League 41": 41,
+    "League One": 41,
+    "English League One": 41,
+    "EFL League One": 41,
+    "League 42": 42,
+    "League Two": 42,
+    "English League Two": 42,
+    "EFL League Two": 42,
   };
 
   return fixtures.map((f) => {
@@ -303,26 +305,26 @@ export async function fetchTodayFixtures(
     }
     const leagueId = rawLeagueId !== undefined && rawLeagueId !== null ? Number(rawLeagueId) : undefined;
     return {
-    id: f.fixture.id,
-    date: f.fixture.date,
-    league: f.league.name,
-    leagueId,
-    leagueCountry: f.league.country ?? undefined,
-    season: f.league.season,
-    status: f.fixture.status.short,
-    homeTeam: {
-      id: f.teams.home.id,
-      name: f.teams.home.name,
-      shortName: f.teams.home.code ?? undefined,
-      country: f.teams.home.country ?? undefined,
-    },
-    awayTeam: {
-      id: f.teams.away.id,
-      name: f.teams.away.name,
-      shortName: f.teams.away.code ?? undefined,
-      country: f.teams.away.country ?? undefined,
-    },
-  };
+      id: f.fixture.id,
+      date: f.fixture.date,
+      league: f.league.name,
+      leagueId,
+      leagueCountry: f.league.country ?? undefined,
+      season: f.league.season,
+      status: f.fixture.status.short,
+      homeTeam: {
+        id: f.teams.home.id,
+        name: f.teams.home.name,
+        shortName: f.teams.home.code ?? undefined,
+        country: f.teams.home.country ?? undefined,
+      },
+      awayTeam: {
+        id: f.teams.away.id,
+        name: f.teams.away.name,
+        shortName: f.teams.away.code ?? undefined,
+        country: f.teams.away.country ?? undefined,
+      },
+    };
   });
 }
 

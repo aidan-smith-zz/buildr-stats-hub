@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 import {
   getOrRefreshTodayFixtures,
-  getFixturesForDatePreview,
+  getTodayFixturesFromDbOnly,
   refreshUpcomingFixturesTable,
 } from "@/lib/fixturesService";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
-import { leagueToSlug, matchSlug, nextDateKeys } from "@/lib/slugs";
 import { prisma } from "@/lib/prisma";
-
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 const MIN_PLAYERS_PER_TEAM = 11;
 
@@ -16,15 +13,25 @@ const MIN_PLAYERS_PER_TEAM = 11;
  * GET /api/warm-today
  * Returns today's fixture IDs that need warming: missing player stats OR missing team stats (e.g. after clearing team cache).
  * Use the script which calls GET /api/fixtures/[id]/stats per fixture to warm.
+ * - skipRefresh=1: do not refresh upcoming table or fetch today from API; use DB only (resume mode, faster).
  */
-export async function GET() {
+export async function GET(request: Request) {
   const now = new Date();
+  const skipRefresh =
+    new URL(request.url).searchParams.get("skipRefresh") === "1";
   try {
-    await refreshUpcomingFixturesTable(now);
-    const fixtures = await getOrRefreshTodayFixtures(now);
-    const filtered = fixtures.filter(
-      (f) => f.leagueId != null && (REQUIRED_LEAGUE_IDS as readonly number[]).includes(f.leagueId)
-    );
+    if (!skipRefresh) {
+      await refreshUpcomingFixturesTable(now);
+    }
+    const fixtures = skipRefresh
+      ? await getTodayFixturesFromDbOnly(now)
+      : await getOrRefreshTodayFixtures(now);
+    const filtered = fixtures.filter((f) => {
+      if (f.leagueId == null || !(REQUIRED_LEAGUE_IDS as readonly number[]).includes(f.leagueId)) {
+        return false;
+      }
+      return true;
+    });
 
     if (filtered.length === 0) {
       return NextResponse.json({
@@ -88,39 +95,11 @@ export async function GET() {
     const list = needsWarm.map((f) => ({
       id: f.id,
       label: `${f.homeTeam.shortName ?? f.homeTeam.name} vs ${f.awayTeam.shortName ?? f.awayTeam.name}`,
+      leagueId: f.leagueId ?? undefined,
     }));
 
-    // Warm next 14 days preview pages (fetch from DB; table was just refreshed above)
-    const { getUpcomingFixturesFromDb } = await import("@/lib/fixturesService");
-    const upcomingByDate = await getUpcomingFixturesFromDb();
-    let previewsWarmed = 0;
-    for (const { dateKey, fixtures: dayFixtures } of upcomingByDate) {
-      try {
-        for (const f of dayFixtures) {
-          const leagueSlug = leagueToSlug(f.league ?? null);
-          const home = f.homeTeam.shortName ?? f.homeTeam.name;
-          const away = f.awayTeam.shortName ?? f.awayTeam.name;
-          const match = matchSlug(home, away);
-          const url = `${baseUrl}/fixtures/${dateKey}/${leagueSlug}/${match}`;
-          try {
-            await fetch(url, { cache: "no-store" });
-            previewsWarmed += 1;
-          } catch {
-            // Skip failed fetches
-          }
-        }
-      } catch {
-        // Skip
-      }
-    }
-
-    // Request sitemap so it regenerates with today's fixtures (and any CDN cache gets updated)
-    try {
-      await fetch(`${baseUrl}/sitemap.xml`, { cache: "no-store" });
-    } catch {
-      // Ignore
-    }
-
+    // Return immediately so the warm script can start. Preview/sitemap warming is not done here
+    // (it was blocking the response for 4–5+ minutes due to 14 days of sequential page fetches).
     return NextResponse.json({
       ok: true,
       message:
@@ -130,7 +109,6 @@ export async function GET() {
       total: list.length,
       totalToday: filtered.length,
       fixtures: list,
-      previewsWarmed,
     });
   } catch (err) {
     console.error("[warm-today] Fatal:", err);

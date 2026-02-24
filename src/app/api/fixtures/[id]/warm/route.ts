@@ -19,16 +19,16 @@ export async function GET(
   if (!Number.isFinite(id) || id <= 0) {
     return NextResponse.json({ error: "Invalid fixture id" }, { status: 400 });
   }
-  const validParts = ["home", "away", "teamstats-home", "teamstats-away", "lineup"];
+  const validParts = ["home", "away", "teamstats", "teamstats-home", "teamstats-away", "lineup"];
   if (!part || !validParts.includes(part)) {
     return NextResponse.json(
-      { error: "Missing or invalid query: part=home|away|teamstats-home|teamstats-away|lineup" },
+      { error: "Missing or invalid query: part=home|away|teamstats|teamstats-home|teamstats-away|lineup" },
       { status: 400 }
     );
   }
 
   try {
-    const result = await warmFixturePart(id, part as "home" | "away" | "teamstats-home" | "teamstats-away" | "lineup");
+    const result = await warmFixturePart(id, part as "home" | "away" | "teamstats" | "teamstats-home" | "teamstats-away" | "lineup");
     return NextResponse.json(result);
   } catch (err) {
     console.error("[warm]", err);

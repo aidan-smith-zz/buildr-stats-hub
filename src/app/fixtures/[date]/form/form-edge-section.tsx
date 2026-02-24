@@ -52,6 +52,7 @@ export function FormEdgeSection({ fixtures, last10, season }: Props) {
   }, [fixtures, byTeamId]);
 
   const validRows = rows.filter((r): r is FixtureEdgeRow & { edge: number } => r.edge !== null);
+  const noDataRows = rows.filter((r) => r.edge === null);
   const maxAbsEdge = useMemo(() => {
     if (validRows.length === 0) return 1;
     const max = Math.max(...validRows.map((r) => Math.abs(r.edge)), 0.3);
@@ -89,21 +90,22 @@ export function FormEdgeSection({ fixtures, last10, season }: Props) {
           </div>
         </div>
 
-        {validRows.length === 0 ? (
-          <div className="px-4 py-6 text-center text-sm text-neutral-500 dark:text-neutral-400 sm:px-5">
-            No edge data for this period. Teams need at least 3 games in the selected range.
-          </div>
-        ) : (
-          <div className="p-4 sm:p-5">
-            {/* Diverging bar chart: 0 in the middle, positive = home advantage (left), negative = away (right) */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-2 text-xs text-neutral-500 dark:text-neutral-400">
-                <span>Home edge ←</span>
-                <span className="font-medium text-neutral-700 dark:text-neutral-300">Balanced</span>
-                <span>→ Away edge</span>
-              </div>
-              <div className="space-y-3">
-                {validRows.map(({ fixture, edge }) => {
+        <div className="p-4 sm:p-5">
+          {validRows.length === 0 && noDataRows.length === 0 ? (
+            <div className="px-0 py-6 text-center text-sm text-neutral-500 dark:text-neutral-400">
+              No edge data for this period. Teams need at least 3 games in the selected range.
+            </div>
+          ) : (
+            <>
+              {validRows.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                    <span>Home edge ←</span>
+                    <span className="font-medium text-neutral-700 dark:text-neutral-300">Balanced</span>
+                    <span>→ Away edge</span>
+                  </div>
+                  <div className="space-y-3">
+                    {validRows.map(({ fixture, edge }) => {
                   const isHomeEdge = edge >= 0;
                   const pct = Math.min(Math.abs(edge) / maxAbsEdge, 1) * 100;
                   const isBalanced = pct === 0;
@@ -185,8 +187,31 @@ export function FormEdgeSection({ fixtures, last10, season }: Props) {
                 </span>
               </div>
             </div>
-          </div>
-        )}
+              )}
+              {noDataRows.length > 0 && (
+                <div className="mt-6 space-y-2">
+                  <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                    Fixtures (no form data yet — warm to see edge)
+                  </p>
+                  <div className="space-y-2">
+                    {noDataRows.map(({ fixture }) => (
+                      <Link
+                        key={`${fixture.homeTeamId}-${fixture.awayTeamId}`}
+                        href={fixture.href}
+                        className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800/50 dark:hover:bg-neutral-800"
+                      >
+                        <span className="font-medium text-neutral-700 dark:text-neutral-300">
+                          {fixture.homeName} vs {fixture.awayName}
+                        </span>
+                        <span className="text-xs text-neutral-500 dark:text-neutral-400">View match →</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </section>
   );

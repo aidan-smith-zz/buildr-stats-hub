@@ -30,14 +30,14 @@ function formatKoTime(date: Date): string {
 const LIVE_FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);
 
 /** Default order within each KO time: SPFL → EPL → Championship → League One → League Two → UCL → UEL → FA Cup. */
-const LEAGUE_ORDER: number[] = [179, 39, 40, 43, 44, 2, 3, 45];
+const LEAGUE_ORDER: number[] = [179, 39, 40, 41, 42, 2, 3, 45];
 
 /** Consistent display names for competitions (professional, no acronyms). */
 const LEAGUE_DISPLAY_NAMES: Record<number, string> = {
   39: "Premier League",
   40: "Championship",
-  43: "League One",
-  44: "League Two",
+  41: "League One",
+  42: "League Two",
   2: "Champions League",
   3: "Europa League",
   179: "Scottish Premiership",
