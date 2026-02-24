@@ -141,42 +141,44 @@ export default async function FixtureMatchPage({
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-          <div className="mb-6">
-            <NavLinkWithOverlay
-              href={`/fixtures/${dateKey}`}
-              className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-            >
-              ← Back to fixtures
-            </NavLinkWithOverlay>
-          </div>
-          <h1 className="sr-only">
-            {fixture.homeTeam.shortName ?? fixture.homeTeam.name} vs{" "}
-            {fixture.awayTeam.shortName ?? fixture.awayTeam.name} – stats
-          </h1>
-          <TodayFixturesDashboard
-            fixtures={fixtures}
-            initialSelectedId={String(fixture.id)}
-            hideFixtureSelector
-          />
-          <section className="mt-12 border-t border-neutral-200 pt-10 dark:border-neutral-800">
-            <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-6 dark:border-violet-800/50 dark:bg-violet-950/20">
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                New AI insights
-              </h2>
-              <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                We scan today&apos;s fixtures & stats then we surface the trends
-                that matter
-              </p>
+          <div>
+            <div className="mb-6">
               <NavLinkWithOverlay
-                href={`/fixtures/${dateKey}/ai-insights`}
-                className="mt-4 inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400"
-                message="Loading insights…"
-                italic={false}
+                href={`/fixtures/${dateKey}`}
+                className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
               >
-                See today&apos;s AI insights →
+                ← Back to fixtures
               </NavLinkWithOverlay>
             </div>
-          </section>
+            <h1 className="sr-only">
+              {fixture.homeTeam.shortName ?? fixture.homeTeam.name} vs{" "}
+              {fixture.awayTeam.shortName ?? fixture.awayTeam.name} – stats
+            </h1>
+            <TodayFixturesDashboard
+              fixtures={fixtures}
+              initialSelectedId={String(fixture.id)}
+              hideFixtureSelector
+            />
+            <section className="mt-12 border-t border-neutral-200 pt-10 dark:border-neutral-800">
+              <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-6 dark:border-violet-800/50 dark:bg-violet-950/20">
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                  New AI insights
+                </h2>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                  We scan today&apos;s fixtures & stats then we surface the trends
+                  that matter
+                </p>
+                <NavLinkWithOverlay
+                  href={`/fixtures/${dateKey}/ai-insights`}
+                  className="mt-4 inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400"
+                  message="Loading insights…"
+                  italic={false}
+                >
+                  See today&apos;s AI insights →
+                </NavLinkWithOverlay>
+              </div>
+            </section>
+          </div>
         </main>
       </div>
     );
@@ -189,16 +191,18 @@ export default async function FixtureMatchPage({
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6 sm:py-16">
-          <p className="text-center text-neutral-600 dark:text-neutral-400">
-            No fixtures scheduled for this date.
-          </p>
-          <div className="mt-6 flex justify-center">
-            <NavLinkWithOverlay
-              href={`/fixtures/${dateKey}`}
-              className="text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400"
-            >
-              ← Back to fixtures
-            </NavLinkWithOverlay>
+          <div>
+            <p className="text-center text-neutral-600 dark:text-neutral-400">
+              No fixtures scheduled for this date.
+            </p>
+            <div className="mt-6 flex justify-center">
+              <NavLinkWithOverlay
+                href={`/fixtures/${dateKey}`}
+                className="text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400"
+              >
+                ← Back to fixtures
+              </NavLinkWithOverlay>
+            </div>
           </div>
         </main>
       </div>
@@ -206,7 +210,13 @@ export default async function FixtureMatchPage({
   }
 
   return (
-    <FixturePreviewContent fixture={fixture} dateKey={dateKey} />
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <div>
+          <FixturePreviewContent fixture={fixture} dateKey={dateKey} />
+        </div>
+      </main>
+    </div>
   );
 }
 
@@ -256,8 +266,7 @@ function FixturePreviewContent({
   const displayDate = formatDisplayDate(dateKey);
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <>
         <div className="mb-8">
           <NavLinkWithOverlay
             href={`/fixtures/${dateKey}`}
@@ -328,7 +337,6 @@ function FixturePreviewContent({
             <li>AI-powered match insights (available before kick-off)</li>
           </ul>
         </section>
-      </main>
-    </div>
+    </>
   );
 }

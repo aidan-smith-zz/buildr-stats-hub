@@ -908,6 +908,12 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
               </button>
             </div>
           </div>
+        ) : stats?.teams?.length ? (
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-8 text-center dark:border-neutral-800 dark:bg-neutral-900/50">
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              Player statistics are not available for this competition. Team stats are shown above.
+            </p>
+          </div>
         ) : (
           <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-8 text-center dark:border-neutral-800 dark:bg-neutral-900/50">
             <p className="text-sm text-neutral-600 dark:text-neutral-400">

@@ -6,6 +6,7 @@ import {
   getPlayerExternalId,
   type RawPlayerSeasonStats,
 } from "@/lib/footballApi";
+import { isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { ensureLineupIfWithinWindow, getLineupForFixture } from "@/lib/lineupService";
 
 /** Prisma client with TeamFixtureCache (avoids TS errors when generated client is out of date). */
@@ -375,6 +376,12 @@ const LEAGUE_ID_MAP: Record<string, number> = {
   "Scottish Championship": 179,
   "Scottish Premiership": 179,
   "FA Cup": 45,
+  "League One": 43,
+  "English League One": 43,
+  "EFL League One": 43,
+  "League Two": 44,
+  "English League Two": 44,
+  "EFL League Two": 44,
 };
 
 export type WarmPartResult =
@@ -402,6 +409,14 @@ export async function warmFixturePart(
     fixtureWithLeague.leagueId ??
     (fixture.league ? LEAGUE_ID_MAP[fixture.league] : undefined);
   const leagueKey = fixture.league ?? "Unknown";
+
+  const teamStatsOnly = isTeamStatsOnlyLeague(leagueId);
+  if (part === "home" || part === "away" || part === "lineup") {
+    if (teamStatsOnly) {
+      if (part === "home" || part === "away") return { ok: true, teamId: part === "home" ? fixture.homeTeamId : fixture.awayTeamId };
+      return { ok: true };
+    }
+  }
 
   if (part === "teamstats-home" || part === "teamstats-away") {
     const team = part === "teamstats-home" ? fixture.homeTeam : fixture.awayTeam;
@@ -511,7 +526,10 @@ export async function getFixtureStats(
 
   const MIN_PLAYERS_PER_TEAM = 11;
   const countByTeam = new Map(counts.map((c) => [c.teamId, c._count.id]));
-  const teamsNeedingStats = teamIds.filter((tid) => (countByTeam.get(tid) ?? 0) < MIN_PLAYERS_PER_TEAM);
+  const teamStatsOnly = isTeamStatsOnlyLeague(fixtureWithLeagueId.leagueId);
+  const teamsNeedingStats = teamStatsOnly
+    ? []
+    : teamIds.filter((tid) => (countByTeam.get(tid) ?? 0) < MIN_PLAYERS_PER_TEAM);
 
   if (!dbOnly && teamsNeedingStats.length > 0) {
     const leagueId =
@@ -539,7 +557,7 @@ export async function getFixtureStats(
     }
   }
 
-  // Only ensure team season stats for teams that don't already have them (saves 2 queries per team when cached).
+  // Ensure team season stats (and TeamFixtureCache) for form table and match page. Run for all leagues including League 1/2 so form table can include them.
   if (!dbOnly && leagueIdForTeamStats != null) {
     if (fixture.homeTeam.apiId && !homeTeamStatsExisting) {
       await ensureTeamSeasonStatsCornersAndCards(
@@ -562,9 +580,9 @@ export async function getFixtureStats(
     }
   }
 
-  // Only ensure lineup when we don't have one; re-read lineup only if we might have just written it.
+  // Only ensure lineup when we don't have one (skip for team-stats-only leagues).
   const hadLineup = lineupCount > 0;
-  if (!dbOnly && !hadLineup) {
+  if (!dbOnly && !hadLineup && !teamStatsOnly) {
     await ensureLineupIfWithinWindow(
       fixture.id,
       fixture.date,
@@ -719,7 +737,12 @@ export async function getFixtureStats(
   const homeTeamData = teams.find((t) => t.teamId === fixture.homeTeamId);
   const awayTeamData = teams.find((t) => t.teamId === fixture.awayTeamId);
 
-  if (useMockFallback) {
+  if (teamStatsOnly) {
+    teams = [
+      { teamId: fixture.homeTeamId, teamName: fixture.homeTeam.name, teamShortName: fixture.homeTeam.shortName, players: [] as FixtureStatsResponse["teams"][number]["players"] },
+      { teamId: fixture.awayTeamId, teamName: fixture.awayTeam.name, teamShortName: fixture.awayTeam.shortName, players: [] as FixtureStatsResponse["teams"][number]["players"] },
+    ];
+  } else if (useMockFallback) {
     if (!homeTeamData?.players.length && !awayTeamData?.players.length) {
       teams = [
         mockPlayersForTeam(fixture.homeTeamId, fixture.homeTeam.name, fixture.homeTeam.shortName, 9000),

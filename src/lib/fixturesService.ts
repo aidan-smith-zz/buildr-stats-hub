@@ -397,7 +397,7 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
     await prisma.apiFetchLog.deleteMany({ where: { resource: `fixtures:${dateKey}` } });
   }
 
-  // Only use cache if we have fixtures AND last fetch was today
+  // Use cache when we have fixtures and a successful fetch for today (no API calls)
   if (lastFetchLog && lastFetchLog.fetchedAt >= dayStart && existingFixtures.length > 0) {
     return existingFixtures.map(mapFixtureToSummary);
   }

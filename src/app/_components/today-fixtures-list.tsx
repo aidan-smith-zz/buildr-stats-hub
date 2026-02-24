@@ -29,13 +29,15 @@ function formatKoTime(date: Date): string {
 /** statusShort values that mean the match has finished (don't show "Live" badge). */
 const LIVE_FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);
 
-/** Default order within each KO time: SPFL → EPL → Championship → UCL → UEL → FA Cup. */
-const LEAGUE_ORDER: number[] = [179, 39, 40, 2, 3, 45];
+/** Default order within each KO time: SPFL → EPL → Championship → League One → League Two → UCL → UEL → FA Cup. */
+const LEAGUE_ORDER: number[] = [179, 39, 40, 43, 44, 2, 3, 45];
 
 /** Consistent display names for competitions (professional, no acronyms). */
 const LEAGUE_DISPLAY_NAMES: Record<number, string> = {
   39: "Premier League",
   40: "Championship",
+  43: "League One",
+  44: "League Two",
   2: "Champions League",
   3: "Europa League",
   179: "Scottish Premiership",
@@ -133,30 +135,31 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        {showHero && (
-          <section className="mb-10">
-            <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
-              Football Stats & Player Data
-            </h1>
-            <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400 sm:text-base">
-              {displayDate}
-            </p>
-            <p className="mt-3 text-neutral-600 dark:text-neutral-400 sm:text-lg leading-relaxed">
-              Explore team season averages and in-depth player statistics to uncover meaningful
-              trends and make informed, data-driven match insights.
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
-              <NavLinkWithOverlay
-                href="/fixtures/upcoming"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-              >
-                Upcoming fixtures (14 days) →
-              </NavLinkWithOverlay>
-            </div>
-          </section>
-        )}
+        <div>
+          {showHero ? (
+            <section className="mb-10">
+              <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
+                Football Stats & Player Data
+              </h1>
+              <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400 sm:text-base">
+                {displayDate}
+              </p>
+              <p className="mt-3 text-neutral-600 dark:text-neutral-400 sm:text-lg leading-relaxed">
+                Explore team season averages and in-depth player statistics to uncover meaningful
+                trends and make informed, data-driven match insights.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+                <NavLinkWithOverlay
+                  href="/fixtures/upcoming"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                >
+                  Upcoming fixtures (14 days) →
+                </NavLinkWithOverlay>
+              </div>
+            </section>
+          ) : null}
 
-        {sortedFixtures.length === 0 ? (
+          {sortedFixtures.length === 0 ? (
           <div className="rounded-2xl border border-neutral-200 bg-white p-10 text-center shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
               No fixtures for today in the selected leagues.
@@ -236,7 +239,8 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
               </ul>
             ))}
           </div>
-        )}
+          )}
+        </div>
 
         <section className="mt-14 border-t border-neutral-200 pt-12 dark:border-neutral-800">
           <h2 className="mb-6 text-center text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">

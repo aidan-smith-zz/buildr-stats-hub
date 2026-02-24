@@ -95,12 +95,12 @@ export function FormEdgeSection({ fixtures, last10, season }: Props) {
           </div>
         ) : (
           <div className="p-4 sm:p-5">
-            {/* Diverging bar chart: 0 in the middle, positive = home advantage (right), negative = away (left) */}
+            {/* Diverging bar chart: 0 in the middle, positive = home advantage (left), negative = away (right) */}
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-2 text-xs text-neutral-500 dark:text-neutral-400">
-                <span>Away edge ←</span>
+                <span>Home edge ←</span>
                 <span className="font-medium text-neutral-700 dark:text-neutral-300">Balanced</span>
-                <span>→ Home edge</span>
+                <span>→ Away edge</span>
               </div>
               <div className="space-y-3">
                 {validRows.map(({ fixture, edge }) => {
@@ -123,28 +123,28 @@ export function FormEdgeSection({ fixtures, last10, season }: Props) {
                           className="absolute left-1/2 top-0 h-full w-0.5 -translate-x-px bg-neutral-400 dark:bg-neutral-500 z-[5]"
                           aria-hidden
                         />
-                        {/* Coloured bar (behind) – shows edge magnitude only */}
+                        {/* Coloured bar (behind) – home = left (blue), away = right (violet) */}
                         {!isBalanced &&
                           (isHomeEdge ? (
                             <div
-                              className="absolute top-0 right-0 h-full transition-all duration-300"
+                              className="absolute top-0 left-0 h-full transition-all duration-300"
                               style={{
-                                left: "50%",
+                                left: `${50 - pct}%`,
                                 width: `${pct}%`,
                                 backgroundColor: "rgb(30 64 175)",
                               }}
                             />
                           ) : (
                             <div
-                              className="absolute top-0 left-0 h-full transition-all duration-300"
+                              className="absolute top-0 right-0 h-full transition-all duration-300"
                               style={{
-                                left: `${50 - pct}%`,
+                                left: "50%",
                                 width: `${pct}%`,
                                 backgroundColor: "rgb(124 58 237)",
                               }}
                             />
                           ))}
-                        {/* Team names span full half so text is readable even when bar is thin */}
+                        {/* Team names: left = home, right = away */}
                         {isBalanced ? (
                           <div className="absolute inset-0 z-10 flex items-center justify-center">
                             <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Balanced</span>
@@ -152,13 +152,13 @@ export function FormEdgeSection({ fixtures, last10, season }: Props) {
                         ) : (
                           <>
                             <div className={`${barTextClass} left-0 right-1/2 justify-end pr-2`} style={{ width: "50%" }}>
-                              <span className="truncate pl-2" title={fixture.awayName}>
-                                {fixture.awayName}
+                              <span className="truncate pl-2" title={fixture.homeName}>
+                                {fixture.homeName}
                               </span>
                             </div>
                             <div className={`${barTextClass} left-1/2 right-0 justify-start pl-2`} style={{ left: "50%", width: "50%" }}>
-                              <span className="truncate pr-2" title={fixture.homeName}>
-                                {fixture.homeName}
+                              <span className="truncate pr-2" title={fixture.awayName}>
+                                {fixture.awayName}
                               </span>
                             </div>
                           </>

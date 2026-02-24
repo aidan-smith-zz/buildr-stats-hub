@@ -287,6 +287,12 @@ export async function fetchTodayFixtures(
     "Scottish Championship": 179,
     "Scottish Premiership": 179,
     "FA Cup": 45,
+    "League One": 43,
+    "English League One": 43,
+    "EFL League One": 43,
+    "League Two": 44,
+    "English League Two": 44,
+    "EFL League Two": 44,
   };
 
   return fixtures.map((f) => {
