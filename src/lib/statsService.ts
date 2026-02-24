@@ -146,10 +146,82 @@ async function ensureTeamSeasonStatsCornersAndCards(
     existingCache.map((r) => [r.apiFixtureId, r as CachedFixtureStats])
   );
 
+  const apiFixtureIds = fixtureIdsToProcess.map((id) => String(id));
+
+  /** Upsert TeamSeasonStats from current cache (and full goals/minutes). Used so warm-today sees a row even if we timeout or return done:false. */
+  async function upsertTeamSeasonStatsFromCache(cacheRows: { corners: number; yellowCards: number; redCards: number; xg: number | null }[]) {
+    let corners = 0;
+    let yellowCards = 0;
+    let redCards = 0;
+    let xgSum = 0;
+    let xgCount = 0;
+    for (const r of cacheRows) {
+      corners += r.corners;
+      yellowCards += r.yellowCards;
+      redCards += r.redCards;
+      if (r.xg != null) {
+        xgSum += r.xg;
+        xgCount++;
+      }
+    }
+    const xgFor = xgCount > 0 ? xgSum : null;
+    await prisma.teamSeasonStats.upsert({
+      where: {
+        teamId_season_league: { teamId, season, league: leagueKey },
+      },
+      create: {
+        teamId,
+        season,
+        league: leagueKey,
+        leagueId,
+        minutesPlayed,
+        goalsFor,
+        goalsAgainst,
+        xgFor,
+        corners,
+        yellowCards,
+        redCards,
+      },
+      update: {
+        minutesPlayed,
+        goalsFor,
+        goalsAgainst,
+        xgFor,
+        corners,
+        yellowCards,
+        redCards,
+      },
+    });
+  }
+
+  // When chunked: write a row immediately so warm-today stops re-adding this fixture even if we timeout before returning.
+  if (maxCalls != null) {
+    const partialCacheRows = await db.teamFixtureCache.findMany({
+      where: {
+        teamId,
+        season,
+        league: leagueKey,
+        apiFixtureId: { in: apiFixtureIds },
+      },
+      select: { corners: true, yellowCards: true, redCards: true, xg: true },
+    });
+    await upsertTeamSeasonStatsFromCache(partialCacheRows);
+  }
+
   let apiCallsThisInvocation = 0;
 
   for (let i = 0; i < limit; i++) {
     if (maxCalls != null && apiCallsThisInvocation >= maxCalls) {
+      const partialCacheRows = await db.teamFixtureCache.findMany({
+        where: {
+          teamId,
+          season,
+          league: leagueKey,
+          apiFixtureId: { in: apiFixtureIds },
+        },
+        select: { corners: true, yellowCards: true, redCards: true, xg: true },
+      });
+      await upsertTeamSeasonStatsFromCache(partialCacheRows);
       return { done: false };
     }
     const apiFixtureId = String(fixtureIds[i]);
@@ -238,13 +310,12 @@ async function ensureTeamSeasonStatsCornersAndCards(
   }
 
   // All fixtures processed (from cache or API). Aggregate from DB and write season row.
-  const apiFixtureIds = fixtureIdsToProcess.map((id) => String(id));
   const cacheRows = await db.teamFixtureCache.findMany({
     where: {
       teamId,
       season,
       league: leagueKey,
-      apiFixtureId: { in: apiFixtureIds },
+      apiFixtureId: { in: fixtureIdsToProcess.map((id) => String(id)) },
     },
     select: { corners: true, yellowCards: true, redCards: true, xg: true },
   });
