@@ -1,5 +1,13 @@
 import "server-only";
 
+/**
+ * API-Football returns paginated results for list endpoints (often ~20 per page).
+ * These functions use requestPage() and fetch all pages so stored data is complete:
+ * - fetchTodayFixtures (fixtures by date/league)
+ * - fetchTeamFixturesWithGoals (team's fixtures in a league/season)
+ * - fetchPlayerSeasonStatsByTeam (players in a team/season)
+ * Single-resource calls (id=, fixture=) use request() and do not paginate.
+ */
 const FOOTBALL_API_BASE_URL = process.env.FOOTBALL_API_BASE_URL;
 const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY;
 
@@ -226,51 +234,45 @@ export async function fetchTeamLogo(teamApiId: string | number): Promise<string 
   return typeof logo === "string" && logo.length > 0 ? logo : null;
 }
 
+type ApiFootballFixture = {
+  fixture: { id: number; date: string; status: { short: string } };
+  league: { id: number; name: string; season: number; country?: string };
+  teams: {
+    home: { id: number; name: string; code?: string; country?: string };
+    away: { id: number; name: string; code?: string; country?: string };
+  };
+};
+
 /**
- * Fetch today's fixtures from API-Football.
- * Endpoint: /fixtures?date=YYYY-MM-DD
+ * Fetch today's fixtures from API-Football. Paginates so we get every fixture for the date/league.
+ * Endpoint: /fixtures?date=YYYY-MM-DD&league=&season=
  */
 export async function fetchTodayFixtures(
   params: TodayFixturesParams,
 ): Promise<RawFixture[]> {
   const path = "/fixtures";
 
-  // Validate date format
   if (!/^\d{4}-\d{2}-\d{2}$/.test(params.date)) {
     throw new Error(`Invalid date format: ${params.date}. Expected YYYY-MM-DD`);
   }
 
-  type ApiFootballFixture = {
-    fixture: {
-      id: number;
-      date: string;
-      status: { short: string };
-    };
-    league: {
-      id: number;
-      name: string;
-      season: number;
-      country?: string;
-    };
-    teams: {
-      home: { id: number; name: string; code?: string; country?: string };
-      away: { id: number; name: string; code?: string; country?: string };
-    };
-  };
+  const baseParams: Record<string, string | number> = { date: params.date };
+  if (params.leagueId !== undefined) baseParams.league = params.leagueId;
+  if (params.season !== undefined) baseParams.season = params.season;
+  if (params.timezone !== undefined) baseParams.timezone = params.timezone;
 
-  // Build query parameters - only include defined values
-  // API-Football requires 'date' parameter, others are optional filters
-  const queryParams: Record<string, string | number> = {
-    date: params.date, // Required: YYYY-MM-DD format
-  };
-  
-  // Only add optional parameters if they're provided
-  if (params.leagueId !== undefined) queryParams.league = params.leagueId;
-  if (params.season !== undefined) queryParams.season = params.season;
-  if (params.timezone !== undefined) queryParams.timezone = params.timezone;
+  const allFixtures: ApiFootballFixture[] = [];
+  let page = 1;
+  let totalPages = 1;
+  do {
+    const { response, paging } = await requestPage<ApiFootballFixture>(path, { ...baseParams, page });
+    totalPages = paging.total || 1;
+    if (response?.length) allFixtures.push(...response);
+    page++;
+  } while (page <= totalPages);
 
-  const fixtures = await request<ApiFootballFixture>(path, queryParams);
-  if (!fixtures || fixtures.length === 0) return [];
+  const fixtures = allFixtures;
+  if (!fixtures.length) return [];
 
   // Fallback: API-Football league name -> id for our filtered leagues (in case API omits league.id)
   const leagueNameToId: Record<string, number> = {
@@ -468,9 +470,38 @@ export type TeamFixturesWithGoals = {
   fixtures: { apiFixtureId: number; date: Date; goalsFor: number; goalsAgainst: number }[];
 };
 
+type ApiFixtureItem = {
+  fixture?: { id?: number; date?: string };
+  league?: unknown;
+  teams?: { home?: { id?: number }; away?: { id?: number } };
+  goals?: { home?: number | null; away?: number | null };
+};
+
+function parseFixtureGoals(
+  f: ApiFixtureItem,
+  teamIdNum: number,
+): { goalsFor: number; goalsAgainst: number } {
+  let homeGoals = f.goals?.home != null ? Number(f.goals.home) : 0;
+  let awayGoals = f.goals?.away != null ? Number(f.goals.away) : 0;
+  if (homeGoals === 0 && awayGoals === 0) {
+    const raw = f as { score?: { fulltime?: { home?: number; away?: number } } };
+    const ft = raw.score?.fulltime;
+    if (ft && (ft.home != null || ft.away != null)) {
+      homeGoals = Number(ft.home ?? 0);
+      awayGoals = Number(ft.away ?? 0);
+    }
+  }
+  const homeId = Number(f.teams?.home?.id ?? 0);
+  const awayId = Number(f.teams?.away?.id ?? 0);
+  if (homeId === teamIdNum) return { goalsFor: homeGoals, goalsAgainst: awayGoals };
+  if (awayId === teamIdNum) return { goalsFor: awayGoals, goalsAgainst: homeGoals };
+  return { goalsFor: 0, goalsAgainst: 0 };
+}
+
 /**
- * Fetch fixtures for a team in a league/season (this season only). Returns fixture IDs and
- * goals for/against from each fixture's score. GET /fixtures?team=&season=&league=
+ * Fetch ALL fixtures for a team in a league/season (this season only). Paginates so we get
+ * every match, not just the first page. Returns fixture IDs and goals for/against.
+ * GET /fixtures?team=&season=&league= (multiple pages if needed).
  */
 export async function fetchTeamFixturesWithGoals(
   teamApiId: string | number,
@@ -478,56 +509,44 @@ export async function fetchTeamFixturesWithGoals(
   leagueId: string | number,
 ): Promise<TeamFixturesWithGoals> {
   const path = "/fixtures";
-  const searchParams: Record<string, string | number> = {
+  const baseParams: Record<string, string | number> = {
     team: teamApiId,
     season: String(season),
     league: leagueId,
   };
 
-  type ApiFixtureItem = {
-    fixture?: { id?: number; date?: string };
-    league?: unknown;
-    teams?: { home?: { id?: number }; away?: { id?: number } };
-    goals?: { home?: number | null; away?: number | null };
-  };
   try {
-    const response = await request<ApiFixtureItem>(path, searchParams);
-    if (!response?.length) return { fixtureIds: [], goalsFor: 0, goalsAgainst: 0, played: 0, fixtures: [] };
-
     const teamIdNum = Number(teamApiId);
-    let goalsFor = 0;
-    let goalsAgainst = 0;
+    let totalGoalsFor = 0;
+    let totalGoalsAgainst = 0;
     const fixtureIds: number[] = [];
     const fixtures: { apiFixtureId: number; date: Date; goalsFor: number; goalsAgainst: number }[] = [];
+    let page = 1;
+    let totalPages = 1;
 
-    for (const f of response) {
-      const id = f.fixture?.id;
-      const homeId = f.teams?.home?.id;
-      const awayId = f.teams?.away?.id;
-      const homeGoals = f.goals?.home ?? 0;
-      const awayGoals = f.goals?.away ?? 0;
-      let fGoalsFor = 0;
-      let fGoalsAgainst = 0;
-      if (homeId === teamIdNum) {
-        fGoalsFor = homeGoals;
-        fGoalsAgainst = awayGoals;
-      } else if (awayId === teamIdNum) {
-        fGoalsFor = awayGoals;
-        fGoalsAgainst = homeGoals;
+    do {
+      const { response, paging } = await requestPage<ApiFixtureItem>(path, { ...baseParams, page });
+      totalPages = paging.total || 1;
+      if (!response?.length) break;
+
+      for (const f of response) {
+        const id = f.fixture?.id;
+        const { goalsFor: fGoalsFor, goalsAgainst: fGoalsAgainst } = parseFixtureGoals(f, teamIdNum);
+        totalGoalsFor += fGoalsFor;
+        totalGoalsAgainst += fGoalsAgainst;
+        if (typeof id === "number") {
+          fixtureIds.push(id);
+          const date = f.fixture?.date ? new Date(f.fixture.date) : new Date(0);
+          fixtures.push({ apiFixtureId: id, date, goalsFor: fGoalsFor, goalsAgainst: fGoalsAgainst });
+        }
       }
-      goalsFor += fGoalsFor;
-      goalsAgainst += fGoalsAgainst;
-      if (typeof id === "number") {
-        fixtureIds.push(id);
-        const date = f.fixture?.date ? new Date(f.fixture.date) : new Date(0);
-        fixtures.push({ apiFixtureId: id, date, goalsFor: fGoalsFor, goalsAgainst: fGoalsAgainst });
-      }
-    }
+      page++;
+    } while (page <= totalPages);
 
     return {
       fixtureIds,
-      goalsFor,
-      goalsAgainst,
+      goalsFor: totalGoalsFor,
+      goalsAgainst: totalGoalsAgainst,
       played: fixtureIds.length,
       fixtures,
     };
@@ -620,8 +639,35 @@ type ApiFootballFixtureById = {
   };
   goals?: { home: number | null; away: number | null };
   league?: unknown;
-  teams?: unknown;
+  teams?: { home?: { id?: number }; away?: { id?: number } };
 };
+
+/** Result of fetching a single fixture by id: goals and team ids for computing per-team goals. */
+export type FixtureScoreWithTeams = {
+  homeGoals: number;
+  awayGoals: number;
+  homeTeamId: number;
+  awayTeamId: number;
+};
+
+/**
+ * Fetch fixture score and team ids by fixture id. Use when the list endpoint returns null/0 goals
+ * (e.g. some leagues). GET /fixtures?id=
+ */
+export async function fetchFixtureScoreWithTeams(
+  fixtureApiId: string | number,
+): Promise<FixtureScoreWithTeams | null> {
+  const path = "/fixtures";
+  const response = await request<ApiFootballFixtureById>(path, { id: fixtureApiId });
+  if (!response?.length) return null;
+  const data = response[0];
+  const goals = data.goals;
+  const homeGoals = goals?.home != null ? Number(goals.home) : 0;
+  const awayGoals = goals?.away != null ? Number(goals.away) : 0;
+  const homeTeamId = Number(data.teams?.home?.id ?? 0);
+  const awayTeamId = Number(data.teams?.away?.id ?? 0);
+  return { homeGoals, awayGoals, homeTeamId, awayTeamId };
+}
 
 export type LiveFixtureResult = {
   homeGoals: number;

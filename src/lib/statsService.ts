@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
+  fetchFixtureScoreWithTeams,
   fetchFixtureStatistics,
   fetchPlayerSeasonStatsByTeam,
   fetchTeamFixturesWithGoals,
@@ -115,7 +116,15 @@ async function ensureTeamSeasonStatsCornersAndCards(
   const limit = Math.min(fixtureIds.length, MAX_FIXTURES_PER_SEASON);
   const fixtureIdsToProcess = fixtureIds.slice(0, limit);
 
-  type CachedFixtureStats = { corners: number; yellowCards: number; redCards: number; xg: number | null };
+  type CachedFixtureStats = {
+    apiFixtureId: string;
+    goalsFor: number;
+    goalsAgainst: number;
+    corners: number;
+    yellowCards: number;
+    redCards: number;
+    xg: number | null;
+  };
   const existingCache = await db.teamFixtureCache.findMany({
     where: {
       teamId,
@@ -123,10 +132,18 @@ async function ensureTeamSeasonStatsCornersAndCards(
       league: leagueKey,
       apiFixtureId: { in: fixtureIdsToProcess.map((id) => String(id)) },
     },
-    select: { apiFixtureId: true, corners: true, yellowCards: true, redCards: true, xg: true },
+    select: {
+      apiFixtureId: true,
+      goalsFor: true,
+      goalsAgainst: true,
+      corners: true,
+      yellowCards: true,
+      redCards: true,
+      xg: true,
+    },
   });
   const cacheByApiFixtureId = new Map<string, CachedFixtureStats>(
-    existingCache.map((r: CachedFixtureStats & { apiFixtureId: string }) => [r.apiFixtureId, r])
+    existingCache.map((r) => [r.apiFixtureId, r as CachedFixtureStats])
   );
 
   let apiCallsThisInvocation = 0;
@@ -139,18 +156,52 @@ async function ensureTeamSeasonStatsCornersAndCards(
     const meta = fixturesMeta[i];
     const cached = cacheByApiFixtureId.get(apiFixtureId);
 
-    if (cached) {
+    const needsGoalsFallback =
+      cached && cached.goalsFor === 0 && cached.goalsAgainst === 0;
+
+    if (cached && !needsGoalsFallback) {
       continue;
     }
 
-    if (apiCallsThisInvocation > 0) await sleep(FIXTURE_STATS_DELAY_MS);
-    apiCallsThisInvocation++;
-    const stat = await fetchFixtureStatistics(fixtureIds[i], teamApiId);
     if (meta) {
-      const corners = stat?.corners ?? 0;
-      const yellowCards = stat?.yellowCards ?? 0;
-      const redCards = stat?.redCards ?? 0;
-      const xg = stat?.xg ?? null;
+      let goalsFor = meta.goalsFor;
+      let goalsAgainst = meta.goalsAgainst;
+      let attemptedScoreFallback = false;
+
+      if (goalsFor === 0 && goalsAgainst === 0) {
+        if (maxCalls != null && apiCallsThisInvocation >= maxCalls) {
+          // Skip this round so we retry next time
+        } else {
+          if (apiCallsThisInvocation > 0) await sleep(FIXTURE_STATS_DELAY_MS);
+          apiCallsThisInvocation++;
+          attemptedScoreFallback = true;
+          const scoreWithTeams = await fetchFixtureScoreWithTeams(fixtureIds[i]);
+          if (scoreWithTeams) {
+            const teamIdNum = Number(teamApiId);
+            if (scoreWithTeams.homeTeamId === teamIdNum) {
+              goalsFor = scoreWithTeams.homeGoals;
+              goalsAgainst = scoreWithTeams.awayGoals;
+            } else if (scoreWithTeams.awayTeamId === teamIdNum) {
+              goalsFor = scoreWithTeams.awayGoals;
+              goalsAgainst = scoreWithTeams.homeGoals;
+            }
+          }
+        }
+      }
+
+      const hasGoals = goalsFor > 0 || goalsAgainst > 0;
+      if (!hasGoals && !attemptedScoreFallback) continue;
+
+      if (!cached) {
+        if (apiCallsThisInvocation > 0) await sleep(FIXTURE_STATS_DELAY_MS);
+        apiCallsThisInvocation++;
+      }
+      const stat = cached ? null : await fetchFixtureStatistics(fixtureIds[i], teamApiId);
+      const corners = stat?.corners ?? cached?.corners ?? 0;
+      const yellowCards = stat?.yellowCards ?? cached?.yellowCards ?? 0;
+      const redCards = stat?.redCards ?? cached?.redCards ?? 0;
+      const xg = stat?.xg ?? cached?.xg ?? null;
+
       await db.teamFixtureCache.upsert({
         where: {
           teamId_season_league_apiFixtureId: {
@@ -166,8 +217,8 @@ async function ensureTeamSeasonStatsCornersAndCards(
           league: leagueKey,
           apiFixtureId,
           fixtureDate: meta.date,
-          goalsFor: meta.goalsFor,
-          goalsAgainst: meta.goalsAgainst,
+          goalsFor,
+          goalsAgainst,
           xg,
           corners,
           yellowCards,
@@ -175,8 +226,8 @@ async function ensureTeamSeasonStatsCornersAndCards(
         },
         update: {
           fixtureDate: meta.date,
-          goalsFor: meta.goalsFor,
-          goalsAgainst: meta.goalsAgainst,
+          goalsFor,
+          goalsAgainst,
           xg,
           corners,
           yellowCards,

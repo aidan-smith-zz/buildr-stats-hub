@@ -2,7 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 
-const db = prisma as typeof prisma & { teamFixtureCache: { findMany: (args: { where?: object; orderBy?: object }) => Promise<{ teamId: number; goalsFor: number; goalsAgainst: number; corners: number; yellowCards: number; redCards: number }[]> } };
+const db = prisma as typeof prisma & {
+  teamFixtureCache: {
+    findMany: (args: { where?: object; orderBy?: object }) => Promise<
+      { teamId: number; league: string; fixtureDate: Date; goalsFor: number; goalsAgainst: number; corners: number; yellowCards: number; redCards: number }[]
+    >;
+  };
+};
 
 export type Insight = { text: string; type: "team_last5" | "team_last10" | "team_season" | "player_season"; href?: string };
 
@@ -332,6 +338,19 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
   return insights.slice(0, 8);
 }
 
+/** Build map of teamId -> league for teams playing today (one league per team; use first fixture's league). */
+function teamIdToLeagueFromFixtures(
+  fixtures: { homeTeamId: number; awayTeamId: number; league: string | null }[]
+): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const f of fixtures) {
+    const league = f.league ?? "Unknown";
+    if (!map.has(f.homeTeamId)) map.set(f.homeTeamId, league);
+    if (!map.has(f.awayTeamId)) map.set(f.awayTeamId, league);
+  }
+  return map;
+}
+
 /** Load last-5 stats for today's teams for the AI page "Last 5 form" section. */
 export async function getLast5StatsForDate(dateKey: string): Promise<Last5TeamSummary[]> {
   const { dayStart, spilloverEnd } = dayBoundsForDate(dateKey);
@@ -346,8 +365,9 @@ export async function getLast5StatsForDate(dateKey: string): Promise<Last5TeamSu
   const teamIds = Array.from(
     new Set(fixtures.flatMap((f) => [f.homeTeamId, f.awayTeamId]))
   );
+  const teamIdToLeague = teamIdToLeagueFromFixtures(fixtures);
 
-  const [teamCacheByTeam] = await Promise.all([loadLast5ByTeam(teamIds)]);
+  const [teamCacheByTeam] = await Promise.all([loadLast5ByTeam(teamIds, teamIdToLeague)]);
 
   const teamIdToFixture = new Map<number, (typeof fixtures)[0]>();
   for (const f of fixtures) {
@@ -389,7 +409,8 @@ export async function getLastNStatsForDate(dateKey: string, n: number): Promise<
   });
   if (fixtures.length === 0) return [];
   const teamIds = Array.from(new Set(fixtures.flatMap((f) => [f.homeTeamId, f.awayTeamId])));
-  const teamCacheByTeam = await loadLastNByTeam(teamIds, n);
+  const teamIdToLeague = teamIdToLeagueFromFixtures(fixtures);
+  const teamCacheByTeam = await loadLastNByTeam(teamIds, n, teamIdToLeague);
   const teamIdToFixture = new Map<number, (typeof fixtures)[0]>();
   for (const f of fixtures) {
     teamIdToFixture.set(f.homeTeamId, f);
@@ -440,7 +461,7 @@ export async function getFormEdgeFixtures(dateKey: string): Promise<FormEdgeFixt
   }));
 }
 
-/** Season averages for today's teams (from TeamSeasonStats). */
+/** Season averages for today's teams (from TeamSeasonStats). Uses each team's league for today so we show that competition's season stats. */
 export async function getSeasonStatsForDate(dateKey: string): Promise<Last5TeamSummary[]> {
   const { dayStart, spilloverEnd } = dayBoundsForDate(dateKey);
   const fixtures = await prisma.fixture.findMany({
@@ -449,6 +470,7 @@ export async function getSeasonStatsForDate(dateKey: string): Promise<Last5TeamS
   });
   if (fixtures.length === 0) return [];
   const teamIds = Array.from(new Set(fixtures.flatMap((f) => [f.homeTeamId, f.awayTeamId])));
+  const teamIdToLeague = teamIdToLeagueFromFixtures(fixtures);
   const teamSeasonRows = await prisma.teamSeasonStats.findMany({
     where: { teamId: { in: teamIds } },
     include: { team: true },
@@ -463,6 +485,8 @@ export async function getSeasonStatsForDate(dateKey: string): Promise<Last5TeamS
     { matches: number; goalsFor: number; goalsAgainst: number; corners: number; cards: number; teamName: string; href?: string }
   >();
   for (const row of teamSeasonRows) {
+    const leagueForTeam = teamIdToLeague.get(row.teamId);
+    if (leagueForTeam != null && row.league !== leagueForTeam) continue;
     const matches = row.minutesPlayed / 90;
     if (matches < 1) continue;
     const existing = byTeam.get(row.teamId);
@@ -580,14 +604,21 @@ export async function getFormForTeams(
 
 type CacheRow = { goalsFor: number; goalsAgainst: number; corners: number; yellowCards: number; redCards: number };
 
+/** Load last N cache rows per team. If teamIdToLeague is provided, only includes rows for that team's league (same competition form). */
 function loadLastNByTeam(
   teamIds: number[],
-  n: number
+  n: number,
+  teamIdToLeague?: Map<number, string>
 ): Promise<Map<number, CacheRow[]>> {
   if (teamIds.length === 0) return Promise.resolve(new Map());
+  const where: { teamId: { in: number[] }; OR?: { teamId: number; league: string }[] } =
+    teamIdToLeague && teamIdToLeague.size > 0
+      ? { OR: Array.from(teamIdToLeague.entries()).map(([teamId, league]) => ({ teamId, league })) }
+      : { teamId: { in: teamIds } };
+
   return db.teamFixtureCache
     .findMany({
-      where: { teamId: { in: teamIds } },
+      where,
       orderBy: { fixtureDate: "desc" },
     })
     .then((cache) => {
@@ -595,14 +626,14 @@ function loadLastNByTeam(
       for (const row of cache) {
         if (!byTeam.has(row.teamId)) byTeam.set(row.teamId, []);
         const arr = byTeam.get(row.teamId)!;
-        if (arr.length < n) arr.push(row);
+        if (arr.length < n) arr.push({ goalsFor: row.goalsFor, goalsAgainst: row.goalsAgainst, corners: row.corners, yellowCards: row.yellowCards, redCards: row.redCards });
       }
       return byTeam;
     });
 }
 
-function loadLast5ByTeam(teamIds: number[]): Promise<Map<number, CacheRow[]>> {
-  return loadLastNByTeam(teamIds, 5);
+function loadLast5ByTeam(teamIds: number[], teamIdToLeague?: Map<number, string>): Promise<Map<number, CacheRow[]>> {
+  return loadLastNByTeam(teamIds, 5, teamIdToLeague);
 }
 
 type PlayerWithStats = {
