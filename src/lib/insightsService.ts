@@ -611,7 +611,7 @@ function loadLastNByTeam(
   teamIdToLeague?: Map<number, string>
 ): Promise<Map<number, CacheRow[]>> {
   if (teamIds.length === 0) return Promise.resolve(new Map());
-  const where: { teamId: { in: number[] }; OR?: { teamId: number; league: string }[] } =
+  const where: { teamId: { in: number[] } } | { OR: { teamId: number; league: string }[] } =
     teamIdToLeague && teamIdToLeague.size > 0
       ? { OR: Array.from(teamIdToLeague.entries()).map(([teamId, league]) => ({ teamId, league })) }
       : { teamId: { in: teamIds } };

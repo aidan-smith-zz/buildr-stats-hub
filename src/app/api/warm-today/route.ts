@@ -4,7 +4,7 @@ import {
   getTodayFixturesFromDbOnly,
   refreshUpcomingFixturesTable,
 } from "@/lib/fixturesService";
-import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { isFixtureInRequiredLeagues } from "@/lib/leagues";
 import { prisma } from "@/lib/prisma";
 
 const MIN_PLAYERS_PER_TEAM = 11;
@@ -26,12 +26,9 @@ export async function GET(request: Request) {
     const fixtures = skipRefresh
       ? await getTodayFixturesFromDbOnly(now)
       : await getOrRefreshTodayFixtures(now);
-    const filtered = fixtures.filter((f) => {
-      if (f.leagueId == null || !(REQUIRED_LEAGUE_IDS as readonly number[]).includes(f.leagueId)) {
-        return false;
-      }
-      return true;
-    });
+    const filtered = fixtures.filter((f) =>
+      isFixtureInRequiredLeagues({ leagueId: f.leagueId, league: f.league })
+    );
 
     if (filtered.length === 0) {
       return NextResponse.json({
