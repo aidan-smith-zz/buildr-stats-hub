@@ -4,6 +4,32 @@ import { useState } from "react";
 
 type Label = "Share" | "Copied!" | "Shared!";
 
+export function copyToClipboard(text: string): boolean {
+  if (!text || typeof window === "undefined") return false;
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to execCommand fallback
+    }
+  }
+  try {
+    const el = document.createElement("textarea");
+    el.value = text;
+    el.setAttribute("readonly", "");
+    el.style.position = "fixed";
+    el.style.left = "-9999px";
+    document.body.appendChild(el);
+    el.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(el);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 export function ShareUrlButton({
   className = "",
 }: {
@@ -13,6 +39,10 @@ export function ShareUrlButton({
 
   const handleShare = async () => {
     const url = typeof window !== "undefined" ? window.location.href : "";
+    if (!url) {
+      setLabel("Share");
+      return;
+    }
     const title = "AI Insights | statsBuildr";
     const text = "Check today's AI-powered fixture insights.";
     try {
@@ -20,16 +50,12 @@ export function ShareUrlButton({
         await navigator.share({ title, url, text });
         setLabel("Shared!");
       } else {
-        await navigator.clipboard?.writeText(url);
-        setLabel("Copied!");
+        const copied = copyToClipboard(url);
+        setLabel(copied ? "Copied!" : "Share");
       }
     } catch {
-      try {
-        await navigator.clipboard?.writeText(url);
-        setLabel("Copied!");
-      } catch {
-        setLabel("Share");
-      }
+      const copied = copyToClipboard(url);
+      setLabel(copied ? "Copied!" : "Share");
     }
     setTimeout(() => setLabel("Share"), 2000);
   };

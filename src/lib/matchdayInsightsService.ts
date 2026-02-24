@@ -50,6 +50,12 @@ export type MatchdayInsightsData = {
   top5TeamsXgPer90: MatchdayTeamLeaderEntry[];
   top5TeamsCornersPer90: MatchdayTeamCornersEntry[];
   top5CardsPer90: MatchdayPlayerLeaderEntry[];
+  /** Last 5 games: team and fixture leaderboards only (no player last-5 data). */
+  last5: {
+    top5FixturesCombinedXg: MatchdayFixtureLeaderEntry[];
+    top5TeamsXgPer90: MatchdayTeamLeaderEntry[];
+    top5TeamsCornersPer90: MatchdayTeamCornersEntry[];
+  };
 };
 
 const MIN_MINUTES_FOR_PER90 = 90;
@@ -79,6 +85,11 @@ export async function getMatchdayInsightsData(
     year: "numeric",
   });
 
+  const emptyLast5 = {
+    top5FixturesCombinedXg: [] as MatchdayFixtureLeaderEntry[],
+    top5TeamsXgPer90: [] as MatchdayTeamLeaderEntry[],
+    top5TeamsCornersPer90: [] as MatchdayTeamCornersEntry[],
+  };
   const empty: MatchdayInsightsData = {
     dateKey,
     displayDate,
@@ -89,6 +100,7 @@ export async function getMatchdayInsightsData(
     top5TeamsXgPer90: [],
     top5TeamsCornersPer90: [],
     top5CardsPer90: [],
+    last5: emptyLast5,
   };
 
   let fixtureIds: number[];
@@ -142,6 +154,9 @@ export async function getMatchdayInsightsData(
   const fixtureEntries: MatchdayFixtureLeaderEntry[] = [];
   const teamXgMap = new Map<number, { teamName: string; xgPer90: number; href: string }>();
   const teamCornersMap = new Map<number, { teamName: string; cornersPer90: number; href: string }>();
+  const fixtureEntriesLast5: MatchdayFixtureLeaderEntry[] = [];
+  const teamXgMapLast5 = new Map<number, { teamName: string; xgPer90: number; href: string }>();
+  const teamCornersMapLast5 = new Map<number, { teamName: string; cornersPer90: number; href: string }>();
 
   for (const s of allStats) {
     const homeName = s.fixture.homeTeam.shortName ?? s.fixture.homeTeam.name;
@@ -181,6 +196,35 @@ export async function getMatchdayInsightsData(
       }
       if (awayCorners > 0 && !teamCornersMap.has(awayTeamId)) {
         teamCornersMap.set(awayTeamId, { teamName: awayTeamName, cornersPer90: awayCorners, href });
+      }
+    }
+
+    if (s.teamStatsLast5) {
+      const homeXgL5 = s.teamStatsLast5.home.xgPer90 ?? 0;
+      const awayXgL5 = s.teamStatsLast5.away.xgPer90 ?? 0;
+      fixtureEntriesLast5.push({
+        homeName,
+        awayName,
+        combinedXg: homeXgL5 + awayXgL5,
+        href,
+      });
+      const homeTeamId = s.fixture.homeTeam.id;
+      const awayTeamId = s.fixture.awayTeam.id;
+      const homeTeamName = s.teams.find((t) => t.teamId === homeTeamId)?.teamShortName ?? s.fixture.homeTeam.shortName ?? s.fixture.homeTeam.name;
+      const awayTeamName = s.teams.find((t) => t.teamId === awayTeamId)?.teamShortName ?? s.fixture.awayTeam.shortName ?? s.fixture.awayTeam.name;
+      if (homeXgL5 > 0 && !teamXgMapLast5.has(homeTeamId)) {
+        teamXgMapLast5.set(homeTeamId, { teamName: homeTeamName, xgPer90: homeXgL5, href });
+      }
+      if (awayXgL5 > 0 && !teamXgMapLast5.has(awayTeamId)) {
+        teamXgMapLast5.set(awayTeamId, { teamName: awayTeamName, xgPer90: awayXgL5, href });
+      }
+      const homeCornersL5 = s.teamStatsLast5.home.cornersPer90;
+      const awayCornersL5 = s.teamStatsLast5.away.cornersPer90;
+      if (homeCornersL5 > 0 && !teamCornersMapLast5.has(homeTeamId)) {
+        teamCornersMapLast5.set(homeTeamId, { teamName: homeTeamName, cornersPer90: homeCornersL5, href });
+      }
+      if (awayCornersL5 > 0 && !teamCornersMapLast5.has(awayTeamId)) {
+        teamCornersMapLast5.set(awayTeamId, { teamName: awayTeamName, cornersPer90: awayCornersL5, href });
       }
     }
 
@@ -257,6 +301,28 @@ export async function getMatchdayInsightsData(
       cornersPer90: Math.round(v.cornersPer90 * 10) / 10,
       href: v.href,
     })),
+    last5: {
+      top5FixturesCombinedXg: take5(fixtureEntriesLast5, (e) => e.combinedXg).map((e) => ({
+        ...e,
+        combinedXg: Math.round(e.combinedXg * 100) / 100,
+      })),
+      top5TeamsXgPer90: take5(
+        Array.from(teamXgMapLast5.entries()),
+        ([_, v]) => v.xgPer90,
+      ).map(([, v]) => ({
+        teamName: v.teamName,
+        xgPer90: Math.round(v.xgPer90 * 100) / 100,
+        href: v.href,
+      })),
+      top5TeamsCornersPer90: take5(
+        Array.from(teamCornersMapLast5.entries()),
+        ([_, v]) => v.cornersPer90,
+      ).map(([, v]) => ({
+        teamName: v.teamName,
+        cornersPer90: Math.round(v.cornersPer90 * 10) / 10,
+        href: v.href,
+      })),
+    },
     top5CardsPer90: take5(playerEntries, (e) => e.cardsPer90).map((e) => ({
       name: e.name,
       teamName: e.teamName,

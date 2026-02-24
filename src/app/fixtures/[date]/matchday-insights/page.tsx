@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
-import {
-  getMatchdayInsightsData,
-  type MatchdayInsightsData,
-} from "@/lib/matchdayInsightsService";
+import { getMatchdayInsightsData } from "@/lib/matchdayInsightsService";
+import { MatchdayInsightsClient } from "./matchday-insights-client";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
@@ -79,31 +77,7 @@ export default async function MatchdayInsightsPage({
           </p>
         </div>
 
-        <div className="space-y-10">
-          <LeaderboardSection
-            title="Top 5 players – Shots on Target per 90"
-            entries={data.top5ShotsOnTargetPer90}
-            valueLabel="SoT/90"
-          />
-          <LeaderboardSection
-            title="Top 5 players – Shots per 90"
-            entries={data.top5ShotsPer90}
-            valueLabel="Shots/90"
-          />
-          <LeaderboardSection
-            title="Top 5 players – Fouls Committed per 90"
-            entries={data.top5FoulsPer90}
-            valueLabel="Fouls/90"
-          />
-          <FixtureXgSection entries={data.top5FixturesCombinedXg} />
-          <TeamXgSection entries={data.top5TeamsXgPer90} />
-          <TeamCornersSection entries={data.top5TeamsCornersPer90} />
-          <LeaderboardSection
-            title="Top 5 players – Yellow or Red Cards per 90"
-            entries={data.top5CardsPer90}
-            valueLabel="Cards/90"
-          />
-        </div>
+        <MatchdayInsightsClient data={data} />
 
         {(data.top5ShotsOnTargetPer90.length === 0 &&
           data.top5FixturesCombinedXg.length === 0) && (
@@ -121,160 +95,5 @@ export default async function MatchdayInsightsPage({
         )}
       </main>
     </div>
-  );
-}
-
-function LeaderboardSection({
-  title,
-  entries,
-  valueLabel,
-}: {
-  title: string;
-  entries: MatchdayInsightsData["top5ShotsOnTargetPer90"];
-  valueLabel: string;
-}) {
-  if (entries.length === 0) return null;
-  return (
-    <section className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-      <h2 className="border-b border-neutral-200 px-4 py-3 text-base font-semibold text-neutral-900 dark:border-neutral-800 dark:text-neutral-50 sm:px-5">
-        {title}
-      </h2>
-      <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
-        {entries.map((entry, i) => (
-          <li key={`${entry.name}-${entry.teamName}-${i}`}>
-            <NavLinkWithOverlay
-              href={entry.href}
-              className="flex items-center justify-between px-4 py-3 transition hover:bg-neutral-50 dark:hover:bg-neutral-800/50 sm:px-5"
-            >
-              <span className="flex items-center gap-2">
-                <span className="w-6 shrink-0 text-sm font-medium tabular-nums text-neutral-400 dark:text-neutral-500">
-                  {i + 1}
-                </span>
-                <span className="font-medium text-neutral-900 dark:text-neutral-100">
-                  {entry.name}
-                </span>
-                <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {entry.teamName}
-                </span>
-              </span>
-              <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
-                {entry.value} <span className="text-xs font-normal text-neutral-400">{valueLabel}</span>
-              </span>
-            </NavLinkWithOverlay>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function FixtureXgSection({
-  entries,
-}: {
-  entries: MatchdayInsightsData["top5FixturesCombinedXg"];
-}) {
-  if (entries.length === 0) return null;
-  return (
-    <section className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-      <h2 className="border-b border-neutral-200 px-4 py-3 text-base font-semibold text-neutral-900 dark:border-neutral-800 dark:text-neutral-50 sm:px-5">
-        Top 5 fixtures – Combined xG
-      </h2>
-      <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
-        {entries.map((entry, i) => (
-          <li key={`${entry.homeName}-${entry.awayName}-${i}`}>
-            <NavLinkWithOverlay
-              href={entry.href}
-              className="flex items-center justify-between px-4 py-3 transition hover:bg-neutral-50 dark:hover:bg-neutral-800/50 sm:px-5"
-            >
-              <span className="flex items-center gap-2">
-                <span className="w-6 shrink-0 text-sm font-medium tabular-nums text-neutral-400 dark:text-neutral-500">
-                  {i + 1}
-                </span>
-                <span className="text-neutral-900 dark:text-neutral-100">
-                  {entry.homeName} vs {entry.awayName}
-                </span>
-              </span>
-              <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
-                {entry.combinedXg} <span className="text-xs font-normal text-neutral-400">xG</span>
-              </span>
-            </NavLinkWithOverlay>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function TeamXgSection({
-  entries,
-}: {
-  entries: MatchdayInsightsData["top5TeamsXgPer90"];
-}) {
-  if (entries.length === 0) return null;
-  return (
-    <section className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-      <h2 className="border-b border-neutral-200 px-4 py-3 text-base font-semibold text-neutral-900 dark:border-neutral-800 dark:text-neutral-50 sm:px-5">
-        Top 5 teams – xG per 90
-      </h2>
-      <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
-        {entries.map((entry, i) => (
-          <li key={`${entry.teamName}-${i}`}>
-            <NavLinkWithOverlay
-              href={entry.href}
-              className="flex items-center justify-between px-4 py-3 transition hover:bg-neutral-50 dark:hover:bg-neutral-800/50 sm:px-5"
-            >
-              <span className="flex items-center gap-2">
-                <span className="w-6 shrink-0 text-sm font-medium tabular-nums text-neutral-400 dark:text-neutral-500">
-                  {i + 1}
-                </span>
-                <span className="font-medium text-neutral-900 dark:text-neutral-100">
-                  {entry.teamName}
-                </span>
-              </span>
-              <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
-                {entry.xgPer90} <span className="text-xs font-normal text-neutral-400">xG/90</span>
-              </span>
-            </NavLinkWithOverlay>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function TeamCornersSection({
-  entries,
-}: {
-  entries: MatchdayInsightsData["top5TeamsCornersPer90"];
-}) {
-  if (entries.length === 0) return null;
-  return (
-    <section className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-      <h2 className="border-b border-neutral-200 px-4 py-3 text-base font-semibold text-neutral-900 dark:border-neutral-800 dark:text-neutral-50 sm:px-5">
-        Top 5 teams – Corners per 90
-      </h2>
-      <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
-        {entries.map((entry, i) => (
-          <li key={`${entry.teamName}-${i}`}>
-            <NavLinkWithOverlay
-              href={entry.href}
-              className="flex items-center justify-between px-4 py-3 transition hover:bg-neutral-50 dark:hover:bg-neutral-800/50 sm:px-5"
-            >
-              <span className="flex items-center gap-2">
-                <span className="w-6 shrink-0 text-sm font-medium tabular-nums text-neutral-400 dark:text-neutral-500">
-                  {i + 1}
-                </span>
-                <span className="font-medium text-neutral-900 dark:text-neutral-100">
-                  {entry.teamName}
-                </span>
-              </span>
-              <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
-                {entry.cornersPer90} <span className="text-xs font-normal text-neutral-400">Corners/90</span>
-              </span>
-            </NavLinkWithOverlay>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { copyToClipboard } from "@/app/_components/share-url-button";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import type { FixtureSummary, FixtureStatsResponse } from "@/lib/statsService";
@@ -144,6 +145,10 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
       const match = matchSlug(homeName, awayName);
       url = `${window.location.origin}/fixtures/${dateKey}/${leagueSlug}/${match}`;
     }
+    if (!url) {
+      setShareLabel("Share");
+      return;
+    }
     const title = "Football stats | statsBuildr";
     const text = "Check today's fixtures and player stats before you build your bet.";
     try {
@@ -151,16 +156,12 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
         await navigator.share({ title, url, text });
         setShareLabel("Shared!");
       } else {
-        await navigator.clipboard?.writeText(url);
-        setShareLabel("Copied!");
+        const copied = copyToClipboard(url);
+        setShareLabel(copied ? "Copied!" : "Share");
       }
     } catch {
-      try {
-        await navigator.clipboard?.writeText(url);
-        setShareLabel("Copied!");
-      } catch {
-        setShareLabel("Share");
-      }
+      const copied = copyToClipboard(url);
+      setShareLabel(copied ? "Copied!" : "Share");
     }
     setTimeout(() => setShareLabel("Share"), 2000);
   };
