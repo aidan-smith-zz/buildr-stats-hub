@@ -84,6 +84,11 @@ export async function getMatchdayInsightsData(
     return cached.payload as MatchdayInsightsData;
   }
 
+  // Clear cache entries older than today (keep only current day).
+  await prisma.matchdayInsightsCache.deleteMany({
+    where: { dateKey: { lt: todayDateKey() } },
+  });
+
   const displayDate = new Date(dateKey + "T12:00:00.000Z").toLocaleDateString("en-GB", {
     timeZone: FIXTURES_TZ,
     weekday: "long",
