@@ -97,6 +97,7 @@ export default async function MatchdayInsightsPage({
           />
           <FixtureXgSection entries={data.top5FixturesCombinedXg} />
           <TeamXgSection entries={data.top5TeamsXgPer90} />
+          <TeamCornersSection entries={data.top5TeamsCornersPer90} />
           <LeaderboardSection
             title="Top 5 players – Yellow or Red Cards per 90"
             entries={data.top5CardsPer90}
@@ -232,6 +233,43 @@ function TeamXgSection({
               </span>
               <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
                 {entry.xgPer90} <span className="text-xs font-normal text-neutral-400">xG/90</span>
+              </span>
+            </NavLinkWithOverlay>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function TeamCornersSection({
+  entries,
+}: {
+  entries: MatchdayInsightsData["top5TeamsCornersPer90"];
+}) {
+  if (entries.length === 0) return null;
+  return (
+    <section className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <h2 className="border-b border-neutral-200 px-4 py-3 text-base font-semibold text-neutral-900 dark:border-neutral-800 dark:text-neutral-50 sm:px-5">
+        Top 5 teams – Corners per 90
+      </h2>
+      <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
+        {entries.map((entry, i) => (
+          <li key={`${entry.teamName}-${i}`}>
+            <NavLinkWithOverlay
+              href={entry.href}
+              className="flex items-center justify-between px-4 py-3 transition hover:bg-neutral-50 dark:hover:bg-neutral-800/50 sm:px-5"
+            >
+              <span className="flex items-center gap-2">
+                <span className="w-6 shrink-0 text-sm font-medium tabular-nums text-neutral-400 dark:text-neutral-500">
+                  {i + 1}
+                </span>
+                <span className="font-medium text-neutral-900 dark:text-neutral-100">
+                  {entry.teamName}
+                </span>
+              </span>
+              <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
+                {entry.cornersPer90} <span className="text-xs font-normal text-neutral-400">Corners/90</span>
               </span>
             </NavLinkWithOverlay>
           </li>

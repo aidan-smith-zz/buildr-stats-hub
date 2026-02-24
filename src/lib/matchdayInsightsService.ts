@@ -34,6 +34,12 @@ export type MatchdayTeamLeaderEntry = {
   href: string;
 };
 
+export type MatchdayTeamCornersEntry = {
+  teamName: string;
+  cornersPer90: number;
+  href: string;
+};
+
 export type MatchdayInsightsData = {
   dateKey: string;
   displayDate: string;
@@ -42,6 +48,7 @@ export type MatchdayInsightsData = {
   top5FoulsPer90: MatchdayPlayerLeaderEntry[];
   top5FixturesCombinedXg: MatchdayFixtureLeaderEntry[];
   top5TeamsXgPer90: MatchdayTeamLeaderEntry[];
+  top5TeamsCornersPer90: MatchdayTeamCornersEntry[];
   top5CardsPer90: MatchdayPlayerLeaderEntry[];
 };
 
@@ -80,6 +87,7 @@ export async function getMatchdayInsightsData(
     top5FoulsPer90: [],
     top5FixturesCombinedXg: [],
     top5TeamsXgPer90: [],
+    top5TeamsCornersPer90: [],
     top5CardsPer90: [],
   };
 
@@ -133,6 +141,7 @@ export async function getMatchdayInsightsData(
 
   const fixtureEntries: MatchdayFixtureLeaderEntry[] = [];
   const teamXgMap = new Map<number, { teamName: string; xgPer90: number; href: string }>();
+  const teamCornersMap = new Map<number, { teamName: string; cornersPer90: number; href: string }>();
 
   for (const s of allStats) {
     const homeName = s.fixture.homeTeam.shortName ?? s.fixture.homeTeam.name;
@@ -163,6 +172,15 @@ export async function getMatchdayInsightsData(
       }
       if (awayXg > 0 && !teamXgMap.has(awayTeamId)) {
         teamXgMap.set(awayTeamId, { teamName: awayTeamName, xgPer90: awayXg, href });
+      }
+
+      const homeCorners = s.teamStats.home.cornersPer90;
+      const awayCorners = s.teamStats.away.cornersPer90;
+      if (homeCorners > 0 && !teamCornersMap.has(homeTeamId)) {
+        teamCornersMap.set(homeTeamId, { teamName: homeTeamName, cornersPer90: homeCorners, href });
+      }
+      if (awayCorners > 0 && !teamCornersMap.has(awayTeamId)) {
+        teamCornersMap.set(awayTeamId, { teamName: awayTeamName, cornersPer90: awayCorners, href });
       }
     }
 
@@ -229,6 +247,14 @@ export async function getMatchdayInsightsData(
     ).map(([, v]) => ({
       teamName: v.teamName,
       xgPer90: Math.round(v.xgPer90 * 100) / 100,
+      href: v.href,
+    })),
+    top5TeamsCornersPer90: take5(
+      Array.from(teamCornersMap.entries()),
+      ([_, v]) => v.cornersPer90,
+    ).map(([, v]) => ({
+      teamName: v.teamName,
+      cornersPer90: Math.round(v.cornersPer90 * 10) / 10,
       href: v.href,
     })),
     top5CardsPer90: take5(playerEntries, (e) => e.cardsPer90).map((e) => ({
