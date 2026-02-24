@@ -66,8 +66,8 @@ function fixturesOnDateInRequiredLeagues(dayStart: Date, spilloverEnd: Date) {
     OR: [
       { leagueId: { in: [...REQUIRED_LEAGUE_IDS] } },
       { leagueId: null, league: { in: LEAGUE_ONE_TWO_NAMES } },
-      { leagueId: null, league: { contains: "League One", mode: "insensitive" } },
-      { leagueId: null, league: { contains: "League Two", mode: "insensitive" } },
+      { leagueId: null, league: { contains: "League One", mode: "insensitive" as const } },
+      { leagueId: null, league: { contains: "League Two", mode: "insensitive" as const } },
     ],
   };
 }
