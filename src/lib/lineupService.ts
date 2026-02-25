@@ -62,38 +62,54 @@ export async function ensureLineupIfWithinWindow(
       const startXI = teamLineup.startXI ?? [];
       const substitutes = teamLineup.substitutes ?? [];
 
-      for (const item of startXI) {
-        const playerApiId = String(item.player?.id ?? 0);
-        if (!playerApiId || playerApiId === "0") continue;
-        const player = await prisma.player.findFirst({
+      const getOrCreatePlayer = async (playerApiId: string, playerName: string) => {
+        let player = await prisma.player.findFirst({
           where: { teamId, apiId: playerApiId },
           select: { id: true },
         });
-        if (player) {
-          toCreate.push({
-            fixtureId,
+        if (player) return player.id;
+        player = await prisma.player.findFirst({
+          where: { apiId: playerApiId },
+          select: { id: true },
+        });
+        if (player) return player.id;
+        const created = await prisma.player.create({
+          data: {
+            apiId: playerApiId,
+            name: playerName,
             teamId,
-            playerId: player.id,
-            lineupStatus: "starting",
-          });
-        }
+            position: null,
+            shirtNumber: null,
+          },
+          select: { id: true },
+        });
+        return created.id;
+      };
+
+      for (const item of startXI) {
+        const playerApiId = String(item.player?.id ?? 0);
+        const playerName = item.player?.name ?? "Unknown";
+        if (!playerApiId || playerApiId === "0") continue;
+        const playerId = await getOrCreatePlayer(playerApiId, playerName);
+        toCreate.push({
+          fixtureId,
+          teamId,
+          playerId,
+          lineupStatus: "starting",
+        });
       }
 
       for (const item of substitutes) {
         const playerApiId = String(item.player?.id ?? 0);
+        const playerName = item.player?.name ?? "Unknown";
         if (!playerApiId || playerApiId === "0") continue;
-        const player = await prisma.player.findFirst({
-          where: { teamId, apiId: playerApiId },
-          select: { id: true },
+        const playerId = await getOrCreatePlayer(playerApiId, playerName);
+        toCreate.push({
+          fixtureId,
+          teamId,
+          playerId,
+          lineupStatus: "substitute",
         });
-        if (player) {
-          toCreate.push({
-            fixtureId,
-            teamId,
-            playerId: player.id,
-            lineupStatus: "substitute",
-          });
-        }
       }
     }
 

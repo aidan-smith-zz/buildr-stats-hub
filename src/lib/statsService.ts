@@ -936,6 +936,52 @@ export async function getFixtureStats(
     });
   }
 
+  // Include players who are in the lineup but have no season stats (so Starting XI can show 11).
+  const lineupOnlyPlayerIds: number[] = [];
+  for (const [_teamId, group] of byTeam) {
+    const existingIds = new Set(group.players.map((p) => p.playerId));
+    const teamLineup = lineupByTeam.get(_teamId);
+    if (!teamLineup) continue;
+    for (const playerId of teamLineup.keys()) {
+      if (!existingIds.has(playerId)) lineupOnlyPlayerIds.push(playerId);
+    }
+  }
+  if (lineupOnlyPlayerIds.length > 0) {
+    const lineupOnlyPlayers = await prisma.player.findMany({
+      where: { id: { in: lineupOnlyPlayerIds } },
+      select: { id: true, name: true, position: true, shirtNumber: true },
+    });
+    const playerById = new Map(lineupOnlyPlayers.map((p) => [p.id, p]));
+    for (const [teamId, group] of byTeam) {
+      const teamLineup = lineupByTeam.get(teamId);
+      if (!teamLineup) continue;
+      const existingIds = new Set(group.players.map((p) => p.playerId));
+      for (const [playerId, status] of teamLineup) {
+        if (existingIds.has(playerId)) continue;
+        const p = playerById.get(playerId);
+        if (!p) continue;
+        group.players.push({
+          playerId: p.id,
+          name: p.name,
+          position: p.position ?? null,
+          shirtNumber: p.shirtNumber ?? null,
+          appearances: 0,
+          minutes: 0,
+          goals: 0,
+          assists: 0,
+          fouls: 0,
+          shots: 0,
+          shotsOnTarget: 0,
+          tackles: 0,
+          yellowCards: 0,
+          redCards: 0,
+          lineupStatus: status,
+        });
+        existingIds.add(playerId);
+      }
+    }
+  }
+
   const fixtureSummary: FixtureSummary = {
     id: fixture.id,
     date: fixture.date,
