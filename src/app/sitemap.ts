@@ -60,10 +60,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] Failed to fetch today fixtures:", err);
   }
 
-  // Next 14 days: preview fixture URLs from DB (populated by warm-today)
+  // Next 14 days: fixture URLs from UpcomingFixture table (populated when warm-today runs without --resume).
   try {
     const upcomingByDate = await getUpcomingFixturesFromDb();
     for (const { dateKey: dayKey, fixtures: dayFixtures } of upcomingByDate) {
+      entries.push({
+        url: `${baseUrl}/fixtures/${dayKey}`,
+        lastModified: now,
+        changeFrequency: "daily",
+        priority: 0.9,
+      });
       entries.push(
         { url: `${baseUrl}/fixtures/${dayKey}/ai-insights`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
         { url: `${baseUrl}/fixtures/${dayKey}/form`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
