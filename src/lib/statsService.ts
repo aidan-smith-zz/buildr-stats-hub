@@ -107,9 +107,11 @@ async function ensureTeamSeasonStatsCornersAndCards(
   season: string,
   leagueKey: string,
   leagueId: number,
-  options?: { maxApiCallsPerInvocation?: number },
+  options?: { maxApiCallsPerInvocation?: number; cacheLeagueKey?: string },
 ): Promise<EnsureTeamSeasonStatsResult> {
   const maxCalls = options?.maxApiCallsPerInvocation;
+  /** Use canonical key (leagueId as string) for TeamFixtureCache so last-5 matches across "Championship" vs "EFL Championship" etc. */
+  const cacheKey = options?.cacheLeagueKey ?? leagueKey;
 
   const resource = `teamSeasonCorners:${teamId}:${season}:${leagueKey}`;
 
@@ -141,7 +143,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
     where: {
       teamId,
       season,
-      league: leagueKey,
+      league: cacheKey,
       apiFixtureId: { in: fixtureIdsToProcess.map((id) => String(id)) },
     },
     select: {
@@ -212,7 +214,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
       where: {
         teamId,
         season,
-        league: leagueKey,
+        league: cacheKey,
         apiFixtureId: { in: apiFixtureIds },
       },
       select: { corners: true, yellowCards: true, redCards: true, xg: true },
@@ -237,7 +239,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
         where: {
           teamId,
           season,
-          league: leagueKey,
+          league: cacheKey,
           apiFixtureId: { in: apiFixtureIds },
         },
         select: { corners: true, yellowCards: true, redCards: true, xg: true },
@@ -285,33 +287,39 @@ async function ensureTeamSeasonStatsCornersAndCards(
       const hasGoals = goalsFor > 0 || goalsAgainst > 0;
       if (!hasGoals && !attemptedScoreFallback) continue;
 
-      if (!cached) {
+      // Fetch fixture statistics when we have no cache, or when cached row is all zeros (so we can fill corners/cards).
+      const shouldFetchStat = !cached || needsGoalsFallback;
+      if (shouldFetchStat) {
         if (apiCallsThisInvocation > 0) await sleep(FIXTURE_STATS_DELAY_MS);
         apiCallsThisInvocation++;
       }
-      const stat = cached ? null : await fetchFixtureStatistics(fixtureIds[i], teamApiId);
+      const stat = shouldFetchStat ? await fetchFixtureStatistics(fixtureIds[i], teamApiId) : null;
       const corners = stat?.corners ?? cached?.corners ?? 0;
       const yellowCards = stat?.yellowCards ?? cached?.yellowCards ?? 0;
       const redCards = stat?.redCards ?? cached?.redCards ?? 0;
       const xg = stat?.xg ?? cached?.xg ?? null;
+      // Statistics API returns this team's goals only; use when list/score fallback gave 0,0 (e.g. Championship).
+      const finalGoalsFor =
+        goalsFor > 0 || goalsAgainst > 0 ? goalsFor : (stat?.goals != null ? stat.goals : 0);
+      const finalGoalsAgainst = goalsFor > 0 || goalsAgainst > 0 ? goalsAgainst : 0;
 
       await db.teamFixtureCache.upsert({
         where: {
           teamId_season_league_apiFixtureId: {
             teamId,
             season,
-            league: leagueKey,
+            league: cacheKey,
             apiFixtureId,
           },
         },
         create: {
           teamId,
           season,
-          league: leagueKey,
+          league: cacheKey,
           apiFixtureId,
           fixtureDate: meta.date,
-          goalsFor,
-          goalsAgainst,
+          goalsFor: finalGoalsFor,
+          goalsAgainst: finalGoalsAgainst,
           xg,
           corners,
           yellowCards,
@@ -319,8 +327,8 @@ async function ensureTeamSeasonStatsCornersAndCards(
         },
         update: {
           fixtureDate: meta.date,
-          goalsFor,
-          goalsAgainst,
+          goalsFor: finalGoalsFor,
+          goalsAgainst: finalGoalsAgainst,
           xg,
           corners,
           yellowCards,
@@ -335,7 +343,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
     where: {
       teamId,
       season,
-      league: leagueKey,
+      league: cacheKey,
       apiFixtureId: { in: fixtureIdsToProcess.map((id) => String(id)) },
     },
     select: { corners: true, yellowCards: true, redCards: true, xg: true },
@@ -580,7 +588,7 @@ export async function warmFixturePart(
         API_SEASON,
         leagueKey,
         leagueId,
-        { maxApiCallsPerInvocation: TEAM_STATS_BOTH_CHUNK_PER_TEAM },
+        { maxApiCallsPerInvocation: TEAM_STATS_BOTH_CHUNK_PER_TEAM, cacheLeagueKey: String(leagueId) },
       );
       homeDone = r.done;
     }
@@ -591,7 +599,7 @@ export async function warmFixturePart(
         API_SEASON,
         leagueKey,
         leagueId,
-        { maxApiCallsPerInvocation: TEAM_STATS_BOTH_CHUNK_PER_TEAM },
+        { maxApiCallsPerInvocation: TEAM_STATS_BOTH_CHUNK_PER_TEAM, cacheLeagueKey: String(leagueId) },
       );
       awayDone = r.done;
     }
@@ -617,7 +625,7 @@ export async function warmFixturePart(
       API_SEASON,
       leagueKey,
       leagueId,
-      { maxApiCallsPerInvocation: TEAM_STATS_CHUNK_SIZE },
+      { maxApiCallsPerInvocation: TEAM_STATS_CHUNK_SIZE, cacheLeagueKey: String(leagueId) },
     );
     return { ok: true, done: result.done };
   }
@@ -669,6 +677,9 @@ export async function getFixtureStats(
     return null;
   }
 
+  /** Only include played fixtures in last-5 (exclude upcoming/future). */
+  const now = new Date();
+
   const fixtureWithLeagueId = fixture as FixtureWithLeagueId;
   const teamIds = [fixture.homeTeamId, fixture.awayTeamId];
   const leagueFilter = fixture.league ? { league: fixture.league } : {};
@@ -676,6 +687,9 @@ export async function getFixtureStats(
   const leagueIdForTeamStats =
     fixtureWithLeagueId.leagueId ??
     (fixture.league ? LEAGUE_ID_MAP[fixture.league] : undefined);
+  /** Canonical key for TeamFixtureCache (leagueId as string) so last-5 matches across API name variants. */
+  const canonicalLeagueKey =
+    leagueIdForTeamStats != null ? String(leagueIdForTeamStats) : (fixture.league ?? "Unknown");
 
   const teamStatsWhere = (teamId: number) => ({
     teamId,
@@ -684,8 +698,6 @@ export async function getFixtureStats(
       ? { OR: [{ league: leagueKeyForTeamStats }, { leagueId: leagueIdForTeamStats }] }
       : { league: leagueKeyForTeamStats }),
   });
-
-  const leagueKeyForCache = fixture.league ?? "Unknown";
 
   // Run all independent DB checks in parallel to cut round-trips (warm path is much faster).
   const [counts, homeTeamStatsExisting, awayTeamStatsExisting, lineupCount, lineupByTeamInitial] =
@@ -747,6 +759,7 @@ export async function getFixtureStats(
         API_SEASON,
         leagueKeyForTeamStats,
         leagueIdForTeamStats,
+        { cacheLeagueKey: canonicalLeagueKey },
       );
       await sleep(FIXTURE_STATS_DELAY_MS);
     }
@@ -757,6 +770,7 @@ export async function getFixtureStats(
         API_SEASON,
         leagueKeyForTeamStats,
         leagueIdForTeamStats,
+        { cacheLeagueKey: canonicalLeagueKey },
       );
     }
   }
@@ -795,12 +809,22 @@ export async function getFixtureStats(
     },
   });
   const last5HomeQuery = db.teamFixtureCache.findMany({
-    where: { teamId: fixture.homeTeamId, season: API_SEASON, league: leagueKeyForCache },
+    where: {
+      teamId: fixture.homeTeamId,
+      season: API_SEASON,
+      league: canonicalLeagueKey,
+      fixtureDate: { lte: now },
+    },
     orderBy: { fixtureDate: "desc" },
     take: 5,
   });
   const last5AwayQuery = db.teamFixtureCache.findMany({
-    where: { teamId: fixture.awayTeamId, season: API_SEASON, league: leagueKeyForCache },
+    where: {
+      teamId: fixture.awayTeamId,
+      season: API_SEASON,
+      league: canonicalLeagueKey,
+      fixtureDate: { lte: now },
+    },
     orderBy: { fixtureDate: "desc" },
     take: 5,
   });
@@ -813,6 +837,42 @@ export async function getFixtureStats(
     last5AwayQuery,
     lineupQuery,
   ]);
+
+  // Backfill TeamFixtureCache when we have leagueId but last-5 is empty (e.g. first time or cache was never filled).
+  if (!dbOnly && leagueIdForTeamStats != null && (last5Home.length === 0 || last5Away.length === 0)) {
+    if (last5Home.length === 0 && fixture.homeTeam.apiId) {
+      await ensureTeamSeasonStatsCornersAndCards(
+        fixture.homeTeamId,
+        fixture.homeTeam.apiId,
+        API_SEASON,
+        leagueKeyForTeamStats,
+        leagueIdForTeamStats,
+        { cacheLeagueKey: canonicalLeagueKey },
+      );
+      last5Home = await db.teamFixtureCache.findMany({
+        where: { teamId: fixture.homeTeamId, season: API_SEASON, league: canonicalLeagueKey, fixtureDate: { lte: now } },
+        orderBy: { fixtureDate: "desc" },
+        take: 5,
+      });
+      if (last5Away.length === 0 && fixture.awayTeam.apiId) await sleep(FIXTURE_STATS_DELAY_MS);
+    }
+    if (last5Away.length === 0 && fixture.awayTeam.apiId) {
+      await ensureTeamSeasonStatsCornersAndCards(
+        fixture.awayTeamId,
+        fixture.awayTeam.apiId,
+        API_SEASON,
+        leagueKeyForTeamStats,
+        leagueIdForTeamStats,
+        { cacheLeagueKey: canonicalLeagueKey },
+      );
+      last5Away = await db.teamFixtureCache.findMany({
+        where: { teamId: fixture.awayTeamId, season: API_SEASON, league: canonicalLeagueKey, fixtureDate: { lte: now } },
+        orderBy: { fixtureDate: "desc" },
+        take: 5,
+      });
+    }
+  }
+
   // One row per team: prefer the one that matches this fixture's league (same leagueId or league string).
   const fixtureLeagueId = fixtureWithLeagueId.leagueId ?? (fixture.league ? LEAGUE_ID_MAP[fixture.league] : null);
   const fixtureLeague = fixture.league ?? null;

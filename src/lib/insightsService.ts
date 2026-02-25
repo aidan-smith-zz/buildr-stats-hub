@@ -98,14 +98,15 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
   const teamIds = Array.from(
     new Set(fixtures.flatMap((f) => [f.homeTeamId, f.awayTeamId]))
   );
+  const teamIdToLeague = teamIdToLeagueFromFixtures(fixtures);
 
   const [teamSeasonRows, teamCacheByTeam, teamCacheLast10, playersWithStats] = await Promise.all([
     prisma.teamSeasonStats.findMany({
       where: { teamId: { in: teamIds }, season: API_SEASON },
       include: { team: true },
     }),
-    loadLast5ByTeam(teamIds),
-    loadLastNByTeam(teamIds, 10),
+    loadLast5ByTeam(teamIds, teamIdToLeague),
+    loadLastNByTeam(teamIds, 10, teamIdToLeague),
     loadPlayersWithSeasonStats(teamIds),
   ]);
 
@@ -341,15 +342,15 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
   return insights.slice(0, 8);
 }
 
-/** Build map of teamId -> league for teams playing today (one league per team; use first fixture's league). */
+/** Build map of teamId -> canonical league key for TeamFixtureCache (leagueId as string when present, else league name). */
 function teamIdToLeagueFromFixtures(
-  fixtures: { homeTeamId: number; awayTeamId: number; league: string | null }[]
+  fixtures: { homeTeamId: number; awayTeamId: number; league: string | null; leagueId?: number | null }[]
 ): Map<number, string> {
   const map = new Map<number, string>();
   for (const f of fixtures) {
-    const league = f.league ?? "Unknown";
-    if (!map.has(f.homeTeamId)) map.set(f.homeTeamId, league);
-    if (!map.has(f.awayTeamId)) map.set(f.awayTeamId, league);
+    const cacheKey = f.leagueId != null ? String(f.leagueId) : (f.league ?? "Unknown");
+    if (!map.has(f.homeTeamId)) map.set(f.homeTeamId, cacheKey);
+    if (!map.has(f.awayTeamId)) map.set(f.awayTeamId, cacheKey);
   }
   return map;
 }
@@ -489,7 +490,11 @@ export async function getSeasonStatsForDate(dateKey: string): Promise<Last5TeamS
   >();
   for (const row of teamSeasonRows) {
     const leagueForTeam = teamIdToLeague.get(row.teamId);
-    if (leagueForTeam != null && row.league !== leagueForTeam) continue;
+    const matchesLeague =
+      leagueForTeam == null ||
+      row.league === leagueForTeam ||
+      (row.leagueId != null && String(row.leagueId) === leagueForTeam);
+    if (!matchesLeague) continue;
     const matches = row.minutesPlayed / 90;
     if (matches < 1) continue;
     const existing = byTeam.get(row.teamId);
@@ -614,10 +619,12 @@ function loadLastNByTeam(
   teamIdToLeague?: Map<number, string>
 ): Promise<Map<number, CacheRow[]>> {
   if (teamIds.length === 0) return Promise.resolve(new Map());
-  const where: { teamId: { in: number[] }; season: string } | { OR: { teamId: number; league: string; season: string }[] } =
+  const now = new Date();
+  const baseWhere: { teamId: { in: number[] }; season: string } | { OR: { teamId: number; league: string; season: string }[] } =
     teamIdToLeague && teamIdToLeague.size > 0
       ? { OR: Array.from(teamIdToLeague.entries()).map(([teamId, league]) => ({ teamId, league, season: API_SEASON })) }
       : { teamId: { in: teamIds }, season: API_SEASON };
+  const where = { ...baseWhere, fixtureDate: { lte: now } };
 
   return db.teamFixtureCache
     .findMany({
