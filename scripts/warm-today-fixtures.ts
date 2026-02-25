@@ -9,7 +9,8 @@
  * Set CONCURRENCY=2 to warm 2 fixtures in parallel (faster, higher load).
  *
  * Usage: npm run warm-today              # Full run: refresh fixture list, then warm
- *        npm run warm-today -- --resume   # Resume: skip refresh, only warm what's left (faster)
+ *        npm run warm-today -- --resume  # Resume: skip refresh, only warm what's left (faster)
+ *        npm run warm-today -- --force   # Re-warm all of today's fixtures (ignore "already warmed")
  * Optional: BASE_URL=https://your-app.vercel.app npm run warm-today
  */
 
@@ -187,16 +188,27 @@ function hasResumeFlag(): boolean {
   return argv.includes("--resume");
 }
 
+function hasForceFlag(): boolean {
+  const argv = process.argv.slice(2);
+  return argv.includes("--force");
+}
+
 async function main() {
   const resume = hasResumeFlag();
+  const force = hasForceFlag();
   if (resume) {
     console.log("[warm-today] Resume mode: using DB only (skip refresh), warming from where you left off.\n");
+  } else if (force) {
+    console.log("[warm-today] Force mode: re-warming all of today's fixtures.\n");
   } else {
     console.log("[warm-today] Full run: refreshing fixture list, then warming.\n");
   }
   console.log("[warm-today] Fetching fixture list (only fixtures that need warming) ...\n");
 
-  const listUrl = resume ? `${BASE_URL}/api/warm-today?skipRefresh=1` : `${BASE_URL}/api/warm-today`;
+  const params = new URLSearchParams();
+  if (resume) params.set("skipRefresh", "1");
+  if (force) params.set("forceWarm", "1");
+  const listUrl = `${BASE_URL}/api/warm-today${params.toString() ? "?" + params.toString() : ""}`;
   const listRes = await fetch(listUrl, { cache: "no-store" });
   if (!listRes.ok) {
     console.error(`[warm-today] List failed ${listRes.status}:`, await listRes.text());
@@ -208,14 +220,23 @@ async function main() {
     message?: string;
     total?: number;
     totalToday?: number;
+    dateKey?: string;
+    hint?: string;
     fixtures?: { id: number; label: string; leagueId?: number }[];
   };
 
   const fixtures = listData.fixtures ?? [];
   const totalToday = listData.totalToday ?? fixtures.length;
+  const dateKey = listData.dateKey;
 
   if (fixtures.length === 0) {
     console.log("[warm-today]", listData.message ?? "No fixtures need warming. Done.");
+    if (dateKey) {
+      console.log("[warm-today] Date checked:", dateKey, "(Europe/London, YYYY-MM-DD)");
+    }
+    if (listData.hint) {
+      console.log("[warm-today]", listData.hint);
+    }
     if (resume && (listData.totalToday ?? 0) === 0) {
       console.log("[warm-today] Tip: run without --resume first to fetch today's fixtures, then use --resume to continue warming.");
     }

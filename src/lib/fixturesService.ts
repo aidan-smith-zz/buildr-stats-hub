@@ -410,11 +410,22 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
     let message: string | undefined;
 
     try {
-      const results = await Promise.all(
-        REQUIRED_LEAGUE_IDS.map((leagueId) =>
-          fetchTodayFixtures({ date: dateKey, leagueId, timezone: FIXTURES_TIMEZONE })
-        )
-      );
+      // Fetch leagues sequentially to avoid rate-limit burst (parallel requests can all fire after 1s wait and get 429/empty).
+      const results: RawFixture[][] = [];
+      const FIXTURE_FETCH_DELAY_MS = Number(process.env.FOOTBALL_API_MIN_INTERVAL_MS) || 1200;
+      for (let i = 0; i < REQUIRED_LEAGUE_IDS.length; i++) {
+        if (i > 0) await new Promise((r) => setTimeout(r, FIXTURE_FETCH_DELAY_MS));
+        const leagueId = REQUIRED_LEAGUE_IDS[i];
+        const list = await fetchTodayFixtures({ date: dateKey, leagueId, timezone: FIXTURES_TIMEZONE });
+        results.push(list);
+        if (list.length > 0) {
+          console.log("[fixturesService] date=" + dateKey + " league=" + leagueId + " -> " + list.length + " fixtures");
+        }
+      }
+      const countsPerLeague = results.map((r, i) => ({ leagueId: REQUIRED_LEAGUE_IDS[i], count: r.length }));
+      if (results.every((r) => r.length === 0)) {
+        console.warn("[fixturesService] API returned 0 fixtures for date", dateKey, "(Europe/London). Counts per league:", countsPerLeague.map((c) => `${c.leagueId}:${c.count}`).join(", "), "- check API plan/rate limit or server logs for [footballApi].");
+      }
       const seen = new Set<string>();
       rawFixtures = results.flat().filter((raw) => {
         const key = getFixtureExternalId(raw);

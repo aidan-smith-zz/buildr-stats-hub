@@ -7,6 +7,7 @@ import {
 } from "@/lib/fixturesService";
 import { isFixtureInRequiredLeagues } from "@/lib/leagues";
 import { prisma } from "@/lib/prisma";
+import { todayDateKey } from "@/lib/slugs";
 
 const MIN_PLAYERS_PER_TEAM = 11;
 
@@ -15,11 +16,13 @@ const MIN_PLAYERS_PER_TEAM = 11;
  * Returns today's fixture IDs that need warming: missing player stats OR missing team stats (e.g. after clearing team cache).
  * Use the script which calls GET /api/fixtures/[id]/stats per fixture to warm.
  * - skipRefresh=1: do not refresh upcoming table or fetch today from API; use DB only (resume mode, faster).
+ * - forceWarm=1: return all today's fixtures as needing warm (ignore existing stats; use to re-warm after API fixes).
  */
 export async function GET(request: Request) {
   const now = new Date();
-  const skipRefresh =
-    new URL(request.url).searchParams.get("skipRefresh") === "1";
+  const url = new URL(request.url);
+  const skipRefresh = url.searchParams.get("skipRefresh") === "1";
+  const forceWarm = url.searchParams.get("forceWarm") === "1";
   try {
     if (!skipRefresh) {
       await refreshUpcomingFixturesTable(now);
@@ -36,7 +39,10 @@ export async function GET(request: Request) {
         ok: true,
         message: "No fixtures for today in required leagues.",
         total: 0,
+        totalToday: 0,
+        dateKey: todayDateKey(),
         fixtures: [],
+        hint: "Date is YYYY-MM-DD (Europe/London). If you expected fixtures, check server logs for [footballApi] or [fixturesService] (e.g. plan limit or API errors).",
       });
     }
 
@@ -78,17 +84,19 @@ export async function GET(request: Request) {
       teamStatsExisting.map((r) => `${r.teamId}:${r.season}:${r.league}`)
     );
 
-    const needsWarm = filtered.filter((f) => {
-      const league = f.league ?? "Unknown";
-      const homePlayerCount = playerCountMap.get(`${f.homeTeam.id}:${API_SEASON}:${league}`) ?? 0;
-      const awayPlayerCount = playerCountMap.get(`${f.awayTeam.id}:${API_SEASON}:${league}`) ?? 0;
-      const needsPlayerStats =
-        homePlayerCount < MIN_PLAYERS_PER_TEAM || awayPlayerCount < MIN_PLAYERS_PER_TEAM;
-      const homeHasTeamStats = teamStatsKeys.has(`${f.homeTeam.id}:${API_SEASON}:${league}`);
-      const awayHasTeamStats = teamStatsKeys.has(`${f.awayTeam.id}:${API_SEASON}:${league}`);
-      const needsTeamStats = !homeHasTeamStats || !awayHasTeamStats;
-      return needsPlayerStats || needsTeamStats;
-    });
+    const needsWarm = forceWarm
+      ? filtered
+      : filtered.filter((f) => {
+          const league = f.league ?? "Unknown";
+          const homePlayerCount = playerCountMap.get(`${f.homeTeam.id}:${API_SEASON}:${league}`) ?? 0;
+          const awayPlayerCount = playerCountMap.get(`${f.awayTeam.id}:${API_SEASON}:${league}`) ?? 0;
+          const needsPlayerStats =
+            homePlayerCount < MIN_PLAYERS_PER_TEAM || awayPlayerCount < MIN_PLAYERS_PER_TEAM;
+          const homeHasTeamStats = teamStatsKeys.has(`${f.homeTeam.id}:${API_SEASON}:${league}`);
+          const awayHasTeamStats = teamStatsKeys.has(`${f.awayTeam.id}:${API_SEASON}:${league}`);
+          const needsTeamStats = !homeHasTeamStats || !awayHasTeamStats;
+          return needsPlayerStats || needsTeamStats;
+        });
 
     const list = needsWarm.map((f) => ({
       id: f.id,
@@ -103,9 +111,12 @@ export async function GET(request: Request) {
       message:
         list.length === 0
           ? "All fixtures already warmed."
-          : `${list.length} of ${filtered.length} fixtures need warming.`,
+          : forceWarm
+            ? `Re-warming all ${list.length} fixtures (forceWarm=1).`
+            : `${list.length} of ${filtered.length} fixtures need warming.`,
       total: list.length,
       totalToday: filtered.length,
+      dateKey: todayDateKey(),
       fixtures: list,
     });
   } catch (err) {

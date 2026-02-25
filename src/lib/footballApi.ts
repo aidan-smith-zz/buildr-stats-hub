@@ -197,15 +197,29 @@ async function requestPage<T>(
   for (const [key, value] of Object.entries(searchParams)) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
-  const res = await rateLimitedFetch(url.toString(), {
+  const urlString = url.toString();
+  if (path === "/fixtures") {
+    console.log("[footballApi] GET", urlString);
+  }
+  const res = await rateLimitedFetch(urlString, {
     headers: { "x-apisports-key": FOOTBALL_API_KEY },
     cache: "no-store",
   });
   if (!res.ok) {
     const text = await res.text();
+    console.error("[footballApi] non-OK response", res.status, text.slice(0, 300));
     throw new Error(`[footballApi] ${res.status} ${res.statusText}: ${text}`);
   }
   const json = (await res.json()) as ApiFootballResponse<T>;
+  const responseArr = json.response ?? [];
+  if (path === "/fixtures" && responseArr.length === 0) {
+    console.log("[footballApi] /fixtures empty response body:", {
+      results: json.results,
+      errors: json.errors,
+      get: (json as { get?: string }).get,
+      sample: JSON.stringify(json).slice(0, 400),
+    });
+  }
   const errorsArray = json.errors ? (Array.isArray(json.errors) ? json.errors : [json.errors]) : [];
   if (errorsArray.length > 0) {
     const errorMessages = errorsArray.map((e: unknown) => typeof e === "string" ? e : JSON.stringify(e)).join("; ");
@@ -221,7 +235,7 @@ async function requestPage<T>(
     throw new Error(`[footballApi] API errors: ${JSON.stringify(json.errors)}`);
   }
   return {
-    response: json.response ?? [],
+    response: responseArr,
     paging: json.paging ?? { current: 1, total: 0 },
     results: json.results ?? 0,
   };
@@ -279,18 +293,15 @@ export async function fetchTodayFixtures(
   if (params.leagueId !== undefined) baseParams.league = params.leagueId;
   if (params.timezone !== undefined) baseParams.timezone = params.timezone;
 
-  const allFixtures: ApiFootballFixture[] = [];
-  let page = 1;
-  let totalPages = 1;
-  do {
-    const { response, paging } = await requestPage<ApiFootballFixture>(path, { ...baseParams, page });
-    totalPages = paging.total || 1;
-    if (response?.length) allFixtures.push(...response);
-    page++;
-  } while (page <= totalPages);
+  // API-Football /fixtures does not accept a "page" parameter; sending it returns errors and empty response.
+  const { response } = await requestPage<ApiFootballFixture>(path, baseParams);
+  const allFixtures = response ?? [];
 
   const fixtures = allFixtures;
-  if (!fixtures.length) return [];
+  if (!fixtures.length) {
+    console.log("[footballApi] fetchTodayFixtures returned 0", { date: params.date, league: params.leagueId, timezone: params.timezone, season: API_SEASON });
+    return [];
+  }
 
   // Fallback: API-Football league name -> id for our filtered leagues (in case API omits league.id)
   const leagueNameToId: Record<string, number> = {
@@ -517,9 +528,8 @@ function parseFixtureGoals(
 }
 
 /**
- * Fetch ALL fixtures for a team in a league/season (this season only). Paginates so we get
- * every match, not just the first page. Returns fixture IDs and goals for/against.
- * GET /fixtures?team=&season=&league= (multiple pages if needed).
+ * Fetch fixtures for a team in a league/season (this season only). Returns fixture IDs and goals for/against.
+ * GET /fixtures?team=&season=&league= (API-Football does not support "page" for this endpoint).
  */
 export async function fetchTeamFixturesWithGoals(
   teamApiId: string | number,
@@ -539,14 +549,9 @@ export async function fetchTeamFixturesWithGoals(
     let totalGoalsAgainst = 0;
     const fixtureIds: number[] = [];
     const fixtures: { apiFixtureId: number; date: Date; goalsFor: number; goalsAgainst: number }[] = [];
-    let page = 1;
-    let totalPages = 1;
 
-    do {
-      const { response, paging } = await requestPage<ApiFixtureItem>(path, { ...baseParams, page });
-      totalPages = paging.total || 1;
-      if (!response?.length) break;
-
+    const { response } = await requestPage<ApiFixtureItem>(path, baseParams);
+    if (response?.length) {
       for (const f of response) {
         const id = f.fixture?.id;
         const { goalsFor: fGoalsFor, goalsAgainst: fGoalsAgainst } = parseFixtureGoals(f, teamIdNum);
@@ -558,8 +563,7 @@ export async function fetchTeamFixturesWithGoals(
           fixtures.push({ apiFixtureId: id, date, goalsFor: fGoalsFor, goalsAgainst: fGoalsAgainst });
         }
       }
-      page++;
-    } while (page <= totalPages);
+    }
 
     return {
       fixtureIds,
