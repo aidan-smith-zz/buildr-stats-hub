@@ -775,10 +775,10 @@ export async function getFixtureStats(
     }
   }
 
-  // Only ensure lineup when we don't have one (skip for team-stats-only leagues).
+  // When we don't have a lineup and we're within the fetch window, fetch and store in the background so this request returns fast; next load will have lineup from DB.
   const hadLineup = lineupCount > 0;
   if (!dbOnly && !hadLineup && !teamStatsOnly) {
-    await ensureLineupIfWithinWindow(
+    void ensureLineupIfWithinWindow(
       fixture.id,
       fixture.date,
       fixture.apiId,
