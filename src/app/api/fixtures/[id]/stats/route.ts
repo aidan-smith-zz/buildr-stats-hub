@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { getFixtureStats } from "@/lib/statsService";
 
@@ -18,7 +19,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Invalid fixture id" }, { status: 400 });
   }
 
-  const stats = await getFixtureStats(id);
+  const { response: stats, backgroundLineupPromise } = await getFixtureStats(id);
 
   if (!stats) {
     // Check if any fixtures exist to help debug
@@ -37,6 +38,11 @@ export async function GET(_request: Request, { params }: RouteParams) {
       totalFixtures: fixtureCount,
       sampleIds: existingIds.map(f => f.id),
     }, { status: 404 });
+  }
+
+  // Let lineup fetch complete after response is sent (required on Vercel; locally the process stays alive anyway).
+  if (backgroundLineupPromise) {
+    after(() => backgroundLineupPromise);
   }
 
   return NextResponse.json(stats, {

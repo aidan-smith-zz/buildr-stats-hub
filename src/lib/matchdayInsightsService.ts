@@ -148,9 +148,9 @@ export async function getMatchdayInsightsData(
     idsToLoad.map((id) => getFixtureStats(id, { dbOnly: true })),
   );
 
-  const allStats = statsResults.filter(
-    (s): s is NonNullable<typeof s> => s != null,
-  );
+  const allStats = statsResults
+    .map((r) => r.response)
+    .filter((s): s is NonNullable<typeof s> => s != null);
 
   const playerEntries: {
     name: string;

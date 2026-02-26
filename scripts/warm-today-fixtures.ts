@@ -247,6 +247,9 @@ async function main() {
     (f) => f.leagueId != null && LEAGUES_TEAM_STATS_ONLY.includes(f.leagueId)
   ).length;
   console.log("[warm-today]", listData.message ?? "");
+  if (listData.hint) {
+    console.log("[warm-today]", listData.hint);
+  }
   console.log(
     `[warm-today] Warming ${fixtures.length} fixture(s) (${teamStatsOnlyCount} League 1/2 short path, ${fixtures.length - teamStatsOnlyCount} full)${CONCURRENCY > 1 ? `, ${CONCURRENCY} in parallel` : ""}, ${REQUEST_TIMEOUT_MS / 1000}s timeout, up to ${MAX_RETRIES + 1} attempts.\n`
   );

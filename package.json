@@ -11,6 +11,7 @@
     "lint": "eslint",
     "clear-fixtures": "npx tsx scripts/clear-fixtures.ts",
     "warm-today": "npx tsx scripts/warm-today-fixtures.ts",
+    "warm-tomorrow": "npx tsx scripts/warm-tomorrow-fixtures.ts",
     "clear-player-stats": "npx tsx scripts/clear-player-stats.ts",
     "clear-team-stats": "npx tsx scripts/clear-team-stats-cache.ts",
     "clear-team-stats-data": "npx tsx scripts/clear-team-stats-data.ts",

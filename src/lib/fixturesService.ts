@@ -1,4 +1,4 @@
-import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { REQUIRED_LEAGUE_IDS, isFixtureInRequiredLeagues } from "@/lib/leagues";
 import { prisma } from "@/lib/prisma";
 import {
   API_SEASON,
@@ -365,6 +365,79 @@ export async function getTodayFixturesFromDbOnly(now: Date = new Date()): Promis
     include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
   });
   return rows.map(mapFixtureToSummary);
+}
+
+/**
+ * Materialize tomorrow's fixtures from UpcomingFixture into the Fixture table so they can be warmed (player/team stats).
+ * Returns fixture summaries for the given dateKey (e.g. tomorrow). Used by warm-tomorrow only; site continues to show only today.
+ */
+export async function getTomorrowFixturesForWarming(tomorrowDateKey: string): Promise<FixtureSummary[]> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tomorrowDateKey)) return [];
+  const rows = await prisma.upcomingFixture.findMany({
+    where: { dateKey: tomorrowDateKey },
+    orderBy: { kickoff: "asc" },
+  });
+  const filtered = rows.filter((r) =>
+    isFixtureInRequiredLeagues({ leagueId: r.leagueId, league: r.league })
+  );
+  if (filtered.length === 0) return [];
+
+  for (const row of filtered) {
+    const [homeTeam, awayTeam] = await Promise.all([
+      prisma.team.upsert({
+        where: { apiId: row.homeTeamApiId },
+        update: {
+          name: row.homeTeamName,
+          shortName: row.homeTeamShortName,
+        },
+        create: {
+          apiId: row.homeTeamApiId,
+          name: row.homeTeamName,
+          shortName: row.homeTeamShortName,
+        },
+      }),
+      prisma.team.upsert({
+        where: { apiId: row.awayTeamApiId },
+        update: {
+          name: row.awayTeamName,
+          shortName: row.awayTeamShortName,
+        },
+        create: {
+          apiId: row.awayTeamApiId,
+          name: row.awayTeamName,
+          shortName: row.awayTeamShortName,
+        },
+      }),
+    ]);
+    await prisma.fixture.upsert({
+      where: { apiId: row.apiFixtureId },
+      update: {
+        date: row.kickoff,
+        league: row.league,
+        leagueId: row.leagueId,
+        homeTeamId: homeTeam.id,
+        awayTeamId: awayTeam.id,
+      },
+      create: {
+        apiId: row.apiFixtureId,
+        date: row.kickoff,
+        season: API_SEASON,
+        league: row.league,
+        leagueId: row.leagueId,
+        status: "NS",
+        homeTeamId: homeTeam.id,
+        awayTeamId: awayTeam.id,
+      },
+    });
+  }
+
+  const { dayStart, spilloverEnd } = dayBoundsUtc(tomorrowDateKey);
+  const fixtures = await prisma.fixture.findMany({
+    where: { date: { gte: dayStart, lte: spilloverEnd } },
+    orderBy: { date: "asc" },
+    include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
+  });
+  return fixtures.map(mapFixtureToSummary);
 }
 
 /**

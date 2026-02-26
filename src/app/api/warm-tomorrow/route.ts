@@ -1,52 +1,39 @@
 import { API_SEASON } from "@/lib/footballApi";
 import { NextResponse } from "next/server";
-import {
-  getOrRefreshTodayFixtures,
-  getTodayFixturesFromDbOnly,
-  refreshUpcomingFixturesTable,
-} from "@/lib/fixturesService";
-import { isFixtureInRequiredLeagues } from "@/lib/leagues";
+import { getTomorrowFixturesForWarming } from "@/lib/fixturesService";
 import { prisma } from "@/lib/prisma";
-import { todayDateKey } from "@/lib/slugs";
+import { nextDateKeys } from "@/lib/slugs";
 
 const MIN_PLAYERS_PER_TEAM = 11;
 
 /**
- * GET /api/warm-today
- * Returns today's fixture IDs that need warming: missing player stats OR missing team stats (e.g. after clearing team cache).
- * Use the script which calls GET /api/fixtures/[id]/stats per fixture to warm.
- * - skipRefresh=1: do not refresh upcoming table or fetch today from API; use DB only (resume mode, faster).
- * - forceWarm=1: return all today's fixtures as needing warm (ignore existing stats; use to re-warm after API fixes).
+ * GET /api/warm-tomorrow
+ * Returns tomorrow's fixture IDs that need warming (player and team stats).
+ * Uses UpcomingFixture for tomorrow's date; materializes into Fixture table so existing warm endpoints work.
+ * Site behaviour is unchanged (only today's fixtures shown). Run the warm-tomorrow script to warm these.
+ * - forceWarm=1: return all tomorrow's fixtures as needing warm.
  */
 export async function GET(request: Request) {
-  const now = new Date();
   const url = new URL(request.url);
-  const skipRefresh = url.searchParams.get("skipRefresh") === "1";
   const forceWarm = url.searchParams.get("forceWarm") === "1";
-  try {
-    if (!skipRefresh) {
-      await refreshUpcomingFixturesTable(now);
-    }
-    const fixtures = skipRefresh
-      ? await getTodayFixturesFromDbOnly(now)
-      : await getOrRefreshTodayFixtures(now);
-    const filtered = fixtures.filter((f) =>
-      isFixtureInRequiredLeagues({ leagueId: f.leagueId, league: f.league })
-    );
+  const tomorrowDateKey = nextDateKeys(1)[0];
 
-    if (filtered.length === 0) {
+  try {
+    const fixtures = await getTomorrowFixturesForWarming(tomorrowDateKey);
+
+    if (fixtures.length === 0) {
       return NextResponse.json({
         ok: true,
-        message: "No fixtures for today in required leagues.",
+        message: "No fixtures for tomorrow in required leagues (or UpcomingFixture empty for that date).",
         total: 0,
-        totalToday: 0,
-        dateKey: todayDateKey(),
+        totalTomorrow: 0,
+        dateKey: tomorrowDateKey,
         fixtures: [],
-        hint: "Date is YYYY-MM-DD (Europe/London). If you expected fixtures, check server logs for [footballApi] or [fixturesService] (e.g. plan limit or API errors).",
+        hint: "Run warm-today (without --resume) to refresh UpcomingFixture, then run warm-tomorrow again.",
       });
     }
 
-    const keys = filtered.flatMap((f) => {
+    const keys = fixtures.flatMap((f) => {
       const league = f.league ?? "Unknown";
       return [
         { teamId: f.homeTeam.id, season: API_SEASON, league },
@@ -85,8 +72,8 @@ export async function GET(request: Request) {
     );
 
     const needsWarm = forceWarm
-      ? filtered
-      : filtered.filter((f) => {
+      ? fixtures
+      : fixtures.filter((f) => {
           const league = f.league ?? "Unknown";
           const homePlayerCount = playerCountMap.get(`${f.homeTeam.id}:${API_SEASON}:${league}`) ?? 0;
           const awayPlayerCount = playerCountMap.get(`${f.awayTeam.id}:${API_SEASON}:${league}`) ?? 0;
@@ -104,26 +91,25 @@ export async function GET(request: Request) {
       leagueId: f.leagueId ?? undefined,
     }));
 
-    // Return immediately so the warm script can start. Preview/sitemap warming is not done here
-    // (it was blocking the response for 4–5+ minutes due to 14 days of sequential page fetches).
     return NextResponse.json({
       ok: true,
       message:
         list.length === 0
-          ? "All fixtures already warmed."
+          ? "All tomorrow's fixtures already warmed."
           : forceWarm
             ? `Re-warming all ${list.length} fixtures (forceWarm=1).`
-            : `${list.length} of ${filtered.length} fixtures need warming.`,
+            : `${list.length} of ${fixtures.length} fixtures need warming.`,
       total: list.length,
-      totalToday: filtered.length,
-      dateKey: todayDateKey(),
+      totalTomorrow: fixtures.length,
+      dateKey: tomorrowDateKey,
       fixtures: list,
-      ...(skipRefresh && list.length > 0
-        ? { hint: "Using DB-only fixture list (--resume). Only listed fixtures need warming; no list refetch." }
-        : {}),
+      hint:
+        list.length > 0
+          ? "If you hit API limits, run warm-today --resume tomorrow to finish warming (uses DB list, no refetch)."
+          : undefined,
     });
   } catch (err) {
-    console.error("[warm-today] Fatal:", err);
+    console.error("[warm-tomorrow] Fatal:", err);
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },
       { status: 500 }
