@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { RefreshInsightsButton } from "@/app/_components/refresh-insights-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
@@ -5,6 +6,8 @@ import { generateInsights } from "@/lib/insightsService";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
 /** statusShort values that mean the match is finished (we only show these to avoid wrong "live" minutes). */
 const FINISHED_STATUS = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);
@@ -16,6 +19,32 @@ function normalizeDateKey(param: string | undefined): string {
     if (!Number.isNaN(d.getTime())) return param;
   }
   return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+}
+
+function formatDisplayDate(dateKey: string): string {
+  return new Date(dateKey + "T12:00:00.000Z").toLocaleDateString("en-GB", {
+    timeZone: "Europe/London",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ date: string }>;
+}): Promise<Metadata> {
+  const { date: dateParam } = await params;
+  const dateKey = normalizeDateKey(dateParam);
+  const displayDate = formatDisplayDate(dateKey);
+  return {
+    title: `AI match insights for ${displayDate} | Football stats`,
+    description: `AI-powered football insights for ${displayDate}: key stats, talking points and match previews. See the numbers before kick-off.`,
+    alternates: { canonical: `${BASE_URL}/fixtures/${dateKey}/ai-insights` },
+    robots: { index: true, follow: true },
+  };
 }
 
 export default async function AIInsightsPage({

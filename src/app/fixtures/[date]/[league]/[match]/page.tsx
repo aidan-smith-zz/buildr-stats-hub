@@ -96,6 +96,21 @@ export async function generateMetadata({
       description,
       alternates: { canonical },
       robots: { index: true, follow: true },
+      openGraph: {
+        title,
+        description,
+        url: canonical,
+        siteName: "statsBuildr",
+        type: "website",
+        images: [{ url: `${BASE_URL}/logo.png?v=2`, width: 512, height: 160, alt: `${home} vs ${away}` }],
+        locale: "en_GB",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [`${BASE_URL}/logo.png?v=2`],
+      },
     };
   }
 
@@ -120,6 +135,21 @@ export async function generateMetadata({
     description,
     alternates: { canonical },
     robots: { index: true, follow: true },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName: "statsBuildr",
+      type: "website",
+      images: [{ url: `${BASE_URL}/logo.png?v=2`, width: 512, height: 160, alt: `${home} vs ${away}` }],
+      locale: "en_GB",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [`${BASE_URL}/logo.png?v=2`],
+    },
   };
 }
 
@@ -138,8 +168,27 @@ export default async function FixtureMatchPage({
     if (!fixture) {
       redirect("/");
     }
+    const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
+    const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
+    const kickoff = typeof fixture.date === "string" ? fixture.date : fixture.date?.toISOString?.() ?? new Date(dateKey + "T12:00:00.000Z").toISOString();
+    const sportsEventJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "SportsEvent",
+      name: `${home} vs ${away}`,
+      startDate: kickoff,
+      competitor: [
+        { "@type": "SportsTeam", name: home },
+        { "@type": "SportsTeam", name: away },
+      ],
+      sport: "Football",
+    };
+
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(sportsEventJsonLd) }}
+        />
         <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <div>
             <div className="mb-6">
@@ -209,8 +258,27 @@ export default async function FixtureMatchPage({
     );
   }
 
+  const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
+  const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
+  const kickoffPreview = typeof fixture.date === "string" ? fixture.date : new Date(dateKey + "T12:00:00.000Z").toISOString();
+  const sportsEventJsonLdPreview = {
+    "@context": "https://schema.org",
+    "@type": "SportsEvent",
+    name: `${home} vs ${away}`,
+    startDate: kickoffPreview,
+    competitor: [
+      { "@type": "SportsTeam", name: home },
+      { "@type": "SportsTeam", name: away },
+    ],
+    sport: "Football",
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(sportsEventJsonLdPreview) }}
+      />
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <div>
           <FixturePreviewContent fixture={fixture} dateKey={dateKey} />

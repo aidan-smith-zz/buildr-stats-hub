@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
 import { getOrRefreshTodayFixtures } from "@/lib/fixturesService";
 import { todayDateKey } from "@/lib/slugs";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Today's Football Fixtures & Player Stats | Bet Builder Analytics",
+  description:
+    "Today's football fixtures with team and player statistics: goals, assists, xG, corners, cards per 90. Build your bet with data-driven match insights.",
+};
 
 /** Returns a user-safe message and whether to show the config/setup hints. Internal errors (e.g. EPERM, Prisma) are never exposed. */
 function getFixtureErrorDisplay(err: unknown): { message: string; showConfigHints: boolean } {

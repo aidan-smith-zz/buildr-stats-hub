@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   getLast5StatsForDate,
   getLast10StatsForDate,
@@ -11,12 +12,40 @@ import { FormTableClient } from "./form-table-client";
 
 export const dynamic = "force-dynamic";
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
+
 function normalizeDateKey(param: string | undefined): string {
   if (param && /^\d{4}-\d{2}-\d{2}$/.test(param)) {
     const d = new Date(param + "T12:00:00.000Z");
     if (!Number.isNaN(d.getTime())) return param;
   }
   return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+}
+
+function formatDisplayDate(dateKey: string): string {
+  return new Date(dateKey + "T12:00:00.000Z").toLocaleDateString("en-GB", {
+    timeZone: "Europe/London",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ date: string }>;
+}): Promise<Metadata> {
+  const { date: dateParam } = await params;
+  const dateKey = normalizeDateKey(dateParam);
+  const displayDate = formatDisplayDate(dateKey);
+  return {
+    title: `Form table for ${displayDate} | Last 5, last 10 & season | Football stats`,
+    description: `Team form for ${displayDate}: last 5, last 10 and season averages. Goals, corners, cards and xG per match. Sortable form table for teams in action.`,
+    alternates: { canonical: `${BASE_URL}/fixtures/${dateKey}/form` },
+    robots: { index: true, follow: true },
+  };
 }
 
 export default async function FormPage({
