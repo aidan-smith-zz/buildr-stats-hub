@@ -271,7 +271,7 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
                 Matchday insights
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-                Top players and teams across today&apos;s fixtures: shots on target, shots, fouls, xG and cards per 90.
+                Which players average the most yellow cards? Which teams have the highest xG or corners per match? Data leaders across today&apos;s fixtures.
               </p>
               <span className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200">
                 View matchday insights →

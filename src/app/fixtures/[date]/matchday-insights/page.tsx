@@ -31,7 +31,7 @@ export async function generateMetadata({
     year: "numeric",
   });
   const title = `Matchday insights for ${displayDate} | Football stats`;
-  const description = `Top players and teams across today's fixtures: shots on target, shots, fouls, xG and cards per 90. Data leaders for ${displayDate}.`;
+  const description = `Which players average the most yellow cards? Which teams have the highest xG or corners per match? Matchday insights and data leaders for ${displayDate} — shots, fouls, cards and more.`;
   const canonical = `${BASE_URL}/fixtures/${dateKey}/matchday-insights`;
   return {
     title,
@@ -73,7 +73,7 @@ export default async function MatchdayInsightsPage({
             {data.displayDate}
           </p>
           <p className="mt-1 text-neutral-500 dark:text-neutral-400">
-            The data leaders across today&apos;s fixtures
+            Which players average the most yellow cards? Which teams have the highest xG or corners per match? See the data leaders across today&apos;s fixtures.
           </p>
         </div>
 
