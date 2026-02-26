@@ -79,12 +79,6 @@ export type FixtureStatsResponse = {
   teamStatsUnavailableReason?: string;
 };
 
-/** Result of getFixtureStats. Use .response for the payload; pass .backgroundLineupPromise to after() so lineup fetch completes on serverless. */
-export type GetFixtureStatsResult = {
-  response: FixtureStatsResponse | null;
-  backgroundLineupPromise?: Promise<void>;
-};
-
 const MAX_FIXTURES_PER_SEASON = 38;
 
 /** Extra delay between fixture-statistics API calls (optional). The main throttle is FOOTBALL_API_MIN_INTERVAL_MS in footballApi. Set FOOTBALL_API_DELAY_MS to 500+ if you still hit limits. */
@@ -668,9 +662,8 @@ export type GetFixtureStatsOptions = { dbOnly?: boolean };
 export async function getFixtureStats(
   fixtureId: number,
   options?: GetFixtureStatsOptions,
-): Promise<GetFixtureStatsResult> {
+): Promise<FixtureStatsResponse | null> {
   const dbOnly = options?.dbOnly === true;
-  let backgroundLineupPromise: Promise<void> | undefined;
 
   const fixture = await prisma.fixture.findUnique({
     where: { id: fixtureId },
@@ -681,7 +674,7 @@ export async function getFixtureStats(
   });
 
   if (!fixture) {
-    return { response: null };
+    return null;
   }
 
   /** Only include played fixtures in last-5 (exclude upcoming/future). */
@@ -782,11 +775,10 @@ export async function getFixtureStats(
     }
   }
 
-  // When we don't have a lineup and we're within the fetch window, fetch and store in the background so this request returns fast; next load will have lineup from DB.
-  // Caller must pass backgroundLineupPromise to after() (or waitUntil) so the fetch completes on serverless (Vercel freezes after response otherwise).
+  // When we don't have a lineup and we're within the fetch window, fetch and store so the response includes lineup (blocking; page may be slower on first load).
   const hadLineup = lineupCount > 0;
   if (!dbOnly && !hadLineup && !teamStatsOnly) {
-    backgroundLineupPromise = ensureLineupIfWithinWindow(
+    await ensureLineupIfWithinWindow(
       fixture.id,
       fixture.date,
       fixture.apiId,
@@ -1135,7 +1127,7 @@ export async function getFixtureStats(
       ? "Season stats are not available for this competition yet."
       : undefined;
 
-  const response: FixtureStatsResponse = {
+  return {
     fixture: fixtureSummary,
     hasLineup,
     teams,
@@ -1143,6 +1135,5 @@ export async function getFixtureStats(
     teamStatsLast5,
     teamStatsUnavailableReason,
   };
-  return { response, ...(backgroundLineupPromise !== undefined && { backgroundLineupPromise }) };
 }
 
