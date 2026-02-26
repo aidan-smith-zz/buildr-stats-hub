@@ -343,10 +343,20 @@ export async function getMatchdayInsightsData(
     })),
   };
 
-  await prisma.matchdayInsightsCache.upsert({
-    where: { dateKey },
-    create: { dateKey, payload: result as object },
-    update: { payload: result as object },
-  });
+  const hasTeamLeaderboardData =
+    result.top5FixturesCombinedXg.length > 0 ||
+    result.top5TeamsXgPer90.length > 0 ||
+    result.top5TeamsCornersPer90.length > 0 ||
+    result.last5.top5FixturesCombinedXg.length > 0 ||
+    result.last5.top5TeamsXgPer90.length > 0 ||
+    result.last5.top5TeamsCornersPer90.length > 0;
+  const shouldCache = fixtureIds.length === 0 || hasTeamLeaderboardData;
+  if (shouldCache) {
+    await prisma.matchdayInsightsCache.upsert({
+      where: { dateKey },
+      create: { dateKey, payload: result as object },
+      update: { payload: result as object },
+    });
+  }
   return result;
 }
