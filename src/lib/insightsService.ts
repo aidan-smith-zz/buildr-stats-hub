@@ -32,6 +32,8 @@ export type FormEdgeFixture = {
   homeName: string;
   awayName: string;
   href: string;
+  leagueId: number | null;
+  league: string | null;
 };
 
 type FixtureWithTeams = { date: Date; league: string | null; homeTeam: { name: string; shortName: string | null }; awayTeam: { name: string; shortName: string | null } };
@@ -462,6 +464,8 @@ export async function getFormEdgeFixtures(dateKey: string): Promise<FormEdgeFixt
     homeName: f.homeTeam.shortName ?? f.homeTeam.name,
     awayName: f.awayTeam.shortName ?? f.awayTeam.name,
     href: fixtureToHref(f, dateKey),
+    leagueId: f.leagueId ?? null,
+    league: f.league ?? null,
   }));
 }
 

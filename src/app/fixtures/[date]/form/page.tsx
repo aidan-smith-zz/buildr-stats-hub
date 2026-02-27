@@ -8,6 +8,7 @@ import {
 import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
+import { todayDateKey, tomorrowDateKey } from "@/lib/slugs";
 import { FormEdgeSection } from "./form-edge-section";
 import { FormTableClient } from "./form-table-client";
 
@@ -69,6 +70,10 @@ export default async function FormPage({
     { weekday: "long", day: "numeric", month: "long", year: "numeric" }
   );
 
+  const isToday = dateKey === todayDateKey();
+  const isTomorrow = dateKey === tomorrowDateKey();
+  const dateContext = isToday ? "today" : isTomorrow ? "tomorrow" : "date";
+
   const hasData = last5.length > 0 || last10.length > 0 || season.length > 0;
   const hasFixtures = formEdgeFixtures.length > 0;
   const fixturesHref = `/fixtures/${dateKey}`;
@@ -123,7 +128,11 @@ export default async function FormPage({
             </div>
           </div>
           <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
-            Last 5, last 10 and season form for all teams in action today — goals, corners, cards and xG per match.
+            {dateContext === "today"
+              ? "Last 5, last 10 and season form for all teams in action today — goals, corners, cards and xG per match."
+              : dateContext === "tomorrow"
+                ? "Last 5, last 10 and season form for all teams in action tomorrow — goals, corners, cards and xG per match."
+                : `Last 5, last 10 and season form for all teams in action on ${displayDate} — goals, corners, cards and xG per match.`}
           </p>
         </div>
 
@@ -137,7 +146,11 @@ export default async function FormPage({
               href={fixturesHref}
               className="mt-4 inline-block text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400"
             >
-              View today&apos;s fixtures →
+              {dateContext === "today"
+                ? "View today&apos;s fixtures →"
+                : dateContext === "tomorrow"
+                  ? "View tomorrow&apos;s fixtures →"
+                  : "View fixtures for this date →"}
             </NavLinkWithOverlay>
           </div>
         ) : (
@@ -159,6 +172,7 @@ export default async function FormPage({
                 fixtures={formEdgeFixtures}
                 last10={last10}
                 season={season}
+                dateContext={dateContext}
               />
             ) : null}
           </>

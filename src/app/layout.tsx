@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { BurgerMenu } from "@/app/_components/burger-menu";
 import { GoogleAnalytics } from "@/app/_components/google-analytics";
 import { HomeLink } from "@/app/_components/home-link";
+import { getFixturesForDateFromDbOnly } from "@/lib/fixturesService";
+import { tomorrowDateKey } from "@/lib/slugs";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -46,11 +48,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const tomorrowKey = tomorrowDateKey();
+  const tomorrowFixtures = await getFixturesForDateFromDbOnly(tomorrowKey);
+  const tomorrowFormHref =
+    tomorrowFixtures.length > 0 ? `/fixtures/${tomorrowKey}/form` : undefined;
+
   const webSiteJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -77,7 +84,7 @@ export default function RootLayout({
         <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-black sm:px-6">
           <div className="mx-auto flex max-w-4xl items-center justify-between overflow-visible">
             <HomeLink />
-            <BurgerMenu />
+            <BurgerMenu tomorrowFormHref={tomorrowFormHref} />
           </div>
         </header>
         {process.env.NEXT_PUBLIC_CTA_URL ? (

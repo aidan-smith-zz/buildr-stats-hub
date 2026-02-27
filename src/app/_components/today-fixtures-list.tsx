@@ -1,4 +1,5 @@
 import { FixtureRowLink, NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
+import { TodayTomorrowTabs } from "@/app/_components/today-tomorrow-tabs";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
@@ -152,6 +153,10 @@ type Props = {
   showHero?: boolean;
   /** Today's date key (YYYY-MM-DD) from server to avoid hydration mismatch. */
   todayKey?: string;
+  /** When set, show "Tomorrow's Fixtures" section (only after warm-tomorrow has run). */
+  tomorrowFixtures?: FixtureSummary[];
+  /** Tomorrow's date key (YYYY-MM-DD); required when tomorrowFixtures is set. */
+  tomorrowKey?: string;
 };
 
 function renderFixtureCard(fixture: FixtureSummary, todayKey: string) {
@@ -220,12 +225,25 @@ function renderFixtureCard(fixture: FixtureSummary, todayKey: string) {
   );
 }
 
-export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKeyProp }: Props) {
+export function TodayFixturesList({
+  fixtures,
+  showHero = true,
+  todayKey: todayKeyProp,
+  tomorrowFixtures,
+  tomorrowKey,
+}: Props) {
   const todayKey = todayKeyProp ?? todayDateKey();
   const sortedFixtures = fixturesByKickOff(fixtures);
   const timeGroups = groupByKickOffTime(sortedFixtures);
   const leagueGroups = sortedFixtures.length > 15 ? groupByLeague(sortedFixtures) : null;
   const displayDate = formatDisplayDate(todayKey);
+
+  const hasTomorrow = tomorrowFixtures != null && tomorrowFixtures.length > 0 && tomorrowKey != null;
+  const sortedTomorrow = hasTomorrow ? fixturesByKickOff(tomorrowFixtures) : [];
+  const tomorrowTimeGroups = hasTomorrow ? groupByKickOffTime(sortedTomorrow) : [];
+  const tomorrowLeagueGroups =
+    hasTomorrow && sortedTomorrow.length > 15 ? groupByLeague(sortedTomorrow) : null;
+  const tomorrowDisplayDate = hasTomorrow ? formatDisplayDate(tomorrowKey) : "";
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -267,39 +285,79 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
             </section>
           ) : null}
 
-          {sortedFixtures.length === 0 ? (
-          <div className="rounded-2xl border border-neutral-200 bg-white p-10 text-center shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              No fixtures for today in the selected leagues.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-10">
-            <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50 sm:text-lg">
-              Today&apos;s fixtures
-            </h2>
-            {leagueGroups ? (
-              <div className="space-y-8">
-                {leagueGroups.map(({ leagueId, leagueName, fixtures: groupFixtures }) => (
-                  <section key={leagueId ?? leagueName} className="space-y-3">
-                    <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
-                      {leagueName}
-                    </h3>
-                    <ul className="space-y-2">
-                      {groupFixtures.map((f) => renderFixtureCard(f, todayKey))}
+          <section className="mb-10">
+            <TodayTomorrowTabs
+              hasTomorrow={hasTomorrow}
+            tomorrowLabel="Tomorrow's fixtures"
+            todayLabel="Today's fixtures"
+            tomorrowContent={
+              <section className="mb-4">
+                <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
+                  {tomorrowDisplayDate}
+                </p>
+                {tomorrowLeagueGroups ? (
+                  <div className="space-y-8">
+                    {tomorrowLeagueGroups.map(({ leagueId, leagueName, fixtures: groupFixtures }) => (
+                      <section key={leagueId ?? leagueName} className="space-y-3">
+                        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+                          {leagueName}
+                        </h3>
+                        <ul className="space-y-2">
+                        {groupFixtures.map((f) => renderFixtureCard(f, tomorrowKey!))}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
+              ) : (
+                tomorrowTimeGroups.map(({ timeKey, fixtures: groupFixtures }) => (
+                  <ul key={timeKey} className="space-y-2">
+                    {groupFixtures.map((f) => renderFixtureCard(f, tomorrowKey!))}
                     </ul>
-                  </section>
-                ))}
-              </div>
-            ) : (
-              timeGroups.map(({ timeKey, fixtures: groupFixtures }) => (
-                <ul key={timeKey} className="space-y-2">
-                  {groupFixtures.map((f) => renderFixtureCard(f, todayKey))}
-                </ul>
-              ))
-            )}
-          </div>
-          )}
+                  ))
+                )}
+              </section>
+            }
+            todayContent={
+              <>
+                {hasTomorrow && (
+                  <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
+                    {displayDate}
+                  </p>
+                )}
+                {sortedFixtures.length === 0 ? (
+                  <div className="rounded-2xl border border-neutral-200 bg-white p-10 text-center shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                      No fixtures for today in the selected leagues.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                  {leagueGroups ? (
+                    <div className="space-y-8">
+                      {leagueGroups.map(({ leagueId, leagueName, fixtures: groupFixtures }) => (
+                        <section key={leagueId ?? leagueName} className="space-y-3">
+                          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+                            {leagueName}
+                          </h3>
+                          <ul className="space-y-2">
+                            {groupFixtures.map((f) => renderFixtureCard(f, todayKey))}
+                          </ul>
+                        </section>
+                      ))}
+                    </div>
+                  ) : (
+                    timeGroups.map(({ timeKey, fixtures: groupFixtures }) => (
+                      <ul key={timeKey} className="space-y-2">
+                        {groupFixtures.map((f) => renderFixtureCard(f, todayKey))}
+                      </ul>
+                    ))
+                  )}
+                </div>
+                )}
+              </>
+            }
+            />
+          </section>
         </div>
 
         <section className="mt-14 border-t border-neutral-200 pt-12 dark:border-neutral-800">

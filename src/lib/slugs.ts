@@ -24,6 +24,13 @@ export function todayDateKey(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: FIXTURES_TZ });
 }
 
+/** Tomorrow's date as YYYY-MM-DD (Europe/London). */
+export function tomorrowDateKey(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toLocaleDateString("en-CA", { timeZone: FIXTURES_TZ });
+}
+
 /** Next N days (YYYY-MM-DD) from tomorrow, in Europe/London. */
 export function nextDateKeys(days: number): string[] {
   const keys: string[] = [];

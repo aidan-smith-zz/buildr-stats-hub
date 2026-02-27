@@ -371,6 +371,21 @@ export async function getTodayFixturesFromDbOnly(now: Date = new Date()): Promis
 }
 
 /**
+ * Return fixtures for a given date (YYYY-MM-DD) from DB only. Used to show full stats for
+ * warmed upcoming fixtures (e.g. tomorrow after warm-tomorrow). No API calls, no materialization.
+ */
+export async function getFixturesForDateFromDbOnly(dateKey: string): Promise<FixtureSummary[]> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return [];
+  const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
+  const rows = await prisma.fixture.findMany({
+    where: { date: { gte: dayStart, lte: spilloverEnd } },
+    orderBy: { date: "asc" },
+    include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
+  });
+  return rows.map(mapFixtureToSummary);
+}
+
+/**
  * Materialize tomorrow's fixtures from UpcomingFixture into the Fixture table so they can be warmed (player/team stats).
  * Returns fixture summaries for the given dateKey (e.g. tomorrow). Used by warm-tomorrow only; site continues to show only today.
  */
@@ -473,6 +488,11 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
 
   // Use cache when we have fixtures and a successful fetch for today (no API calls)
   if (lastFetchLog && lastFetchLog.fetchedAt >= dayStart && existingFixtures.length > 0) {
+    return existingFixtures.map(mapFixtureToSummary);
+  }
+
+  // After midnight: use warmed fixtures already in DB for this date (from warm-tomorrow) as today's list
+  if (existingFixtures.length > 0) {
     return existingFixtures.map(mapFixtureToSummary);
   }
 

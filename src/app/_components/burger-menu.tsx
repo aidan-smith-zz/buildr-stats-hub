@@ -10,7 +10,12 @@ function todayDateKey(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
 }
 
-export function BurgerMenu() {
+type BurgerMenuProps = {
+  /** When set, show "Tomorrow's form" link (only after tomorrow's fixtures are warmed). */
+  tomorrowFormHref?: string;
+};
+
+export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
@@ -92,6 +97,16 @@ export function BurgerMenu() {
           >
             Form
           </Link>
+          {tomorrowFormHref ? (
+            <Link
+              href={tomorrowFormHref}
+              onClick={handleMenuClick}
+              className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              role="menuitem"
+            >
+              Tomorrow&apos;s form
+            </Link>
+          ) : null}
           <Link
             href={matchdayInsightsHref}
             onClick={handleMenuClick}

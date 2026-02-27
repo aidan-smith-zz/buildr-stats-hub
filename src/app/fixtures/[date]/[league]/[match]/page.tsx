@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import {
   getFixturePreview,
-  getFixturesForDatePreview,
+  getFixturesForDateFromDbOnly,
   getOrRefreshTodayFixtures,
 } from "@/lib/fixturesService";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
@@ -88,6 +88,40 @@ export async function generateMetadata({
     const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
     const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
     const league = fixture.league ?? "Football";
+    const year = getYear(dateKey);
+    const title = `${home} vs ${away} Preview, Stats & AI insights | ${league} ${year}`;
+    const description = `Preview for ${home} vs ${away} including upcoming team stats, player performance data and AI-powered football insights.`;
+    const canonical = `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
+    return {
+      title,
+      description,
+      alternates: { canonical },
+      robots: { index: true, follow: true },
+      openGraph: {
+        title,
+        description,
+        url: canonical,
+        siteName: "statsBuildr",
+        type: "website",
+        images: [{ url: `${BASE_URL}/stats-buildr.png`, width: 512, height: 160, alt: `${home} vs ${away} statsBuildr` }],
+        locale: "en_GB",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [`${BASE_URL}/stats-buildr.png`],
+      },
+    };
+  }
+
+  // Upcoming: prefer warmed fixture from DB so meta matches the full-stats page when available
+  const warmedFixtures = await getFixturesForDateFromDbOnly(dateKey);
+  const warmedFixture = findTodayFixture(warmedFixtures, leagueSlug, matchSlugParam);
+  if (warmedFixture) {
+    const home = warmedFixture.homeTeam.shortName ?? warmedFixture.homeTeam.name;
+    const away = warmedFixture.awayTeam.shortName ?? warmedFixture.awayTeam.name;
+    const league = warmedFixture.league ?? "Football";
     const year = getYear(dateKey);
     const title = `${home} vs ${away} Preview, Stats & AI insights | ${league} ${year}`;
     const description = `Preview for ${home} vs ${away} including upcoming team stats, player performance data and AI-powered football insights.`;
@@ -283,7 +317,117 @@ export default async function FixtureMatchPage({
     );
   }
 
-  // Tomorrow onwards: preview only (no stats)
+  // Upcoming date: if this fixture was warmed (e.g. warm-tomorrow), show full stats from DB
+  const warmedFixtures = await getFixturesForDateFromDbOnly(dateKey);
+  const warmedFixture = findTodayFixture(warmedFixtures, leagueSlug, matchSlugParam);
+  if (warmedFixture) {
+    const fixtures = warmedFixtures;
+    const fixture = warmedFixture;
+    const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
+    const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
+    const league = fixture.league ?? "Football";
+    const kickoff = typeof fixture.date === "string" ? fixture.date : fixture.date?.toISOString?.() ?? new Date(dateKey + "T12:00:00.000Z").toISOString();
+    const endDate = new Date(new Date(kickoff).getTime() + 2 * 60 * 60 * 1000).toISOString();
+    const description = `${home} vs ${away} ${league} match with live stats, confirmed lineups and AI-powered bet builder insights on statsBuildr.`;
+    const sportsEventJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "SportsEvent",
+      name: `${home} vs ${away}`,
+      startDate: kickoff,
+      endDate,
+      description,
+      image: [`${BASE_URL}/stats-buildr.png`],
+      eventStatus: "https://schema.org/EventScheduled",
+      location: {
+        "@type": "Place",
+        name: `${league} fixture`,
+        address: { "@type": "PostalAddress", addressCountry: "GB" },
+      },
+      organizer: { "@type": "Organization", name: "statsBuildr", url: BASE_URL },
+      offers: {
+        "@type": "Offer",
+        url: `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`,
+        price: "0",
+        priceCurrency: "GBP",
+        availability: "https://schema.org/InStock",
+      },
+      competitor: [
+        { "@type": "SportsTeam", name: home },
+        { "@type": "SportsTeam", name: away },
+      ],
+      sport: "Football",
+    };
+    const breadcrumbItems = [
+      { href: "/", label: "Home" },
+      { href: `/fixtures/${dateKey}`, label: formatDisplayDate(dateKey) },
+      { href: `/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`, label: `${home} vs ${away}` },
+    ];
+    const breadcrumbJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: breadcrumbItems.map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: item.label,
+        item: `${BASE_URL}${item.href === "/" ? "" : item.href}`,
+      })),
+    };
+    return (
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(sportsEventJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        />
+        <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+          <div>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <Breadcrumbs items={breadcrumbItems} className="flex-1" />
+              <NavLinkWithOverlay
+                href={`/fixtures/${dateKey}`}
+                className="hidden text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 sm:inline"
+              >
+                ← Back to fixtures
+              </NavLinkWithOverlay>
+            </div>
+            <h1 className="sr-only">
+              {fixture.homeTeam.shortName ?? fixture.homeTeam.name} vs{" "}
+              {fixture.awayTeam.shortName ?? fixture.awayTeam.name} – stats
+            </h1>
+            <TodayFixturesDashboard
+              fixtures={fixtures}
+              initialSelectedId={String(fixture.id)}
+              hideFixtureSelector
+            />
+            <section className="mt-12 border-t border-neutral-200 pt-10 dark:border-neutral-800">
+              <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-6 dark:border-violet-800/50 dark:bg-violet-950/20">
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                  New AI insights
+                </h2>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                  We scan today&apos;s fixtures & stats then we surface the trends
+                  that matter
+                </p>
+                <NavLinkWithOverlay
+                  href={`/fixtures/${dateKey}/ai-insights`}
+                  className="mt-4 inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400"
+                  message="Loading insights…"
+                  italic={false}
+                >
+                  See AI insights for this date →
+                </NavLinkWithOverlay>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // No warmed data: generic preview (UpcomingFixture or API)
   const fixture = await getFixturePreview(dateKey, leagueSlug, matchSlugParam);
 
   if (!fixture) {
