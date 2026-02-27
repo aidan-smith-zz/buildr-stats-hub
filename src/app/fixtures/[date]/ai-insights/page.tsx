@@ -82,15 +82,26 @@ export default async function AIInsightsPage({
             </NavLinkWithOverlay>
             <ShareUrlButton className="rounded-lg border border-slate-600 bg-slate-800/50 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700/50 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700" />
           </div>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-            AI insights
-          </h1>
-          <p className="mt-1 text-slate-400">{displayDate}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center rounded-full bg-violet-500/20 px-3 py-1 text-xs font-medium text-violet-300 ring-1 ring-violet-500/30">
-              <span>Powered by AI - as of <b>now</b></span>
+          <div className="mt-3 flex items-center gap-3">
+            <img
+              src="/stats-buildr-mini.png"
+              alt="statsBuildr"
+              className="h-9 w-9 rounded-full shadow-md sm:h-10 sm:w-10"
+            />
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                AI insights
+              </h1>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400 sm:text-[13px]">
+                statsBuildr · {displayDate}
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center rounded-full bg-gradient-to-r from-sky-500 via-emerald-400 to-violet-600 px-3 py-1 text-xs font-medium text-white shadow-sm">
+              Powered by AI – as of <b className="ml-1">now</b>
             </span>
-            <RefreshInsightsButton className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800/50 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700/50 hover:border-slate-500 disabled:opacity-60 disabled:cursor-not-allowed" />
+            <RefreshInsightsButton className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/60 bg-slate-900/40 px-3 py-1.5 text-xs font-medium text-slate-100 transition-colors hover:bg-slate-900 hover:border-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed" />
           </div>
         </div>
 

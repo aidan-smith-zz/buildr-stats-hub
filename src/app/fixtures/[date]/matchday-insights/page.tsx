@@ -66,13 +66,22 @@ export default async function MatchdayInsightsPage({
             </NavLinkWithOverlay>
             <ShareUrlButton className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700" />
           </div>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
-            Matchday insights
-          </h1>
-          <p className="mt-1 text-neutral-500 dark:text-neutral-400">
-            {data.displayDate}
-          </p>
-          <p className="mt-1 text-neutral-500 dark:text-neutral-400">
+          <div className="mt-3 flex items-center gap-3">
+            <img
+              src="/stats-buildr-mini.png"
+              alt="statsBuildr"
+              className="h-9 w-9 rounded-full shadow-md sm:h-10 sm:w-10"
+            />
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
+                Matchday insights
+              </h1>
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500 sm:text-[13px]">
+                statsBuildr · {data.displayDate}
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
             Which players average the most yellow cards? Which teams have the highest xG or corners per match? See the data leaders across today&apos;s fixtures.
           </p>
         </div>

@@ -24,17 +24,17 @@ export const metadata: Metadata = {
   keywords: ["football stats", "bet builder", "fixtures", "player statistics", "Premier League", "Championship"],
   icons: {
     icon: [
-      { url: "/logo.png?v=2", type: "image/png", sizes: "32x32" },
-      { url: "/logo.png?v=2", type: "image/png", sizes: "any" },
+      { url: "/stats-buildr.png", type: "image/png", sizes: "32x32" },
+      { url: "/stats-buildr.png", type: "image/png", sizes: "any" },
     ],
-    apple: "/logo.png?v=2",
+    apple: "/stats-buildr.png",
   },
   openGraph: {
     title: "Football Stats | Bet Builder Analytics",
     description: "Today's fixtures and player stats. See the numbers before you build your bet.",
     url: siteUrl,
     siteName: "statsBuildr",
-    images: [{ url: "/logo.png?v=2", width: 512, height: 160, alt: "statsBuildr" }],
+    images: [{ url: "/stats-buildr.png", width: 512, height: 160, alt: "statsBuildr" }],
     locale: "en_GB",
     type: "website",
   },
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Football Stats | Bet Builder Analytics",
     description: "Today's fixtures and player stats. See the numbers before you build your bet.",
-    images: ["/logo.png?v=2"],
+    images: ["/stats-buildr.png"],
   },
 };
 

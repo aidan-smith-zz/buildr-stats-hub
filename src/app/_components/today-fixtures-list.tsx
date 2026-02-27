@@ -233,24 +233,37 @@ export function TodayFixturesList({ fixtures, showHero = true, todayKey: todayKe
         <div>
           {showHero ? (
             <section className="mb-10">
-              <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
-                Football Stats & Player Data
-              </h1>
-              <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400 sm:text-base">
-                {displayDate}
-              </p>
-              <p className="mt-3 text-neutral-600 dark:text-neutral-400 sm:text-lg leading-relaxed">
-                Explore team season averages and in-depth player statistics to uncover meaningful
-                trends and make informed, data-driven match insights.
-              </p>
-              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
-                <NavLinkWithOverlay
-                  href="/fixtures/upcoming"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-                >
-                  Upcoming fixtures (14 days) →
-                </NavLinkWithOverlay>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/stats-buildr-mini.png"
+                    alt="statsBuildr"
+                    className="h-11 w-11 rounded-full shadow-md sm:h-12 sm:w-12"
+                  />
+                  <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
+                      statsBuildr
+                    </h1>
+                    <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500 sm:text-[13px]">
+                      Football stats for smarter bet builders
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  <span className="inline-flex items-center rounded-full bg-gradient-to-r from-sky-500 via-emerald-400 to-violet-600 px-3 py-1 text-[11px] font-medium text-white shadow-sm sm:text-xs">
+                    {displayDate}
+                  </span>
+                  <NavLinkWithOverlay
+                    href="/fixtures/upcoming"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm transition hover:border-sky-400 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-emerald-400 sm:text-sm"
+                  >
+                    Upcoming fixtures (14 days) →
+                  </NavLinkWithOverlay>
+                </div>
               </div>
+              <p className="mt-4 max-w-2xl text-neutral-600 dark:text-neutral-400 sm:text-sm">
+                Explore team season averages, player performance and xG-based insights before you build your bet.
+              </p>
             </section>
           ) : null}
 
