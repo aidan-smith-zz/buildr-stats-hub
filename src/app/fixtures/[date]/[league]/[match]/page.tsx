@@ -173,12 +173,14 @@ export default async function FixtureMatchPage({
     const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
     const league = fixture.league ?? "Football";
     const kickoff = typeof fixture.date === "string" ? fixture.date : fixture.date?.toISOString?.() ?? new Date(dateKey + "T12:00:00.000Z").toISOString();
+    const endDate = new Date(new Date(kickoff).getTime() + 2 * 60 * 60 * 1000).toISOString();
     const description = `${home} vs ${away} ${league} match with live stats, confirmed lineups and AI-powered bet builder insights on statsBuildr.`;
     const sportsEventJsonLd = {
       "@context": "https://schema.org",
       "@type": "SportsEvent",
       name: `${home} vs ${away}`,
       startDate: kickoff,
+      endDate,
       description,
       image: [`${BASE_URL}/stats-buildr.png`],
       eventStatus: "https://schema.org/EventScheduled",
@@ -311,11 +313,13 @@ export default async function FixtureMatchPage({
   const league = fixture.league ?? "Football";
   const kickoffPreview = typeof fixture.date === "string" ? fixture.date : new Date(dateKey + "T12:00:00.000Z").toISOString();
   const description = `${home} vs ${away} ${league} match preview with upcoming stats, lineups info and AI-powered bet builder insights on statsBuildr.`;
+  const endDatePreview = new Date(new Date(kickoffPreview).getTime() + 2 * 60 * 60 * 1000).toISOString();
   const sportsEventJsonLdPreview = {
     "@context": "https://schema.org",
     "@type": "SportsEvent",
     name: `${home} vs ${away}`,
     startDate: kickoffPreview,
+    endDate: endDatePreview,
     description,
     image: [`${BASE_URL}/stats-buildr.png`],
     eventStatus: "https://schema.org/EventScheduled",
