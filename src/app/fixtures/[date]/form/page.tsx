@@ -7,6 +7,7 @@ import {
 } from "@/lib/insightsService";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
+import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { FormEdgeSection } from "./form-edge-section";
 import { FormTableClient } from "./form-table-client";
 
@@ -71,10 +72,31 @@ export default async function FormPage({
   const hasData = last5.length > 0 || last10.length > 0 || season.length > 0;
   const hasFixtures = formEdgeFixtures.length > 0;
   const fixturesHref = `/fixtures/${dateKey}`;
+  const breadcrumbItems = [
+    { href: "/", label: "Home" },
+    { href: fixturesHref, label: displayDate },
+    { href: `/fixtures/${dateKey}/form`, label: "Form table" },
+  ];
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.label,
+      item: `${BASE_URL}${item.href === "/" ? "" : item.href}`,
+    })),
+  };
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <Breadcrumbs items={breadcrumbItems} className="mb-3" />
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <NavLinkWithOverlay

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
+import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { getMatchdayInsightsData } from "@/lib/matchdayInsightsService";
 import { MatchdayInsightsClient } from "./matchday-insights-client";
 
@@ -52,10 +53,31 @@ export default async function MatchdayInsightsPage({
   const data = await getMatchdayInsightsData(dateKey);
 
   const fixturesHref = `/fixtures/${dateKey}`;
+  const breadcrumbItems = [
+    { href: "/", label: "Home" },
+    { href: fixturesHref, label: data.displayDate },
+    { href: `/fixtures/${dateKey}/matchday-insights`, label: "Matchday insights" },
+  ];
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.label,
+      item: `${BASE_URL}${item.href === "/" ? "" : item.href}`,
+    })),
+  };
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <Breadcrumbs items={breadcrumbItems} className="mb-3" />
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <NavLinkWithOverlay

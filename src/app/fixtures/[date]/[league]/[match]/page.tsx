@@ -11,6 +11,7 @@ import type { FixtureSummary } from "@/lib/statsService";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { TodayFixturesDashboard } from "@/app/_components/today-fixtures-dashboard";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
+import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 const FIXTURES_TIMEZONE = "Europe/London";
@@ -183,18 +184,40 @@ export default async function FixtureMatchPage({
       sport: "Football",
     };
 
+    const breadcrumbItems = [
+      { href: "/", label: "Home" },
+      { href: `/fixtures/${dateKey}`, label: formatDisplayDate(dateKey) },
+      { href: `/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`, label: `${home} vs ${away}` },
+    ];
+
+    const breadcrumbJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: breadcrumbItems.map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: item.label,
+        item: `${BASE_URL}${item.href === "/" ? "" : item.href}`,
+      })),
+    };
+
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(sportsEventJsonLd) }}
         />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        />
         <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <div>
-            <div className="mb-6">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <Breadcrumbs items={breadcrumbItems} className="flex-1" />
               <NavLinkWithOverlay
                 href={`/fixtures/${dateKey}`}
-                className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+                className="hidden text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 sm:inline"
               >
                 ← Back to fixtures
               </NavLinkWithOverlay>

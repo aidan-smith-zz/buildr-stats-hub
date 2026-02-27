@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { RefreshInsightsButton } from "@/app/_components/refresh-insights-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
+import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { generateInsights } from "@/lib/insightsService";
 import { prisma } from "@/lib/prisma";
 
@@ -68,10 +69,31 @@ export default async function AIInsightsPage({
   });
 
   const fixturesHref = `/fixtures/${dateKey}`;
+  const breadcrumbItems = [
+    { href: "/", label: "Home" },
+    { href: fixturesHref, label: displayDate },
+    { href: `/fixtures/${dateKey}/ai-insights`, label: "AI insights" },
+  ];
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.label,
+      item: `${BASE_URL}${item.href === "/" ? "" : item.href}`,
+    })),
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <main className="mx-auto max-w-2xl px-4 pt-6 pb-10 sm:px-6 sm:pt-8 sm:pb-12">
+        <Breadcrumbs items={breadcrumbItems} className="mb-3" />
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <NavLinkWithOverlay

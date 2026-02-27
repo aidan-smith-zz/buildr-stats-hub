@@ -3,6 +3,7 @@ import { getUpcomingFixturesFromDb } from "@/lib/fixturesService";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import type { RawFixture } from "@/lib/footballApi";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
+import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +101,14 @@ export default async function UpcomingPage() {
             ← Back to today
           </NavLinkWithOverlay>
         </div>
+
+        <Breadcrumbs
+          items={[
+            { href: "/", label: "Home" },
+            { href: "/fixtures/upcoming", label: "Upcoming fixtures" },
+          ]}
+          className="mb-3"
+        />
 
         <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
           Upcoming fixtures
