@@ -27,7 +27,7 @@ export function HomeLink() {
       >
         <Image
           src="/stats-buildr.png"
-          alt=""
+          alt="statsBuildr football stats logo"
           width={200}
           height={60}
           className="h-11 w-auto shrink-0 object-contain sm:h-12"

@@ -103,14 +103,14 @@ export async function generateMetadata({
         url: canonical,
         siteName: "statsBuildr",
         type: "website",
-        images: [{ url: `${BASE_URL}/logo.png?v=2`, width: 512, height: 160, alt: `${home} vs ${away}` }],
+        images: [{ url: `${BASE_URL}/stats-buildr.png`, width: 512, height: 160, alt: `${home} vs ${away} statsBuildr` }],
         locale: "en_GB",
       },
       twitter: {
         card: "summary_large_image",
         title,
         description,
-        images: [`${BASE_URL}/logo.png?v=2`],
+        images: [`${BASE_URL}/stats-buildr.png`],
       },
     };
   }
@@ -142,14 +142,14 @@ export async function generateMetadata({
       url: canonical,
       siteName: "statsBuildr",
       type: "website",
-      images: [{ url: `${BASE_URL}/logo.png?v=2`, width: 512, height: 160, alt: `${home} vs ${away}` }],
+      images: [{ url: `${BASE_URL}/stats-buildr.png`, width: 512, height: 160, alt: `${home} vs ${away} statsBuildr` }],
       locale: "en_GB",
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [`${BASE_URL}/logo.png?v=2`],
+      images: [`${BASE_URL}/stats-buildr.png`],
     },
   };
 }
