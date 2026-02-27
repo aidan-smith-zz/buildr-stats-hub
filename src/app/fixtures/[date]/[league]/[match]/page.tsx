@@ -171,12 +171,37 @@ export default async function FixtureMatchPage({
     }
     const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
     const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
+    const league = fixture.league ?? "Football";
     const kickoff = typeof fixture.date === "string" ? fixture.date : fixture.date?.toISOString?.() ?? new Date(dateKey + "T12:00:00.000Z").toISOString();
+    const description = `${home} vs ${away} ${league} match with live stats, confirmed lineups and AI-powered bet builder insights on statsBuildr.`;
     const sportsEventJsonLd = {
       "@context": "https://schema.org",
       "@type": "SportsEvent",
       name: `${home} vs ${away}`,
       startDate: kickoff,
+      description,
+      image: [`${BASE_URL}/stats-buildr.png`],
+      eventStatus: "https://schema.org/EventScheduled",
+      location: {
+        "@type": "Place",
+        name: `${league} fixture`,
+        address: {
+          "@type": "PostalAddress",
+          addressCountry: "GB",
+        },
+      },
+      organizer: {
+        "@type": "Organization",
+        name: "statsBuildr",
+        url: BASE_URL,
+      },
+      offers: {
+        "@type": "Offer",
+        url: `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`,
+        price: "0",
+        priceCurrency: "GBP",
+        availability: "https://schema.org/InStock",
+      },
       competitor: [
         { "@type": "SportsTeam", name: home },
         { "@type": "SportsTeam", name: away },
@@ -283,12 +308,37 @@ export default async function FixtureMatchPage({
 
   const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
   const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
+  const league = fixture.league ?? "Football";
   const kickoffPreview = typeof fixture.date === "string" ? fixture.date : new Date(dateKey + "T12:00:00.000Z").toISOString();
+  const description = `${home} vs ${away} ${league} match preview with upcoming stats, lineups info and AI-powered bet builder insights on statsBuildr.`;
   const sportsEventJsonLdPreview = {
     "@context": "https://schema.org",
     "@type": "SportsEvent",
     name: `${home} vs ${away}`,
     startDate: kickoffPreview,
+    description,
+    image: [`${BASE_URL}/stats-buildr.png`],
+    eventStatus: "https://schema.org/EventScheduled",
+    location: {
+      "@type": "Place",
+      name: `${league} fixture`,
+      address: {
+        "@type": "PostalAddress",
+        addressCountry: "GB",
+      },
+    },
+    organizer: {
+      "@type": "Organization",
+      name: "statsBuildr",
+      url: BASE_URL,
+    },
+    offers: {
+      "@type": "Offer",
+      url: `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`,
+      price: "0",
+      priceCurrency: "GBP",
+      availability: "https://schema.org/InStock",
+    },
     competitor: [
       { "@type": "SportsTeam", name: home },
       { "@type": "SportsTeam", name: away },
