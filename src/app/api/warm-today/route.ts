@@ -5,7 +5,7 @@ import {
   getTodayFixturesFromDbOnly,
   refreshUpcomingFixturesTable,
 } from "@/lib/fixturesService";
-import { isFixtureInRequiredLeagues } from "@/lib/leagues";
+import { isFixtureInRequiredLeagues, isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { prisma } from "@/lib/prisma";
 import { todayDateKey } from "@/lib/slugs";
 
@@ -73,28 +73,57 @@ export async function GET(request: Request) {
             league: k.league,
           })),
         },
-        select: { teamId: true, season: true, league: true },
+        select: {
+          teamId: true,
+          season: true,
+          league: true,
+          minutesPlayed: true,
+          goalsFor: true,
+          goalsAgainst: true,
+          corners: true,
+          yellowCards: true,
+          redCards: true,
+        },
       }),
     ]);
 
     const playerCountMap = new Map(
       playerCounts.map((c) => [`${c.teamId}:${c.season}:${c.league}`, c._count.id])
     );
-    const teamStatsKeys = new Set(
-      teamStatsExisting.map((r) => `${r.teamId}:${r.season}:${r.league}`)
+    // Treat a team as "having season stats" only when we have non-zero data (minutes or any stat).
+    // This avoids cases where an all-zero row was written during a partial warm and warm-today
+    // incorrectly skips the team even though useful stats are still missing.
+    const teamStatsNonZeroKeys = new Set(
+      teamStatsExisting
+        .filter(
+          (r) =>
+            (r.minutesPlayed ?? 0) > 0 ||
+            r.goalsFor > 0 ||
+            r.goalsAgainst > 0 ||
+            r.corners > 0 ||
+            r.yellowCards > 0 ||
+            r.redCards > 0,
+        )
+        .map((r) => `${r.teamId}:${r.season}:${r.league}`),
     );
 
     const needsWarm = forceWarm
       ? filtered
       : filtered.filter((f) => {
           const league = f.league ?? "Unknown";
+          const isTeamStatsOnly = isTeamStatsOnlyLeague(f.leagueId);
+
           const homePlayerCount = playerCountMap.get(`${f.homeTeam.id}:${API_SEASON}:${league}`) ?? 0;
           const awayPlayerCount = playerCountMap.get(`${f.awayTeam.id}:${API_SEASON}:${league}`) ?? 0;
-          const needsPlayerStats =
-            homePlayerCount < MIN_PLAYERS_PER_TEAM || awayPlayerCount < MIN_PLAYERS_PER_TEAM;
-          const homeHasTeamStats = teamStatsKeys.has(`${f.homeTeam.id}:${API_SEASON}:${league}`);
-          const awayHasTeamStats = teamStatsKeys.has(`${f.awayTeam.id}:${API_SEASON}:${league}`);
+          // For League One/Two (team-stats-only leagues) there is no player data, so skip the player-stats check.
+          const needsPlayerStats = isTeamStatsOnly
+            ? false
+            : homePlayerCount < MIN_PLAYERS_PER_TEAM || awayPlayerCount < MIN_PLAYERS_PER_TEAM;
+
+          const homeHasTeamStats = teamStatsNonZeroKeys.has(`${f.homeTeam.id}:${API_SEASON}:${league}`);
+          const awayHasTeamStats = teamStatsNonZeroKeys.has(`${f.awayTeam.id}:${API_SEASON}:${league}`);
           const needsTeamStats = !homeHasTeamStats || !awayHasTeamStats;
+
           return needsPlayerStats || needsTeamStats;
         });
 

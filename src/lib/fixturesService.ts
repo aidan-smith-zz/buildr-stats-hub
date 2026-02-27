@@ -239,8 +239,12 @@ export async function refreshUpcomingFixturesTable(now: Date = new Date()): Prom
     if (dateKey <= todayKey) continue;
     try {
       const fixtures = await getFixturesForDatePreview(dateKey);
+      // Extra guard: only persist fixtures in required leagues (e.g. exclude National League 43).
+      const filteredFixtures = fixtures.filter((raw) =>
+        isFixtureInRequiredLeagues({ leagueId: raw.leagueId ?? null, league: raw.league ?? null })
+      );
       const leagueCountry = null;
-      for (const raw of fixtures) {
+      for (const raw of filteredFixtures) {
         const homeCountry = raw.homeTeam.country ?? raw.leagueCountry ?? leagueCountry;
         const awayCountry = raw.awayTeam.country ?? raw.leagueCountry ?? leagueCountry;
         await Promise.all([
@@ -315,25 +319,24 @@ export async function refreshUpcomingFixturesTable(now: Date = new Date()): Prom
 
 /**
  * Remove fixtures and fetch logs that are not from today. Keeps the fixture list focused on today only.
+ * Only deletes fixtures *before* today (past). Tomorrow's fixtures are kept so warm-tomorrow can warm them
+ * without them being removed by a concurrent request that calls getOrRefreshTodayFixtures (which runs prune).
  * PlayerSeasonStats are NOT pruned here so that cached stats stay in the DB and fixture stats load fast
  * when returning to the site (otherwise every visit would wipe stats and trigger slow API refetches).
  */
 export async function pruneDataOlderThanToday(now: Date = new Date()): Promise<void> {
   const dateKey = getTodayDateKey(now);
-  const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
+  const { dayStart } = dayBoundsUtc(dateKey);
 
-  const [fixturesDeleted, logsDeleted] = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     const fixturesResult = await tx.fixture.deleteMany({
-      where: {
-        OR: [{ date: { lt: dayStart } }, { date: { gt: spilloverEnd } }],
-      },
+      where: { date: { lt: dayStart } },
     });
     const logsResult = await tx.apiFetchLog.deleteMany({
       where: { resource: { not: `fixtures:${dateKey}` } },
     });
     return [fixturesResult.count, logsResult.count];
   });
-
 }
 
 /**
