@@ -238,12 +238,16 @@ export function TodayFixturesList({
   const leagueGroups = sortedFixtures.length > 15 ? groupByLeague(sortedFixtures) : null;
   const displayDate = formatDisplayDate(todayKey);
 
-  const hasTomorrow = tomorrowFixtures != null && tomorrowFixtures.length > 0 && tomorrowKey != null;
-  const sortedTomorrow = hasTomorrow ? fixturesByKickOff(tomorrowFixtures) : [];
-  const tomorrowTimeGroups = hasTomorrow ? groupByKickOffTime(sortedTomorrow) : [];
+  /** Show Tomorrow tab whenever we have a tomorrow key (e.g. on homepage); panel can be empty. */
+  const showTomorrowTab = tomorrowKey != null;
+  const hasTomorrowFixtures = (tomorrowFixtures?.length ?? 0) > 0;
+  const sortedTomorrow = showTomorrowTab && tomorrowFixtures?.length
+    ? fixturesByKickOff(tomorrowFixtures)
+    : [];
+  const tomorrowTimeGroups = sortedTomorrow.length > 0 ? groupByKickOffTime(sortedTomorrow) : [];
   const tomorrowLeagueGroups =
-    hasTomorrow && sortedTomorrow.length > 15 ? groupByLeague(sortedTomorrow) : null;
-  const tomorrowDisplayDate = hasTomorrow ? formatDisplayDate(tomorrowKey) : "";
+    sortedTomorrow.length > 15 ? groupByLeague(sortedTomorrow) : null;
+  const tomorrowDisplayDate = showTomorrowTab ? formatDisplayDate(tomorrowKey) : "";
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -287,7 +291,7 @@ export function TodayFixturesList({
 
           <section className="mb-10">
             <TodayTomorrowTabs
-              hasTomorrow={hasTomorrow}
+              hasTomorrow={showTomorrowTab}
             tomorrowLabel="Tomorrow's fixtures"
             todayLabel="Today's fixtures"
             tomorrowContent={
@@ -295,7 +299,13 @@ export function TodayFixturesList({
                 <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
                   {tomorrowDisplayDate}
                 </p>
-                {tomorrowLeagueGroups ? (
+                {!hasTomorrowFixtures ? (
+                  <div className="rounded-2xl border border-neutral-200 bg-white p-10 text-center shadow-sm dark:border-neutral-800 dark:border-neutral-900">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                      No fixtures for tomorrow in the selected leagues.
+                    </p>
+                  </div>
+                ) : tomorrowLeagueGroups ? (
                   <div className="space-y-8">
                     {tomorrowLeagueGroups.map(({ leagueId, leagueName, fixtures: groupFixtures }) => (
                       <section key={leagueId ?? leagueName} className="space-y-3">
@@ -319,7 +329,7 @@ export function TodayFixturesList({
             }
             todayContent={
               <>
-                {hasTomorrow && (
+                {showTomorrowTab && (
                   <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
                     {displayDate}
                   </p>

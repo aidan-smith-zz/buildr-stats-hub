@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { copyToClipboard } from "@/app/_components/share-url-button";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
@@ -117,7 +119,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
   const [sortBy, setSortBy] = useState<PlayerSortKey>("goals");
   const [activeTab, setActiveTab] = useState<"home" | "away">("home");
   const [lineupTab, setLineupTab] = useState<"home" | "away">("home");
-  const [shareLabel, setShareLabel] = useState<"Share" | "Copied!" | "Shared!">("Share");
+  const [shareLabel, setShareLabel] = useState<"Share" | "…" | "Copied!" | "Shared!">("Share");
   const [teamStatsView, setTeamStatsView] = useState<"season" | "last5">("season");
   const [liveScore, setLiveScore] = useState<{
     homeGoals: number;
@@ -133,6 +135,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
   }, [hideFixtureSelector]);
 
   const handleShare = async () => {
+    setShareLabel("…");
     let url = typeof window !== "undefined" ? window.location.href : "";
     const selectedFixture = selectedId ? filteredFixtures.find((f) => String(f.id) === selectedId) : null;
     if (typeof window !== "undefined" && selectedFixture) {
@@ -469,6 +472,18 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                   >
                     {statusLabel}
                   </span>
+                  {isLive && (
+                    <>
+                      <span className="text-neutral-300 dark:text-neutral-600" aria-hidden> | </span>
+                      <NavLinkWithOverlay
+                        href={`/fixtures/${new Date(selectedFixture.date).toLocaleDateString("en-CA", { timeZone: "Europe/London" })}/${leagueToSlug(selectedFixture.league)}/${matchSlug(selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name, selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name)}/live`}
+                        className="font-medium text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                        message="Loading live…"
+                      >
+                        In-play here
+                      </NavLinkWithOverlay>
+                    </>
+                  )}
                 </div>
               </div>
             ) : (
@@ -506,6 +521,18 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                   >
                     {statusLabel}
                   </span>
+                  {isLive && (
+                    <>
+                      <span className="text-neutral-300 dark:text-neutral-600" aria-hidden> | </span>
+                      <NavLinkWithOverlay
+                        href={`/fixtures/${new Date(selectedFixture.date).toLocaleDateString("en-CA", { timeZone: "Europe/London" })}/${leagueToSlug(selectedFixture.league)}/${matchSlug(selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name, selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name)}/live`}
+                        className="font-medium text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                        message="Loading live…"
+                      >
+                        In-play here
+                      </NavLinkWithOverlay>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -906,7 +933,9 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
               <button
                 type="button"
                 onClick={handleShare}
-                className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                disabled={shareLabel === "…"}
+                aria-busy={shareLabel === "…"}
+                className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-70 disabled:pointer-events-none dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
               >
                 {shareLabel}
               </button>

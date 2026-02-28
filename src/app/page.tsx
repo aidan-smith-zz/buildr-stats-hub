@@ -68,8 +68,8 @@ export default async function Home() {
         fixtures={fixtures}
         showHero
         todayKey={todayKey}
-        tomorrowFixtures={tomorrowFixtures.length > 0 ? tomorrowFixtures : undefined}
-        tomorrowKey={tomorrowFixtures.length > 0 ? tomorrowKey : undefined}
+        tomorrowFixtures={tomorrowFixtures}
+        tomorrowKey={tomorrowKey}
       />
     );
   } catch (err) {

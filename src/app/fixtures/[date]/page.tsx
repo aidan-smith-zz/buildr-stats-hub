@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { getOrRefreshTodayFixtures } from "@/lib/fixturesService";
-import { todayDateKey } from "@/lib/slugs";
+import { getFixturesForDateFromDbOnly, getOrRefreshTodayFixtures } from "@/lib/fixturesService";
+import { todayDateKey, tomorrowDateKey } from "@/lib/slugs";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +50,19 @@ export default async function FixturesDatePage({
 }) {
   await params;
   const now = new Date();
-  const fixtures = await getOrRefreshTodayFixtures(now);
   const todayKey = todayDateKey();
-  return <TodayFixturesList fixtures={fixtures} showHero todayKey={todayKey} />;
+  const tomorrowKey = tomorrowDateKey();
+  const [fixtures, tomorrowFixtures] = await Promise.all([
+    getOrRefreshTodayFixtures(now),
+    getFixturesForDateFromDbOnly(tomorrowKey),
+  ]);
+  return (
+    <TodayFixturesList
+      fixtures={fixtures}
+      showHero
+      todayKey={todayKey}
+      tomorrowFixtures={tomorrowFixtures}
+      tomorrowKey={tomorrowKey}
+    />
+  );
 }
