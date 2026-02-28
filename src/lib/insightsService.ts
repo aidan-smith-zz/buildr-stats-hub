@@ -469,7 +469,7 @@ export async function getFormEdgeFixtures(dateKey: string): Promise<FormEdgeFixt
   }));
 }
 
-/** Season averages for today's teams (from TeamSeasonStats). Uses each team's league for today so we show that competition's season stats. */
+/** Season averages for today's teams. Uses TeamFixtureCache (past fixtures only) so values match fixture dashboard. No API calls. */
 export async function getSeasonStatsForDate(dateKey: string): Promise<Last5TeamSummary[]> {
   const { dayStart, spilloverEnd } = dayBoundsForDate(dateKey);
   const fixtures = await prisma.fixture.findMany({
@@ -479,53 +479,61 @@ export async function getSeasonStatsForDate(dateKey: string): Promise<Last5TeamS
   if (fixtures.length === 0) return [];
   const teamIds = Array.from(new Set(fixtures.flatMap((f) => [f.homeTeamId, f.awayTeamId])));
   const teamIdToLeague = teamIdToLeagueFromFixtures(fixtures);
-  const teamSeasonRows = await prisma.teamSeasonStats.findMany({
-    where: { teamId: { in: teamIds }, season: API_SEASON },
-    include: { team: true },
-  });
   const teamIdToFixture = new Map<number, (typeof fixtures)[0]>();
+  const teamIdToName = new Map<number, string>();
   for (const f of fixtures) {
     teamIdToFixture.set(f.homeTeamId, f);
     teamIdToFixture.set(f.awayTeamId, f);
+    teamIdToName.set(f.homeTeamId, f.homeTeam.shortName ?? f.homeTeam.name);
+    teamIdToName.set(f.awayTeamId, f.awayTeam.shortName ?? f.awayTeam.name);
   }
+
+  const now = new Date();
+  const leagueEntries = Array.from(teamIdToLeague.entries());
+  if (leagueEntries.length === 0) return [];
+
+  const cacheRows = await prisma.teamFixtureCache.findMany({
+    where: {
+      OR: leagueEntries.map(([teamId, league]) => ({
+        teamId,
+        league,
+        season: API_SEASON,
+        fixtureDate: { lt: now },
+      })),
+    },
+    select: { teamId: true, goalsFor: true, goalsAgainst: true, corners: true, yellowCards: true, redCards: true },
+  });
+
   const byTeam = new Map<
     number,
-    { matches: number; goalsFor: number; goalsAgainst: number; corners: number; cards: number; teamName: string; href?: string }
+    { matches: number; goalsFor: number; goalsAgainst: number; corners: number; cards: number }
   >();
-  for (const row of teamSeasonRows) {
-    const leagueForTeam = teamIdToLeague.get(row.teamId);
-    const matchesLeague =
-      leagueForTeam == null ||
-      row.league === leagueForTeam ||
-      (row.leagueId != null && String(row.leagueId) === leagueForTeam);
-    if (!matchesLeague) continue;
-    const matches = row.minutesPlayed / 90;
-    if (matches < 1) continue;
+  for (const row of cacheRows) {
+    const league = teamIdToLeague.get(row.teamId);
+    if (league == null) continue;
     const existing = byTeam.get(row.teamId);
-    if (existing && matches <= existing.matches) continue;
-    const fixture = teamIdToFixture.get(row.teamId);
-    const href = fixture ? fixtureToHref(fixture, dateKey) : undefined;
-    byTeam.set(row.teamId, {
-      matches,
-      goalsFor: row.goalsFor,
-      goalsAgainst: row.goalsAgainst,
-      corners: row.corners,
-      cards: row.yellowCards + row.redCards,
-      teamName: row.team.shortName ?? row.team.name,
-      href,
-    });
+    const matches = (existing?.matches ?? 0) + 1;
+    const goalsFor = (existing?.goalsFor ?? 0) + row.goalsFor;
+    const goalsAgainst = (existing?.goalsAgainst ?? 0) + row.goalsAgainst;
+    const corners = (existing?.corners ?? 0) + row.corners;
+    const cards = (existing?.cards ?? 0) + row.yellowCards + row.redCards;
+    byTeam.set(row.teamId, { matches, goalsFor, goalsAgainst, corners, cards });
   }
+
   const out: Last5TeamSummary[] = [];
   for (const [teamId, v] of byTeam.entries()) {
+    if (v.matches < 1) continue;
+    const fixture = teamIdToFixture.get(teamId);
+    const href = fixture ? fixtureToHref(fixture, dateKey) : undefined;
     out.push({
       teamId,
-      teamName: v.teamName,
+      teamName: teamIdToName.get(teamId) ?? "Unknown",
       gamesPlayed: Math.round(v.matches),
       avgGoalsFor: v.goalsFor / v.matches,
       avgGoalsAgainst: v.goalsAgainst / v.matches,
       avgCorners: v.corners / v.matches,
       avgCards: v.cards / v.matches,
-      href: v.href,
+      href,
     });
   }
   out.sort((a, b) => a.teamName.localeCompare(b.teamName));
