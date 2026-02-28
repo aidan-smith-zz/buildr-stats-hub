@@ -70,9 +70,9 @@ function fixtureHref(
 }
 
 /**
- * Load matchday insights for a date. Reads from MatchdayInsightsCache if present;
- * otherwise computes from DB (fixtures + getFixtureStats with dbOnly), stores in cache, returns.
- * Data is stored once per date and reused all day. No API calls.
+ * Load matchday insights for a date. Reads from MatchdayInsightsCache if present (computed once per day);
+ * otherwise computes from DB (all fixtures + getFixtureStats with dbOnly), stores in cache, returns.
+ * No API calls. Team stats use past-only data (same as fixture dashboard).
  */
 export async function getMatchdayInsightsData(
   dateKey: string,
@@ -141,11 +141,8 @@ export async function getMatchdayInsightsData(
 
   if (fixtureIds.length === 0) return empty;
 
-  const MAX_FIXTURES = 20;
-  const idsToLoad = fixtureIds.slice(0, MAX_FIXTURES);
-
   const statsResults = await Promise.all(
-    idsToLoad.map((id) => getFixtureStats(id, { dbOnly: true })),
+    fixtureIds.map((id) => getFixtureStats(id, { dbOnly: true })),
   );
 
   const allStats = statsResults.filter(
