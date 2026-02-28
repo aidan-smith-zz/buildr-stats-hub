@@ -262,10 +262,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
     const needsGoalsFallback =
       cached && cached.goalsFor === 0 && cached.goalsAgainst === 0;
 
-    if (cached && !needsGoalsFallback) {
-      continue;
-    }
-
+    // List API is source of truth for goals: always use meta so we never overwrite correct 0-0 (or any score) with stale cache.
     if (meta) {
       let goalsFor = meta.goalsFor;
       let goalsAgainst = meta.goalsAgainst;
@@ -292,9 +289,8 @@ async function ensureTeamSeasonStatsCornersAndCards(
         }
       }
 
-      const hasGoals = goalsFor > 0 || goalsAgainst > 0;
-      if (!hasGoals && !attemptedScoreFallback) continue;
-
+      // Store any score we have, including legitimate 0-0. We only skip when we have no fixture meta.
+      // Do not skip 0-0: the list or score-fallback can both provide a valid 0-0 to store.
       // Fetch fixture statistics when we have no cache, or when cached row is all zeros (so we can fill corners/cards).
       const shouldFetchStat = !cached || needsGoalsFallback;
       if (shouldFetchStat) {
@@ -306,10 +302,10 @@ async function ensureTeamSeasonStatsCornersAndCards(
       const yellowCards = stat?.yellowCards ?? cached?.yellowCards ?? 0;
       const redCards = stat?.redCards ?? cached?.redCards ?? 0;
       const xg = stat?.xg ?? cached?.xg ?? null;
-      // Statistics API returns this team's goals only; use when list/score fallback gave 0,0 (e.g. Championship).
-      const finalGoalsFor =
-        goalsFor > 0 || goalsAgainst > 0 ? goalsFor : (stat?.goals != null ? stat.goals : 0);
-      const finalGoalsAgainst = goalsFor > 0 || goalsAgainst > 0 ? goalsAgainst : 0;
+      // Use list/fallback score when we have it (including 0-0). Only use statistics API goals when score wasn't confirmed.
+      const scoreConfirmed = attemptedScoreFallback || goalsFor > 0 || goalsAgainst > 0;
+      const finalGoalsFor = scoreConfirmed ? goalsFor : (stat?.goals != null ? stat.goals : 0);
+      const finalGoalsAgainst = scoreConfirmed ? goalsAgainst : 0;
 
       await db.teamFixtureCache.upsert({
         where: {
