@@ -149,6 +149,42 @@ export async function GET(_request: Request, { params }: RouteParams) {
         { headers: { "Cache-Control": "public, max-age=3600" } },
       );
     }
+    // No cache and match ended: one API call to get final score so we don't show 0-0
+    try {
+      const result = await fetchLiveFixture(fixture.apiId);
+      if (result && isMatchEnded(result.statusShort)) {
+        await prisma.liveScoreCache.upsert({
+          where: { fixtureId },
+          create: {
+            fixtureId,
+            homeGoals: result.homeGoals,
+            awayGoals: result.awayGoals,
+            elapsedMinutes: result.elapsedMinutes,
+            statusShort: result.statusShort,
+            cachedAt: now,
+          },
+          update: {
+            homeGoals: result.homeGoals,
+            awayGoals: result.awayGoals,
+            elapsedMinutes: result.elapsedMinutes,
+            statusShort: result.statusShort,
+            cachedAt: now,
+          },
+        });
+        return NextResponse.json(
+          {
+            live: true,
+            homeGoals: result.homeGoals,
+            awayGoals: result.awayGoals,
+            elapsedMinutes: result.elapsedMinutes,
+            statusShort: result.statusShort,
+          },
+          { headers: { "Cache-Control": "public, max-age=3600" } },
+        );
+      }
+    } catch (err) {
+      console.error("[live] Failed to fetch final score for ended fixture", fixtureId, err);
+    }
     return NextResponse.json(
       { live: true, homeGoals: 0, awayGoals: 0, elapsedMinutes: null, statusShort: "FT" },
       { headers: { "Cache-Control": "public, max-age=3600" } },

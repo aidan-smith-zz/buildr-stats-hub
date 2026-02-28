@@ -79,13 +79,7 @@ export default async function MatchdayInsightsPage({
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-3" />
         <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <NavLinkWithOverlay
-              href={fixturesHref}
-              className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-            >
-              ← Back to fixtures
-            </NavLinkWithOverlay>
+          <div className="flex items-center justify-end">
             <ShareUrlButton className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700" />
           </div>
           <div className="mt-3 flex items-center gap-3">
