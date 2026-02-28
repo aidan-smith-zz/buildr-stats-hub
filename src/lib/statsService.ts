@@ -116,6 +116,13 @@ async function ensureTeamSeasonStatsCornersAndCards(
   const resource = `teamSeasonCorners:${teamId}:${season}:${leagueKey}`;
 
   const { fixtureIds, goalsFor, goalsAgainst, played, fixtures: fixturesMeta } = await fetchTeamFixturesWithGoals(teamApiId, season, leagueId);
+  const now = new Date();
+  const pastFixtures = (fixturesMeta ?? []).filter((f) => f.date < now);
+  const pastFixtureIds = pastFixtures.map((f) => f.apiFixtureId);
+  const pastGoalsFor = pastFixtures.reduce((a, f) => a + f.goalsFor, 0);
+  const pastGoalsAgainst = pastFixtures.reduce((a, f) => a + f.goalsAgainst, 0);
+  const playedPast = pastFixtures.length;
+
   if (fixtureIds.length === 0) {
     console.warn("[statsService] fetchTeamFixturesWithGoals returned no fixtures (possible API plan limit)", {
       teamId,
@@ -125,10 +132,11 @@ async function ensureTeamSeasonStatsCornersAndCards(
       leagueId,
     });
   }
-  const minutesPlayed = played * 90;
+  /** Season per-match uses only past fixtures (match date in the past). */
+  const minutesPlayed = playedPast * 90;
 
-  const limit = Math.min(fixtureIds.length, MAX_FIXTURES_PER_SEASON);
-  const fixtureIdsToProcess = fixtureIds.slice(0, limit);
+  const limit = Math.min(pastFixtureIds.length, MAX_FIXTURES_PER_SEASON);
+  const fixtureIdsToProcess = pastFixtureIds.slice(0, limit);
 
   type CachedFixtureStats = {
     apiFixtureId: string;
@@ -189,8 +197,8 @@ async function ensureTeamSeasonStatsCornersAndCards(
         league: leagueKey,
         leagueId,
         minutesPlayed,
-        goalsFor,
-        goalsAgainst,
+        goalsFor: pastGoalsFor,
+        goalsAgainst: pastGoalsAgainst,
         xgFor,
         corners,
         yellowCards,
@@ -198,8 +206,8 @@ async function ensureTeamSeasonStatsCornersAndCards(
       },
       update: {
         minutesPlayed,
-        goalsFor,
-        goalsAgainst,
+        goalsFor: pastGoalsFor,
+        goalsAgainst: pastGoalsAgainst,
         xgFor,
         corners,
         yellowCards,
@@ -224,9 +232,9 @@ async function ensureTeamSeasonStatsCornersAndCards(
       teamId,
       season,
       leagueKey,
-      goalsFor,
-      goalsAgainst,
-      played,
+      goalsFor: pastGoalsFor,
+      goalsAgainst: pastGoalsAgainst,
+      played: playedPast,
       cacheRowsUsed: partialCacheRows.length,
     });
   }
@@ -247,8 +255,8 @@ async function ensureTeamSeasonStatsCornersAndCards(
       await upsertTeamSeasonStatsFromCache(partialCacheRows);
       return { done: false };
     }
-    const apiFixtureId = String(fixtureIds[i]);
-    const meta = fixturesMeta[i];
+    const apiFixtureId = String(fixtureIdsToProcess[i]);
+    const meta = pastFixtures[i];
     const cached = cacheByApiFixtureId.get(apiFixtureId);
 
     const needsGoalsFallback =
@@ -270,7 +278,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
           if (apiCallsThisInvocation > 0) await sleep(FIXTURE_STATS_DELAY_MS);
           apiCallsThisInvocation++;
           attemptedScoreFallback = true;
-          const scoreWithTeams = await fetchFixtureScoreWithTeams(fixtureIds[i]);
+          const scoreWithTeams = await fetchFixtureScoreWithTeams(fixtureIdsToProcess[i]);
           if (scoreWithTeams) {
             const teamIdNum = Number(teamApiId);
             if (scoreWithTeams.homeTeamId === teamIdNum) {
@@ -293,7 +301,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
         if (apiCallsThisInvocation > 0) await sleep(FIXTURE_STATS_DELAY_MS);
         apiCallsThisInvocation++;
       }
-      const stat = shouldFetchStat ? await fetchFixtureStatistics(fixtureIds[i], teamApiId) : null;
+      const stat = shouldFetchStat ? await fetchFixtureStatistics(fixtureIdsToProcess[i], teamApiId) : null;
       const corners = stat?.corners ?? cached?.corners ?? 0;
       const yellowCards = stat?.yellowCards ?? cached?.yellowCards ?? 0;
       const redCards = stat?.redCards ?? cached?.redCards ?? 0;
@@ -374,8 +382,8 @@ async function ensureTeamSeasonStatsCornersAndCards(
       league: leagueKey,
       leagueId,
       minutesPlayed,
-      goalsFor,
-      goalsAgainst,
+      goalsFor: pastGoalsFor,
+      goalsAgainst: pastGoalsAgainst,
       xgFor,
       corners,
       yellowCards,
@@ -383,8 +391,8 @@ async function ensureTeamSeasonStatsCornersAndCards(
     },
     update: {
       minutesPlayed,
-      goalsFor,
-      goalsAgainst,
+      goalsFor: pastGoalsFor,
+      goalsAgainst: pastGoalsAgainst,
       xgFor,
       corners,
       yellowCards,
@@ -828,13 +836,34 @@ export async function getFixtureStats(
     orderBy: { fixtureDate: "desc" },
     take: 5,
   });
+  /** Season stats: only past fixtures (exclude future cache rows). */
+  const pastSeasonHomeQuery = db.teamFixtureCache.findMany({
+    where: {
+      teamId: fixture.homeTeamId,
+      season: API_SEASON,
+      league: canonicalLeagueKey,
+      fixtureDate: { lt: now },
+    },
+    select: { goalsFor: true, goalsAgainst: true, corners: true, yellowCards: true, redCards: true, xg: true },
+  });
+  const pastSeasonAwayQuery = db.teamFixtureCache.findMany({
+    where: {
+      teamId: fixture.awayTeamId,
+      season: API_SEASON,
+      league: canonicalLeagueKey,
+      fixtureDate: { lt: now },
+    },
+    select: { goalsFor: true, goalsAgainst: true, corners: true, yellowCards: true, redCards: true, xg: true },
+  });
   const lineupQuery = hadLineup ? Promise.resolve(lineupByTeamInitial) : getLineupForFixture(fixture.id);
 
-  let [stats, teamSeasonRows, last5Home, last5Away, lineupByTeamRes] = await Promise.all([
+  let [stats, teamSeasonRows, last5Home, last5Away, pastSeasonHome, pastSeasonAway, lineupByTeamRes] = await Promise.all([
     playerStatsQuery,
     teamSeasonRowsQuery,
     last5HomeQuery,
     last5AwayQuery,
+    pastSeasonHomeQuery,
+    pastSeasonAwayQuery,
     lineupQuery,
   ]);
 
@@ -889,6 +918,27 @@ export async function getFixtureStats(
   };
   const homeRow = pickBestForTeam(fixture.homeTeamId);
   const awayRow = pickBestForTeam(fixture.awayTeamId);
+
+  /** Build season row from cache (past fixtures only). Used so display never includes future cache rows. */
+  type CacheSeasonRow = { minutesPlayed: number; goalsFor: number; goalsAgainst: number; corners: number; yellowCards: number; redCards: number; xgFor: number | null };
+  const fromPastCacheToSeasonRow = (
+    rows: { goalsFor: number; goalsAgainst: number; corners: number; yellowCards: number; redCards: number; xg: number | null }[]
+  ): CacheSeasonRow | null => {
+    if (rows.length === 0) return null;
+    const xgVals = rows.filter((r) => r.xg != null).map((r) => r.xg!);
+    return {
+      minutesPlayed: rows.length * 90,
+      goalsFor: rows.reduce((a, r) => a + r.goalsFor, 0),
+      goalsAgainst: rows.reduce((a, r) => a + r.goalsAgainst, 0),
+      corners: rows.reduce((a, r) => a + r.corners, 0),
+      yellowCards: rows.reduce((a, r) => a + r.yellowCards, 0),
+      redCards: rows.reduce((a, r) => a + r.redCards, 0),
+      xgFor: xgVals.length > 0 ? xgVals.reduce((a, b) => a + b, 0) : null,
+    };
+  };
+  const homeSeasonRow: CacheSeasonRow | (typeof homeRow) = fromPastCacheToSeasonRow(pastSeasonHome) ?? homeRow;
+  const awaySeasonRow: CacheSeasonRow | (typeof awayRow) = fromPastCacheToSeasonRow(pastSeasonAway) ?? awayRow;
+
   const lineupByTeam = lineupByTeamRes;
 
   const byTeam = new Map<
@@ -1069,8 +1119,8 @@ export async function getFixtureStats(
     ];
   }
 
-  /** Season totals (this season only) -> average per match. */
-  function rowToPerMatch(row: typeof homeRow): TeamStatsPer90 {
+  /** Season totals (this season only) -> average per match. Uses past-only cache when available so future fixtures are never included. */
+  function rowToPerMatch(row: typeof homeSeasonRow): TeamStatsPer90 {
     if (!row) {
       return { xgPer90: null, goalsPer90: 0, concededPer90: 0, cornersPer90: 0, cardsPer90: 0 };
     }
@@ -1087,13 +1137,13 @@ export async function getFixtureStats(
     };
   }
 
-  const homePerMatch = rowToPerMatch(homeRow);
-  const awayPerMatch = rowToPerMatch(awayRow);
+  const homePerMatch = rowToPerMatch(homeSeasonRow);
+  const awayPerMatch = rowToPerMatch(awaySeasonRow);
   const hasMeaningfulStats = (t: TeamStatsPer90) =>
     t.goalsPer90 > 0 || t.concededPer90 > 0 || t.cornersPer90 > 0 || t.cardsPer90 > 0 || t.xgPer90 != null;
   // Don't show team stats when both sides are all zeros (e.g. API plan limit returned no fixture/statistics data).
   const teamStats: FixtureStatsResponse["teamStats"] =
-    (homeRow || awayRow) && (hasMeaningfulStats(homePerMatch) || hasMeaningfulStats(awayPerMatch))
+    (homeSeasonRow || awaySeasonRow) && (hasMeaningfulStats(homePerMatch) || hasMeaningfulStats(awayPerMatch))
       ? { home: homePerMatch, away: awayPerMatch }
       : undefined;
 
@@ -1123,7 +1173,7 @@ export async function getFixtureStats(
   const hasLineup = lineupByTeam.size > 0;
 
   const teamStatsUnavailableReason =
-    (homeRow || awayRow) && !teamStats
+    (homeSeasonRow || awaySeasonRow) && !teamStats
       ? "Season stats are not available for this competition yet."
       : undefined;
 
