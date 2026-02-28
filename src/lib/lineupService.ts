@@ -3,20 +3,23 @@ import { fetchFixtureLineups } from "@/lib/footballApi";
 import type { LineupStatus as PrismaLineupStatus } from "@prisma/client";
 
 const WINDOW_MINUTES_BEFORE_KICKOFF = 30;
+/** After kickoff: still fetch lineup when someone hits /live and lineup wasn't fetched pre-kickoff. */
+const WINDOW_MINUTES_AFTER_KICKOFF = 120;
 
 /**
- * Only fetch lineup from API when: kickoffTime - 30min <= now <= kickoffTime.
- * Returns true if we're in that window.
+ * Fetch lineup when: (kickoff - 30min <= now <= kickoff) OR (kickoff <= now <= kickoff + 2h).
+ * Pre-kickoff: usual window. During/after match: so /live can trigger lineup fetch if missing.
  */
 export function isWithinLineupFetchWindow(kickoffTime: Date, now: Date = new Date()): boolean {
   const start = new Date(kickoffTime.getTime() - WINDOW_MINUTES_BEFORE_KICKOFF * 60 * 1000);
-  return now >= start && now <= kickoffTime;
+  const end = new Date(kickoffTime.getTime() + WINDOW_MINUTES_AFTER_KICKOFF * 60 * 1000);
+  return (now >= start && now <= kickoffTime) || (now >= kickoffTime && now <= end);
 }
 
 /**
  * If lineup already exists in DB for this fixture, do nothing.
- * If lineup does NOT exist and we're within 30 mins of kickoff, fetch once from API and store.
- * Never refetches once lineup exists. No polling/cron.
+ * If lineup does NOT exist and we're within the fetch window (30 min before kickoff, or up to 2h after kickoff), fetch once from API and store.
+ * Never refetches once lineup exists. No polling/cron. /live visits during the match can trigger this.
  */
 export async function ensureLineupIfWithinWindow(
   fixtureId: number,
