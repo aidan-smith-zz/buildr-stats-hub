@@ -23,7 +23,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: "Football Stats | Bet Builder Analytics",
   description: "View today's football fixtures and player statistics. See goals, assists, tackles and more before you build your bet.",
-  keywords: ["football stats", "bet builder", "fixtures", "player statistics", "Premier League", "Championship"],
+  keywords: ["football stats", "bet builder", "fixtures", "player statistics", "Premier League", "Championship", "xG", "corners", "cards", "match preview", "statsBuildr"],
+  robots: { index: true, follow: true },
   icons: {
     icon: [
       { url: "/stats-buildr.png", type: "image/png", sizes: "32x32" },
@@ -36,7 +37,7 @@ export const metadata: Metadata = {
     description: "Today's fixtures and player stats. See the numbers before you build your bet.",
     url: siteUrl,
     siteName: "statsBuildr",
-    images: [{ url: "/stats-buildr.png", width: 512, height: 160, alt: "statsBuildr" }],
+    images: [{ url: "/stats-buildr.png", width: 512, height: 160, alt: "statsBuildr – Football stats and bet builder analytics" }],
     locale: "en_GB",
     type: "website",
   },
