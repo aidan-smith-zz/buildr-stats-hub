@@ -302,7 +302,7 @@ export function TodayFixturesList({
                 {!hasTomorrowFixtures ? (
                   <div className="rounded-2xl border border-neutral-200 bg-white p-10 text-center shadow-sm dark:border-neutral-800 dark:border-neutral-900">
                     <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                      No fixtures for tomorrow in the selected leagues.
+                      No fixtures avaiable for tomorrow yet.
                     </p>
                   </div>
                 ) : tomorrowLeagueGroups ? (
