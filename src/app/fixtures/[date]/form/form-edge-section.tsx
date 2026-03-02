@@ -203,7 +203,7 @@ export function FormEdgeSection({ fixtures, last10, season, dateContext = "today
               {noDataRows.length > 0 && (
                 <div className="mt-6 space-y-2">
                   <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-                    Fixtures (no form data yet — warm to see edge)
+                    Fixtures (no form data yet)
                   </p>
                   {noDataGroups ? (
                     <div className="space-y-6">
