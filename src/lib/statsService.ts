@@ -1196,8 +1196,8 @@ export async function getFixtureStats(
   const last5Goals: FixtureStatsResponse["last5Goals"] =
     last5Home.length > 0 || last5Away.length > 0
       ? {
-          home: last5Home.map((m) => ({ goalsFor: m.goalsFor, goalsAgainst: m.goalsAgainst })),
-          away: last5Away.map((m) => ({ goalsFor: m.goalsFor, goalsAgainst: m.goalsAgainst })),
+          home: last5Home.map((m: { goalsFor: number; goalsAgainst: number }) => ({ goalsFor: m.goalsFor, goalsAgainst: m.goalsAgainst })),
+          away: last5Away.map((m: { goalsFor: number; goalsAgainst: number }) => ({ goalsFor: m.goalsFor, goalsAgainst: m.goalsAgainst })),
         }
       : undefined;
 
