@@ -176,14 +176,32 @@ export type UpcomingFixtureWithCrests = RawFixture & {
 export type UpcomingFixtureByDate = { dateKey: string; fixtures: UpcomingFixtureWithCrests[] };
 
 /**
- * Get upcoming fixtures from DB (next 14 days). Returns grouped by dateKey with team crest URLs. Empty if table not yet populated.
+ * Get upcoming fixtures from DB for roughly the next 14 days.
+ *
+ * If the UpcomingFixture table doesn't yet have rows covering the full 14‑day
+ * horizon (for example, warm-today hasn't been run recently), this will first
+ * refresh the table from the API and then re-read it. That way the Upcoming
+ * page always tries to show a full 14‑day window.
  */
 export async function getUpcomingFixturesFromDb(): Promise<UpcomingFixtureByDate[]> {
   const today = todayDateKey();
-  const rows = await prisma.upcomingFixture.findMany({
+
+  let rows = await prisma.upcomingFixture.findMany({
     where: { dateKey: { gte: today } },
     orderBy: [{ dateKey: "asc" }, { kickoff: "asc" }],
   });
+
+  // Ensure we have coverage up to ~14 days ahead. If our max dateKey is before
+  // the target end date, refresh the UpcomingFixture table once and re-query.
+  const targetEndKey = nextDateKeys(14).slice(-1)[0] ?? today;
+  const maxExistingKey = rows.length > 0 ? rows[rows.length - 1]!.dateKey : null;
+  if (!maxExistingKey || maxExistingKey < targetEndKey) {
+    await refreshUpcomingFixturesTable(new Date());
+    rows = await prisma.upcomingFixture.findMany({
+      where: { dateKey: { gte: today } },
+      orderBy: [{ dateKey: "asc" }, { kickoff: "asc" }],
+    });
+  }
   const apiIds = [...new Set(rows.flatMap((r) => [r.homeTeamApiId, r.awayTeamApiId]))];
   const teams = await prisma.team.findMany({
     where: { apiId: { in: apiIds } },

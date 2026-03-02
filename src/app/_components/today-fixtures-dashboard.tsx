@@ -119,8 +119,10 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
   const [sortBy, setSortBy] = useState<PlayerSortKey>("goals");
   const [activeTab, setActiveTab] = useState<"home" | "away">("home");
   const [lineupTab, setLineupTab] = useState<"home" | "away">("home");
+  const [detailTab, setDetailTab] = useState<"team" | "players" | "lineups">("team");
   const [shareLabel, setShareLabel] = useState<"Share" | "…" | "Copied!" | "Shared!">("Share");
   const [teamStatsView, setTeamStatsView] = useState<"season" | "last5">("season");
+  const [betFilter, setBetFilter] = useState<"over15" | "over25" | "btts">("over15");
   const [liveScore, setLiveScore] = useState<{
     homeGoals: number;
     awayGoals: number;
@@ -173,6 +175,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
   useEffect(() => {
     setActiveTab("home");
     setLineupTab("home");
+    setDetailTab("team");
   }, [selectedId]);
 
   // Sync from URL when initialSelectedId changes (e.g. client nav to another match)
@@ -548,413 +551,647 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
         </div>
       )}
 
-      {/* Team Stats – hide completely if request failed or no team stats. Show reason when stats unavailable. */}
-      {selectedId && !error && (loading || stats?.teamStats || stats?.teamStatsUnavailableReason) && (
-        <section className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-6 p-4">
-          {loading ? null : stats?.teamStats ? (
-            <>
-              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-4 dark:border-neutral-800">
-                <div>
-                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                    Team Stats
-                  </h2>
-                  <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                    {teamStatsView === "season"
-                      ? `Season ${stats.fixture.season}: average per match`
-                      : "Last 5 matches: average per match"}
-                  </p>
-                </div>
-                <select
-                  value={teamStatsView}
-                  onChange={(e) => setTeamStatsView(e.target.value as "season" | "last5")}
-                  className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 shadow-sm focus:border-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:focus:border-neutral-500 dark:focus:ring-neutral-500"
-                  aria-label="Team stats view"
-                >
-                  <option value="season">Season</option>
-                  <option value="last5" disabled={!stats.teamStatsLast5}>
-                    Last 5 matches
-                  </option>
-                </select>
-              </header>
-              <div className="overflow-x-auto rounded-b-lg border border-t-0 border-neutral-200 bg-neutral-50/50 dark:border-neutral-800 dark:bg-neutral-900/50">
-                <table className="w-full min-w-[26rem] text-sm">
-                  <thead>
-                    <tr className="border-b border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900/80">
-                      <th className="py-3 pl-4 pr-3 text-left text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                        Team
-                      </th>
-                      <th className="py-3 px-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                        xG
-                      </th>
-                      <th className="py-3 px-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                        Goals
-                      </th>
-                      <th className="py-3 px-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                        Conceded
-                      </th>
-                      <th className="py-3 px-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                        Corners
-                      </th>
-                      <th className="py-3 pr-4 pl-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                        Cards
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      {/* Combined stats / players / lineup tile with tabs */}
+      {selectedId && !error && (loading || stats) && (
+        <section className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+          {!loading && (
+            <header className="border-b border-neutral-200 px-4 pt-4 pb-3 dark:border-neutral-800 sm:px-6">
+              <div
+                className="inline-flex gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800/60"
+                role="tablist"
+                aria-label="Match details"
+              >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailTab === "team"}
+                onClick={() => setDetailTab("team")}
+                className={`min-w-[5.5rem] rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+                  detailTab === "team"
+                    ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-900 dark:text-neutral-50"
+                    : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                }`}
+              >
+                Team stats
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailTab === "players"}
+                onClick={() => setDetailTab("players")}
+                className={`min-w-[5.5rem] rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+                  detailTab === "players"
+                    ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-900 dark:text-neutral-50"
+                    : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                }`}
+              >
+                Player stats
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailTab === "lineups"}
+                onClick={() => !loading && stats?.hasLineup && stats.teams?.length >= 2 && setDetailTab("lineups")}
+                disabled={loading || !stats?.hasLineup || !(stats.teams?.length >= 2)}
+                className={`min-w-[5.5rem] rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+                  detailTab === "lineups"
+                    ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-900 dark:text-neutral-50"
+                    : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                } ${loading || !stats?.hasLineup || !(stats.teams?.length >= 2) ? "opacity-60 cursor-not-allowed" : ""}`}
+              >
+                Line-ups
+              </button>
+            </div>
+          </header>
+          )}
+
+          <div className="p-4 sm:p-6">
+            {/* Team stats panel */}
+            {detailTab === "team" && (
+              <>
+                {loading || !stats ? null : stats.teamStats ? (
+                  <>
+                    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-4 dark:border-neutral-800">
+                      <div>
+                        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                          Team Stats
+                        </h2>
+                        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                          {teamStatsView === "season"
+                            ? `Season ${stats.fixture.season}: average per match`
+                            : "Last 5 matches: average per match"}
+                        </p>
+                      </div>
+                      <select
+                        value={teamStatsView}
+                        onChange={(e) => setTeamStatsView(e.target.value as "season" | "last5")}
+                        className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 shadow-sm focus:border-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:focus:border-neutral-500 dark:focus:ring-neutral-500"
+                        aria-label="Team stats view"
+                      >
+                        <option value="season">Season</option>
+                        <option value="last5" disabled={!stats.teamStatsLast5}>
+                          Last 5 matches
+                        </option>
+                      </select>
+                    </header>
                     {(() => {
-                      const data = teamStatsView === "last5" && stats.teamStatsLast5 ? stats.teamStatsLast5 : stats.teamStats;
+                      const data =
+                        teamStatsView === "last5" && stats.teamStatsLast5
+                          ? stats.teamStatsLast5
+                          : stats.teamStats;
+                      const homeCrest = stats.fixture.homeTeam.crestUrl;
+                      const awayCrest = stats.fixture.awayTeam.crestUrl;
+                      const homeName = stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home";
+                      const awayName = stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away";
+                      const statRows: { label: string; home: string; away: string }[] = [
+                        { label: "xG", home: data.home.xgPer90 != null ? data.home.xgPer90.toFixed(2) : "—", away: data.away.xgPer90 != null ? data.away.xgPer90.toFixed(2) : "—" },
+                        { label: "Goals", home: data.home.goalsPer90.toFixed(2), away: data.away.goalsPer90.toFixed(2) },
+                        { label: "Conceded", home: data.home.concededPer90.toFixed(2), away: data.away.concededPer90.toFixed(2) },
+                        { label: "Corners", home: data.home.cornersPer90.toFixed(2), away: data.away.cornersPer90.toFixed(2) },
+                        { label: "Cards", home: data.home.cardsPer90.toFixed(2), away: data.away.cardsPer90.toFixed(2) },
+                      ];
                       return (
                         <>
-                          <tr className="bg-white transition-colors hover:bg-neutral-50/80 dark:bg-neutral-900/80 dark:hover:bg-neutral-800/50">
-                            <td className="py-3 pl-4 pr-3 font-medium text-neutral-900 dark:text-neutral-50">
-                              {stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
-                            </td>
-                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                              {data.home.xgPer90 != null ? data.home.xgPer90.toFixed(2) : "—"}
-                            </td>
-                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                              {data.home.goalsPer90.toFixed(2)}
-                            </td>
-                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                              {data.home.concededPer90.toFixed(2)}
-                            </td>
-                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                              {data.home.cornersPer90.toFixed(2)}
-                            </td>
-                            <td className="py-3 pr-4 pl-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                              {data.home.cardsPer90.toFixed(2)}
-                            </td>
-                          </tr>
-                          <tr className="bg-white transition-colors hover:bg-neutral-50/80 dark:bg-neutral-900/80 dark:hover:bg-neutral-800/50">
-                            <td className="py-3 pl-4 pr-3 font-medium text-neutral-900 dark:text-neutral-50">
-                              {stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
-                            </td>
-                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                              {data.away.xgPer90 != null ? data.away.xgPer90.toFixed(2) : "—"}
-                            </td>
-                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                              {data.away.goalsPer90.toFixed(2)}
-                            </td>
-                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                              {data.away.concededPer90.toFixed(2)}
-                            </td>
-                            <td className="py-3 px-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                              {data.away.cornersPer90.toFixed(2)}
-                            </td>
-                            <td className="py-3 pr-4 pl-3 text-right tabular-nums text-neutral-700 dark:text-neutral-300">
-                              {data.away.cardsPer90.toFixed(2)}
-                            </td>
-                          </tr>
+                          {/* Mobile: stacked team cards */}
+                          <div className="mt-4 flex flex-col gap-4 sm:hidden">
+                            <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-700 dark:bg-neutral-900/80">
+                              <div className="mb-4 flex items-center gap-3">
+                                <TeamCrestOrShirt crestUrl={homeCrest} alt={homeName} size="sm" />
+                                <span className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+                                  {homeName}
+                                </span>
+                              </div>
+                              <dl className="space-y-2.5">
+                                {statRows.map(({ label, home }) => (
+                                  <div key={label} className="flex items-center justify-between gap-3 border-b border-neutral-100 py-2 last:border-0 dark:border-neutral-800">
+                                    <dt className="text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                                      {label}
+                                    </dt>
+                                    <dd className="tabular-nums text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                                      {home}
+                                    </dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            </div>
+                            <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-700 dark:bg-neutral-900/80">
+                              <div className="mb-4 flex items-center gap-3">
+                                <TeamCrestOrShirt crestUrl={awayCrest} alt={awayName} size="sm" />
+                                <span className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+                                  {awayName}
+                                </span>
+                              </div>
+                              <dl className="space-y-2.5">
+                                {statRows.map(({ label, away }) => (
+                                  <div key={label} className="flex items-center justify-between gap-3 border-b border-neutral-100 py-2 last:border-0 dark:border-neutral-800">
+                                    <dt className="text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                                      {label}
+                                    </dt>
+                                    <dd className="tabular-nums text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                                      {away}
+                                    </dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            </div>
+                          </div>
+                          {/* sm+: comparison table with sticky stat column */}
+                          <div className="mt-4 hidden overflow-x-auto rounded-b-lg border border-t-0 border-neutral-200 bg-neutral-50/50 dark:border-neutral-800 dark:bg-neutral-900/50 sm:block">
+                            <table className="w-full min-w-0 text-sm sm:table-fixed">
+                              <colgroup>
+                                <col className="w-[5.5rem] min-w-0 sm:w-28" />
+                                <col className="min-w-0" />
+                                <col className="min-w-0" />
+                              </colgroup>
+                              <thead>
+                                <tr className="border-b border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900/80">
+                                  <th className="sticky left-0 z-10 border-r border-neutral-200 bg-white py-3 pl-3 pr-2 text-left text-xs font-medium uppercase tracking-wider text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900/80 dark:text-neutral-400 sm:pl-4 sm:pr-3">
+                                    Stat
+                                  </th>
+                                  <th className="py-3 px-2 text-center text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400 sm:px-3">
+                                    {stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
+                                  </th>
+                                  <th className="py-3 pl-2 pr-3 text-center text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400 sm:pl-3">
+                                    {stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                                <tr className="bg-white dark:bg-neutral-900/80">
+                                  <td className="sticky left-0 z-10 border-r border-neutral-200 bg-white py-2.5 pl-3 pr-2 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900/80 dark:text-neutral-400 sm:pl-4 sm:pr-3">
+                                    Team
+                                  </td>
+                                  <td className="py-2.5 px-2 sm:px-3">
+                                    <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+                                      <TeamCrestOrShirt crestUrl={homeCrest} alt={homeName} size="sm" />
+                                      <span className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                                        {homeName}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="py-2.5 pl-2 pr-3 sm:pl-3">
+                                    <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+                                      <TeamCrestOrShirt crestUrl={awayCrest} alt={awayName} size="sm" />
+                                      <span className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                                        {awayName}
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {statRows.map(({ label, home, away }) => (
+                                  <tr
+                                    key={label}
+                                    className="bg-white transition-colors hover:bg-neutral-50/80 dark:bg-neutral-900/80 dark:hover:bg-neutral-800/50"
+                                  >
+                                    <td className="sticky left-0 z-10 border-r border-neutral-200 bg-white py-2.5 pl-3 pr-2 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900/80 dark:text-neutral-400 sm:pl-4 sm:pr-3">
+                                      {label}
+                                    </td>
+                                    <td className="py-2.5 px-2 text-center tabular-nums text-sm text-neutral-700 dark:text-neutral-300 sm:px-3">
+                                      {home}
+                                    </td>
+                                    <td className="py-2.5 pl-2 pr-3 text-center tabular-nums text-sm text-neutral-700 dark:text-neutral-300 sm:pl-3">
+                                      {away}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          {/* Bet-type last 5 form visualisation */}
+                          {stats.last5Goals && (stats.last5Goals.home.length > 0 || stats.last5Goals.away.length > 0) && (
+                            <section className="mt-6 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/60 p-3 text-xs dark:border-neutral-700 dark:bg-neutral-900/70 sm:p-4">
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                  <h3 className="text-[0.7rem] font-semibold uppercase tracking-wide text-neutral-700 dark:text-neutral-300 sm:text-xs">
+                                    Last 5 matches
+                                  </h3>
+                                  <p className="mt-0.5 text-[0.7rem] text-neutral-500 dark:text-neutral-500 sm:text-xs">
+                                    Green = selection landed, red = did not. Left to right: oldest → latest.
+                                  </p>
+                                </div>
+                                <div className="inline-flex rounded-md bg-white p-0.5 text-[0.7rem] shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-700 sm:text-xs">
+                                  {[
+                                    { id: "over15" as const, label: "Over 1.5 goals" },
+                                    { id: "over25" as const, label: "Over 2.5 goals" },
+                                    { id: "btts" as const, label: "Both teams score" },
+                                  ].map((option) => (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      onClick={() => setBetFilter(option.id)}
+                                      className={`whitespace-nowrap rounded-md px-2.5 py-1 font-medium transition-colors ${
+                                        betFilter === option.id
+                                          ? "bg-green-600 text-white shadow-sm dark:bg-green-500"
+                                          : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                                      }`}
+                                      aria-pressed={betFilter === option.id}
+                                    >
+                                      {option.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="mt-3 space-y-2.5 sm:mt-4">
+                                {[
+                                  {
+                                    key: "home" as const,
+                                    name: homeName,
+                                    crest: homeCrest,
+                                    matches: stats.last5Goals.home,
+                                  },
+                                  {
+                                    key: "away" as const,
+                                    name: awayName,
+                                    crest: awayCrest,
+                                    matches: stats.last5Goals.away,
+                                  },
+                                ].map((team) => (
+                                  <div key={team.key} className="flex items-center justify-between gap-3 sm:gap-4">
+                                    <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+                                      <TeamCrestOrShirt crestUrl={team.crest} alt={team.name} size="sm" />
+                                      <span className="truncate text-xs font-semibold text-neutral-800 dark:text-neutral-100 sm:text-sm">
+                                        {team.name}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-1 justify-end gap-1.5 sm:gap-2">
+                                      {[...team.matches].slice().reverse().map((match, index) => {
+                                        const totalGoals = match.goalsFor + match.goalsAgainst;
+                                        const landed =
+                                          betFilter === "over15"
+                                            ? totalGoals >= 2
+                                            : betFilter === "over25"
+                                              ? totalGoals >= 3
+                                              : match.goalsFor > 0 && match.goalsAgainst > 0;
+                                        const colorClass = landed
+                                          ? "bg-emerald-500 dark:bg-emerald-400"
+                                          : "bg-red-400 dark:bg-red-500";
+                                        const title =
+                                          `${team.name} ${match.goalsFor}-${match.goalsAgainst} (${totalGoals} goals) – ` +
+                                          (landed ? "selection landed" : "selection did not land");
+                                        return (
+                                          <span
+                                            key={index}
+                                            className={`h-3 w-3 rounded-sm sm:h-3.5 sm:w-3.5 ${colorClass}`}
+                                            title={title}
+                                            aria-label={title}
+                                          />
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+                          )}
+                          <div className="mt-6 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={handleShare}
+                              disabled={shareLabel === "…"}
+                              aria-busy={shareLabel === "…"}
+                              className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 disabled:pointer-events-none disabled:opacity-70 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:text-sm sm:px-4 sm:py-2"
+                            >
+                              {shareLabel}
+                            </button>
+                          </div>
                         </>
                       );
                     })()}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          ) : stats?.teamStatsUnavailableReason ? (
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              {stats.teamStatsUnavailableReason}
-            </p>
-          ) : null}
-        </section>
-      )}
+                  </>
+                ) : stats?.teamStatsUnavailableReason ? (
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                    {stats.teamStatsUnavailableReason}
+                  </p>
+                ) : null}
+              </>
+            )}
 
-      {/* Team lineups – only when lineup data has been retrieved */}
-      {selectedId && !error && stats?.hasLineup && stats.teams?.length >= 2 && (
-        <section className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-6 p-4">
-          <header className="border-b border-neutral-200 pb-4 dark:border-neutral-800">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-              Team lineups
-            </h2>
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              Starting XI and substitutes
-            </p>
-          </header>
-          <div className="mt-4 border-b border-neutral-200 dark:border-neutral-800">
-            <div className="flex gap-1" role="tablist" aria-label="Lineup team">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={lineupTab === "home"}
-                onClick={() => setLineupTab("home")}
-                className={`rounded-t-lg border border-b-0 px-4 py-3 text-sm font-medium transition-colors ${
-                  lineupTab === "home"
-                    ? "border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
-                    : "border-transparent bg-neutral-100/50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:bg-neutral-800/50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
-                }`}
-              >
-                {stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={lineupTab === "away"}
-                onClick={() => setLineupTab("away")}
-                className={`rounded-t-lg border border-b-0 px-4 py-3 text-sm font-medium transition-colors ${
-                  lineupTab === "away"
-                    ? "border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
-                    : "border-transparent bg-neutral-100/50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:bg-neutral-800/50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
-                }`}
-              >
-                {stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
-              </button>
-            </div>
-          </div>
-          <div className="rounded-b-lg border border-t-0 border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900/80">
-            {(() => {
-              const team = stats.teams[lineupTab === "home" ? 0 : 1];
-              const starting = team.players
-                .filter((p) => p.lineupStatus === "starting")
-                .sort(
-                  (a, b) =>
-                    lineupPositionOrder(a.position, a.shirtNumber) - lineupPositionOrder(b.position, b.shirtNumber) ||
-                    (a.shirtNumber ?? 99) - (b.shirtNumber ?? 99),
-                );
-              const subs = team.players
-                .filter((p) => p.lineupStatus === "substitute")
-                .sort(
-                  (a, b) =>
-                    lineupPositionOrder(a.position, a.shirtNumber) - lineupPositionOrder(b.position, b.shirtNumber) ||
-                    (a.shirtNumber ?? 99) - (b.shirtNumber ?? 99),
-                );
-              return (
-                <>
-                  <ul className="space-y-1 text-sm text-neutral-700 dark:text-neutral-300">
-                    {starting.map((p) => (
-                      <li key={p.playerId} className="flex items-baseline gap-2">
-                        <span className={`w-6 shrink-0 tabular-nums ${p.shirtNumber != null ? "text-neutral-500 dark:text-neutral-400" : "text-neutral-400 dark:text-neutral-500"}`}>
-                          {p.shirtNumber ?? "·"}
-                        </span>
-                        <span>
-                          {p.name}
-                          {p.position ? ` (${p.position})` : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  {subs.length > 0 && (
-                    <>
-                      <p className="mt-4 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                        Substitutes
-                      </p>
-                      <ul className="mt-1 space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
-                        {subs.map((p) => (
-                          <li key={p.playerId} className="flex items-baseline gap-2">
-                            <span className={`w-6 shrink-0 tabular-nums ${p.shirtNumber != null ? "text-neutral-500 dark:text-neutral-400" : "text-neutral-400 dark:text-neutral-500"}`}>
-                              {p.shirtNumber ?? "·"}
-                            </span>
-                            <span>
-                              {p.name}
-                              {p.position ? ` (${p.position})` : ""}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-        </section>
-      )}
-
-      {/* Player Stats – hide completely if request failed or no player data. Blank while loading. */}
-      {!error && (!selectedId || loading || (stats && stats.teams?.some((t) => (t.players?.length ?? 0) > 0))) && (
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-8">
-        {loading ? null : stats && stats.teams?.some((t) => (t.players?.length ?? 0) > 0) ? (
-          <div className="space-y-6">
-            <header className="flex flex-col gap-3 border-b border-neutral-200 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 dark:border-neutral-800">
-              <div>
-                <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                  Player Stats
-                </h2>
-                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                  Season {stats.fixture.season}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor="stats-sort" className="whitespace-nowrap text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                  View by
-                </label>
-                <select
-                  id="stats-sort"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as PlayerSortKey)}
-                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-500/20 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
-                >
-                  {SORT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </header>
-
-            {/* Home / Away tabs – stats.teams order is [home, away] */}
-            <div className="border-b border-neutral-200 dark:border-neutral-800">
-              <div className="flex gap-1" role="tablist" aria-label="Team">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "home"}
-                  onClick={() => setActiveTab("home")}
-                  className={`rounded-t-lg border border-b-0 px-4 py-3 text-sm font-medium transition-colors ${
-                    activeTab === "home"
-                      ? "border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
-                      : "border-transparent bg-neutral-100/50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:bg-neutral-800/50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
-                  }`}
-                >
-                  {stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "away"}
-                  onClick={() => setActiveTab("away")}
-                  className={`rounded-t-lg border border-b-0 px-4 py-3 text-sm font-medium transition-colors ${
-                    activeTab === "away"
-                      ? "border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
-                      : "border-transparent bg-neutral-100/50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:bg-neutral-800/50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
-                  }`}
-                >
-                  {stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
-                </button>
-              </div>
-            </div>
-            <div className="flex max-h-[28rem] flex-col gap-2 overflow-y-auto rounded-b-lg border border-neutral-200 border-t-0 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
-              {(() => {
-                const teamIndex = activeTab === "home" ? 0 : 1;
-                const team = stats.teams[teamIndex];
-                if (!team) return null;
-                const sortedPlayers = [...team.players].sort(
-                  (a, b) => (Number(b[sortBy]) ?? 0) - (Number(a[sortBy]) ?? 0)
-                );
-                const teamCrestUrl =
-                  team.teamId === stats.fixture.homeTeam.id
-                    ? stats.fixture.homeTeam.crestUrl
-                    : stats.fixture.awayTeam.crestUrl;
-                const teamCrestAlt = team.teamShortName ?? team.teamName;
-
-                if (sortedPlayers.length === 0) {
-                  return (
-                    <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center dark:border-neutral-800 dark:bg-neutral-900">
-                      <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                        No player statistics available for this team.
-                      </p>
-                    </div>
-                  );
-                }
-                return sortedPlayers.map((player, index) => {
-                  const isTop = index === 0;
-                  const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? sortBy;
-                  const displayLabel = sortBy === "shotsOnTarget" ? "SoT" : sortLabel;
-                  const sortValue = player[sortBy];
-                  const numValue = Number(sortValue) ?? 0;
-                  const minutes = player.minutes ?? 0;
-                  const per90 = minutes > 0 ? (numValue / minutes) * 90 : 0;
-                  const per90Label = `${displayLabel}/90min`;
-                  const lineupStatus = player.lineupStatus ?? null;
-                  const hasLineup = stats.hasLineup === true;
-                  const isNotInvolved = hasLineup && lineupStatus === null;
-
-                  const lineupPill =
-                    lineupStatus === "starting" ? (
-                      <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/50 dark:text-green-300">
-                        STARTING
-                      </span>
-                    ) : lineupStatus === "substitute" ? (
-                      <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
-                        SUB
-                      </span>
-                    ) : isNotInvolved ? (
-                      <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
-                        NOT INVOLVED
-                      </span>
-                    ) : null;
-
-                  return (
-                    <div
-                      key={player.playerId}
-                      className={`group rounded-lg border px-4 py-3 transition-all hover:shadow-sm ${
-                        isNotInvolved
-                          ? "border-neutral-200 bg-neutral-50/80 opacity-75 dark:border-neutral-800 dark:bg-neutral-900/60"
-                          : isTop
-                            ? "border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/30"
-                            : "border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
+            {/* Lineups panel */}
+            {detailTab === "lineups" && stats && stats.hasLineup && stats.teams?.length >= 2 && (
+              <section aria-label="Team lineups">
+                <header className="border-b border-neutral-200 pb-4 dark:border-neutral-800">
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                    Team lineups
+                  </h2>
+                  <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                    Starting XI and substitutes
+                  </p>
+                </header>
+                <div className="mt-4 border-b border-neutral-200 dark:border-neutral-800">
+                  <div className="flex gap-1" role="tablist" aria-label="Lineup team">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={lineupTab === "home"}
+                      onClick={() => setLineupTab("home")}
+                      className={`rounded-t-lg border border-b-0 px-4 py-3 text-sm font-medium transition-colors ${
+                        lineupTab === "home"
+                          ? "border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+                          : "border-transparent bg-neutral-100/50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:bg-neutral-800/50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex flex-1 min-w-0 items-start gap-3">
-                          <TeamCrestOrShirt
-                            crestUrl={teamCrestUrl}
-                            alt={teamCrestAlt}
-                            size="sm"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h4 className={`font-semibold ${isNotInvolved ? "text-neutral-500 dark:text-neutral-400" : "text-neutral-900 dark:text-neutral-50"}`}>
-                                {player.name}
-                              </h4>
-                              {lineupPill}
-                            </div>
-                            {player.position && (
-                              <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-                                {player.position}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-shrink-0 flex-col items-end gap-1 text-right">
-                          <div className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                            <span className={isNotInvolved ? "text-neutral-500 dark:text-neutral-400" : "text-neutral-900 dark:text-neutral-50"}>
-                              {minutes > 0 ? per90.toFixed(2) : "0.00"}
-                            </span>
-                            <span className="ml-1 text-neutral-400">{per90Label}</span>
-                          </div>
-                        </div>
+                      {stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={lineupTab === "away"}
+                      onClick={() => setLineupTab("away")}
+                      className={`rounded-t-lg border border-b-0 px-4 py-3 text-sm font-medium transition-colors ${
+                        lineupTab === "away"
+                          ? "border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+                          : "border-transparent bg-neutral-100/50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:bg-neutral-800/50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
+                      }`}
+                    >
+                      {stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
+                    </button>
+                  </div>
+                </div>
+                <div className="rounded-b-lg border border-t-0 border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900/80">
+                  {(() => {
+                    const team = stats.teams[lineupTab === "home" ? 0 : 1];
+                    const starting = team.players
+                      .filter((p) => p.lineupStatus === "starting")
+                      .sort(
+                        (a, b) =>
+                          lineupPositionOrder(a.position, a.shirtNumber) -
+                            lineupPositionOrder(b.position, b.shirtNumber) ||
+                          (a.shirtNumber ?? 99) - (b.shirtNumber ?? 99),
+                      );
+                    const subs = team.players
+                      .filter((p) => p.lineupStatus === "substitute")
+                      .sort(
+                        (a, b) =>
+                          lineupPositionOrder(a.position, a.shirtNumber) -
+                            lineupPositionOrder(b.position, b.shirtNumber) ||
+                          (a.shirtNumber ?? 99) - (b.shirtNumber ?? 99),
+                      );
+                    return (
+                      <>
+                        <ul className="space-y-1 text-sm text-neutral-700 dark:text-neutral-300">
+                          {starting.map((p) => (
+                            <li key={p.playerId} className="flex items-baseline gap-2">
+                              <span
+                                className={`w-6 shrink-0 tabular-nums ${
+                                  p.shirtNumber != null
+                                    ? "text-neutral-500 dark:text-neutral-400"
+                                    : "text-neutral-400 dark:text-neutral-500"
+                                }`}
+                              >
+                                {p.shirtNumber ?? "·"}
+                              </span>
+                              <span>
+                                {p.name}
+                                {p.position ? ` (${p.position})` : ""}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                        {subs.length > 0 && (
+                          <>
+                            <p className="mt-4 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                              Substitutes
+                            </p>
+                            <ul className="mt-1 space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+                              {subs.map((p) => (
+                                <li key={p.playerId} className="flex items-baseline gap-2">
+                                  <span
+                                    className={`w-6 shrink-0 tabular-nums ${
+                                      p.shirtNumber != null
+                                        ? "text-neutral-500 dark:text-neutral-400"
+                                        : "text-neutral-400 dark:text-neutral-500"
+                                    }`}
+                                  >
+                                    {p.shirtNumber ?? "·"}
+                                  </span>
+                                  <span>
+                                    {p.name}
+                                    {p.position ? ` (${p.position})` : ""}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </section>
+            )}
+
+            {/* Player stats panel */}
+            {detailTab === "players" && !error && stats && (
+              <>
+                {loading ? null : stats.teams?.some((t) => (t.players?.length ?? 0) > 0) ? (
+                  <div className="space-y-6">
+                    <header className="flex flex-col gap-3 border-b border-neutral-200 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 dark:border-neutral-800">
+                      <div>
+                        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                          Player Stats
+                        </h2>
+                        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                          Season {stats.fixture.season}
+                        </p>
                       </div>
-                      <div className={`mt-3 border-t pt-2 text-xs ${isNotInvolved ? "border-neutral-200 text-neutral-500 dark:border-neutral-800 dark:text-neutral-400" : "border-neutral-200 text-neutral-600 dark:border-neutral-800 dark:text-neutral-400"}`}>
-                        <span className="font-medium">Total {displayLabel}:</span>{" "}
-                        <span className={isNotInvolved ? "text-neutral-500 dark:text-neutral-400" : "text-neutral-900 dark:text-neutral-50"}>{Number(sortValue) ?? 0}</span>
+                      <div className="flex items-center gap-2">
+                        <label
+                          htmlFor="stats-sort"
+                          className="whitespace-nowrap text-sm font-medium text-neutral-700 dark:text-neutral-300"
+                        >
+                          View by
+                        </label>
+                        <select
+                          id="stats-sort"
+                          value={sortBy}
+                          onChange={(e) => setSortBy(e.target.value as PlayerSortKey)}
+                          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-500/20 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+                        >
+                          {SORT_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </header>
+
+                    {/* Home / Away tabs – stats.teams order is [home, away] */}
+                    <div className="border-b border-neutral-200 dark:border-neutral-800">
+                      <div className="flex gap-1" role="tablist" aria-label="Team">
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={activeTab === "home"}
+                          onClick={() => setActiveTab("home")}
+                          className={`rounded-t-lg border border-b-0 px-4 py-3 text-sm font-medium transition-colors ${
+                            activeTab === "home"
+                              ? "border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+                              : "border-transparent bg-neutral-100/50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:bg-neutral-800/50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
+                          }`}
+                        >
+                          {stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
+                        </button>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={activeTab === "away"}
+                          onClick={() => setActiveTab("away")}
+                          className={`rounded-t-lg border border-b-0 px-4 py-3 text-sm font-medium transition-colors ${
+                            activeTab === "away"
+                              ? "border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+                              : "border-transparent bg-neutral-100/50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:bg-neutral-800/50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
+                          }`}
+                        >
+                          {stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
+                        </button>
                       </div>
                     </div>
-                  );
-                });
-              })()}
-            </div>
+                    <div className="flex max-h-[28rem] flex-col gap-2 overflow-y-auto rounded-b-lg border border-neutral-200 border-t-0 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
+                      {(() => {
+                        const teamIndex = activeTab === "home" ? 0 : 1;
+                        const team = stats.teams[teamIndex];
+                        if (!team) return null;
+                        const sortedPlayers = [...team.players].sort(
+                          (a, b) => (Number(b[sortBy]) ?? 0) - (Number(a[sortBy]) ?? 0),
+                        );
+                        const teamCrestUrl =
+                          team.teamId === stats.fixture.homeTeam.id
+                            ? stats.fixture.homeTeam.crestUrl
+                            : stats.fixture.awayTeam.crestUrl;
+                        const teamCrestAlt = team.teamShortName ?? team.teamName;
 
-            <div className="border-t border-neutral-200 pt-4 dark:border-neutral-800">
-              <p className="mb-2 text-xs text-neutral-500 dark:text-neutral-400">
-                Share these stats:
-              </p>
-              <button
-                type="button"
-                onClick={handleShare}
-                disabled={shareLabel === "…"}
-                aria-busy={shareLabel === "…"}
-                className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-70 disabled:pointer-events-none dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
-              >
-                {shareLabel}
-              </button>
-            </div>
+                        if (sortedPlayers.length === 0) {
+                          return (
+                            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center dark:border-neutral-800 dark:bg-neutral-900">
+                              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                                No player statistics available for this team.
+                              </p>
+                            </div>
+                          );
+                        }
+                        return sortedPlayers.map((player, index) => {
+                          const isTop = index === 0;
+                          const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? sortBy;
+                          const displayLabel = sortBy === "shotsOnTarget" ? "SoT" : sortLabel;
+                          const sortValue = player[sortBy];
+                          const numValue = Number(sortValue) ?? 0;
+                          const minutes = player.minutes ?? 0;
+                          const per90 = minutes > 0 ? (numValue / minutes) * 90 : 0;
+                          const per90Label = `${displayLabel}/90min`;
+                          const lineupStatus = player.lineupStatus ?? null;
+                          const hasLineup = stats.hasLineup === true;
+                          const isNotInvolved = hasLineup && lineupStatus === null;
+
+                          const lineupPill =
+                            lineupStatus === "starting" ? (
+                              <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                                STARTING
+                              </span>
+                            ) : lineupStatus === "substitute" ? (
+                              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+                                SUB
+                              </span>
+                            ) : isNotInvolved ? (
+                              <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                                NOT INVOLVED
+                              </span>
+                            ) : null;
+
+                          return (
+                            <div
+                              key={player.playerId}
+                              className={`group rounded-lg border px-4 py-3 transition-all hover:shadow-sm ${
+                                isNotInvolved
+                                  ? "border-neutral-200 bg-neutral-50/80 opacity-75 dark:border-neutral-800 dark:bg-neutral-900/60"
+                                  : isTop
+                                    ? "border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/30"
+                                    : "border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex flex-1 min-w-0 items-start gap-3">
+                                  <TeamCrestOrShirt
+                                    crestUrl={teamCrestUrl}
+                                    alt={teamCrestAlt}
+                                    size="sm"
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <h4
+                                        className={`font-semibold ${
+                                          isNotInvolved
+                                            ? "text-neutral-500 dark:text-neutral-400"
+                                            : "text-neutral-900 dark:text-neutral-50"
+                                        }`}
+                                      >
+                                        {player.name}
+                                      </h4>
+                                      {lineupPill}
+                                    </div>
+                                    {player.position && (
+                                      <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                                        {player.position}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex flex-shrink-0 flex-col items-end gap-1 text-right">
+                                  <div className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                                    <span
+                                      className={
+                                        isNotInvolved
+                                          ? "text-neutral-500 dark:text-neutral-400"
+                                          : "text-neutral-900 dark:text-neutral-50"
+                                      }
+                                    >
+                                      {minutes > 0 ? per90.toFixed(2) : "0.00"}
+                                    </span>
+                                    <span className="ml-1 text-neutral-400">{per90Label}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div
+                                className={`mt-3 border-t pt-2 text-xs ${
+                                  isNotInvolved
+                                    ? "border-neutral-200 text-neutral-500 dark:border-neutral-800 dark:text-neutral-400"
+                                    : "border-neutral-200 text-neutral-600 dark:border-neutral-800 dark:text-neutral-400"
+                                }`}
+                              >
+                                <span className="font-medium">Total {displayLabel}:</span>{" "}
+                                <span
+                                  className={
+                                    isNotInvolved
+                                      ? "text-neutral-500 dark:text-neutral-400"
+                                      : "text-neutral-900 dark:text-neutral-50"
+                                  }
+                                >
+                                  {Number(sortValue) ?? 0}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                ) : stats?.teams?.length ? (
+                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-8 text-center dark:border-neutral-800 dark:bg-neutral-900/50">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                      Player statistics are not available for this competition. Team stats are shown above.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-8 text-center dark:border-neutral-800 dark:bg-neutral-900/50">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                      Select a fixture above to view season statistics for both teams.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
-        ) : stats?.teams?.length ? (
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-8 text-center dark:border-neutral-800 dark:bg-neutral-900/50">
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              Player statistics are not available for this competition. Team stats are shown above.
-            </p>
-          </div>
-        ) : (
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-8 text-center dark:border-neutral-800 dark:bg-neutral-900/50">
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              Select a fixture above to view season statistics for both teams.
-            </p>
-          </div>
-        )}
-      </section>
+        </section>
       )}
       </div>
     </div>

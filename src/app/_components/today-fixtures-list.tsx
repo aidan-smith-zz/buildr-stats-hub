@@ -2,7 +2,7 @@ import { FixtureRowLink, NavLinkWithOverlay } from "@/app/_components/fixture-ro
 import { TodayTomorrowTabs } from "@/app/_components/today-tomorrow-tabs";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
-import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { LEAGUE_DISPLAY_NAMES, LEAGUE_GROUP_ORDER, LEAGUE_ORDER, REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 
 const TIMEZONE = "Europe/London";
 
@@ -29,24 +29,6 @@ function formatKoTime(date: Date): string {
 
 /** statusShort values that mean the match has finished (don't show "Live" badge). */
 const LIVE_FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);
-
-/** Default order within each KO time: SPFL → EPL → Championship → League One → League Two → UCL → UEL → FA Cup. */
-const LEAGUE_ORDER: number[] = [179, 39, 40, 41, 42, 2, 3, 45];
-
-/** Order when grouping by league on busy days (many fixtures). */
-const LEAGUE_GROUP_ORDER: number[] = [39, 40, 179, 41, 42, 2, 3, 45];
-
-/** Consistent display names for competitions (professional, no acronyms). */
-const LEAGUE_DISPLAY_NAMES: Record<number, string> = {
-  39: "Premier League",
-  40: "Championship",
-  41: "League One",
-  42: "League Two",
-  2: "Champions League",
-  3: "Europa League",
-  179: "Scottish Premiership",
-  45: "FA Cup",
-};
 
 function leagueDisplayName(league: string | null, leagueId: number | null): string {
   if (leagueId != null && LEAGUE_DISPLAY_NAMES[leagueId]) return LEAGUE_DISPLAY_NAMES[leagueId];

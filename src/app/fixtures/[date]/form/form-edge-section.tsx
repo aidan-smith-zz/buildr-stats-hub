@@ -4,19 +4,9 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { FormEdgeFixture } from "@/lib/insightsService";
 import type { Last5TeamSummary } from "@/lib/insightsService";
+import { LEAGUE_DISPLAY_NAMES, LEAGUE_GROUP_ORDER } from "@/lib/leagues";
 
 /** Order when grouping by league (same as home page). */
-const LEAGUE_GROUP_ORDER: number[] = [39, 40, 179, 41, 42, 2, 3, 45];
-const LEAGUE_DISPLAY_NAMES: Record<number, string> = {
-  39: "Premier League",
-  40: "Championship",
-  41: "League One",
-  42: "League Two",
-  2: "Champions League",
-  3: "Europa League",
-  179: "Scottish Premiership",
-  45: "FA Cup",
-};
 function leagueGroupSortIndex(leagueId: number | null): number {
   if (leagueId == null) return LEAGUE_GROUP_ORDER.length;
   const i = LEAGUE_GROUP_ORDER.indexOf(leagueId);

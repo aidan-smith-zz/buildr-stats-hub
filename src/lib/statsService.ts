@@ -80,6 +80,11 @@ export type FixtureStatsResponse = {
     home: { goalsFor: number; goalsAgainst: number; matches: number };
     away: { goalsFor: number; goalsAgainst: number; matches: number };
   };
+  /** Last 5 fixtures per team with raw goal counts, used for bet-type form visualisation. */
+  last5Goals?: {
+    home: { goalsFor: number; goalsAgainst: number }[];
+    away: { goalsFor: number; goalsAgainst: number }[];
+  };
   /** Set when team stats exist in DB but are all zeros (e.g. API plan limit). UI can show an explanation. */
   teamStatsUnavailableReason?: string;
 };
@@ -552,6 +557,7 @@ const LEAGUE_ID_MAP: Record<string, number> = {
   "League Two": 42,
   "English League Two": 42,
   "EFL League Two": 42,
+  "Scottish Cup": 181,
 };
 
 export type WarmPartResult =
@@ -1187,6 +1193,14 @@ export async function getFixtureStats(
       ? { home: last5ToPerMatch(last5Home), away: last5ToPerMatch(last5Away) }
       : undefined;
 
+  const last5Goals: FixtureStatsResponse["last5Goals"] =
+    last5Home.length > 0 || last5Away.length > 0
+      ? {
+          home: last5Home.map((m) => ({ goalsFor: m.goalsFor, goalsAgainst: m.goalsAgainst })),
+          away: last5Away.map((m) => ({ goalsFor: m.goalsFor, goalsAgainst: m.goalsAgainst })),
+        }
+      : undefined;
+
   const hasLineup = lineupByTeam.size > 0;
 
   const teamStatsUnavailableReason =
@@ -1201,6 +1215,7 @@ export async function getFixtureStats(
     teamStats,
     teamStatsLast5,
     teamStatsTotals,
+    last5Goals,
     teamStatsUnavailableReason,
   };
 }
