@@ -75,6 +75,11 @@ export type FixtureStatsResponse = {
     home: TeamStatsPer90;
     away: TeamStatsPer90;
   };
+  /** Raw season totals used to compute teamStats (goalsFor / matches = goalsPer90). For debug/UI calculation display. */
+  teamStatsTotals?: {
+    home: { goalsFor: number; goalsAgainst: number; matches: number };
+    away: { goalsFor: number; goalsAgainst: number; matches: number };
+  };
   /** Set when team stats exist in DB but are all zeros (e.g. API plan limit). UI can show an explanation. */
   teamStatsUnavailableReason?: string;
 };
@@ -1143,6 +1148,22 @@ export async function getFixtureStats(
       ? { home: homePerMatch, away: awayPerMatch }
       : undefined;
 
+  const teamStatsTotals: FixtureStatsResponse["teamStatsTotals"] =
+    teamStats && homeSeasonRow && awaySeasonRow
+      ? {
+          home: {
+            goalsFor: homeSeasonRow.goalsFor,
+            goalsAgainst: homeSeasonRow.goalsAgainst,
+            matches: homeSeasonRow.minutesPlayed > 0 ? homeSeasonRow.minutesPlayed / 90 : 0,
+          },
+          away: {
+            goalsFor: awaySeasonRow.goalsFor,
+            goalsAgainst: awaySeasonRow.goalsAgainst,
+            matches: awaySeasonRow.minutesPlayed > 0 ? awaySeasonRow.minutesPlayed / 90 : 0,
+          },
+        }
+      : undefined;
+
   function last5ToPerMatch(rows: { goalsFor: number; goalsAgainst: number; xg: number | null; corners: number; yellowCards: number; redCards: number }[]): TeamStatsPer90 {
     if (rows.length === 0) return { xgPer90: null, goalsPer90: 0, concededPer90: 0, cornersPer90: 0, cardsPer90: 0 };
     const n = rows.length;
@@ -1179,6 +1200,7 @@ export async function getFixtureStats(
     teams,
     teamStats,
     teamStatsLast5,
+    teamStatsTotals,
     teamStatsUnavailableReason,
   };
 }

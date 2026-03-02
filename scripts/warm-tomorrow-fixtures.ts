@@ -11,8 +11,9 @@
  * That uses today's fixtures from the DB (no list refetch) and only warms fixtures that still need
  * player/team stats, so you only use API allowance for the remaining data.
  *
- * Usage: npm run warm-tomorrow              # Warm fixtures that need it
+ * Usage: npm run warm-tomorrow              # Warm fixtures that need it (stats older than 24h are re-warmed)
  *        npm run warm-tomorrow -- --force   # Re-warm all of tomorrow's fixtures
+ *        npm run warm-tomorrow -- --no-stale # Only warm if stats missing (ignore 24h staleness)
  * Optional: BASE_URL=https://your-app.vercel.app npm run warm-tomorrow
  */
 
@@ -142,15 +143,25 @@ function hasForceFlag(): boolean {
   return process.argv.slice(2).includes("--force");
 }
 
+function hasNoStaleFlag(): boolean {
+  const argv = process.argv.slice(2).map((a) => a.toLowerCase());
+  return argv.includes("--no-stale");
+}
+
 async function main() {
   const force = hasForceFlag();
+  const noStale = hasNoStaleFlag();
   if (force) {
     console.log("[warm-tomorrow] Force mode: re-warming all of tomorrow's fixtures.\n");
+  }
+  if (noStale) {
+    console.log("[warm-tomorrow] No-stale mode: only warming when stats are missing (staleHours=0).\n");
   }
   console.log("[warm-tomorrow] Fetching tomorrow's fixture list (from UpcomingFixture) ...\n");
 
   const params = new URLSearchParams();
   if (force) params.set("forceWarm", "1");
+  if (noStale) params.set("staleHours", "0");
   const listUrl = `${BASE_URL}/api/warm-tomorrow${params.toString() ? "?" + params.toString() : ""}`;
   const listRes = await fetch(listUrl, { cache: "no-store" });
   if (!listRes.ok) {
@@ -175,6 +186,9 @@ async function main() {
   if (fixtures.length === 0) {
     console.log("[warm-tomorrow]", listData.message ?? "No fixtures need warming. Done.");
     if (dateKey) console.log("[warm-tomorrow] Date:", dateKey, "(Europe/London)");
+    if ((listData as { staleHours?: number }).staleHours) {
+      console.log("[warm-tomorrow] Stats older than", (listData as { staleHours: number }).staleHours, "h are treated as needing refresh.");
+    }
     if (listData.hint) console.log("[warm-tomorrow]", listData.hint);
     return;
   }
@@ -183,6 +197,9 @@ async function main() {
     (f) => f.leagueId != null && LEAGUES_TEAM_STATS_ONLY.includes(f.leagueId)
   ).length;
   console.log("[warm-tomorrow]", listData.message ?? "");
+  if ((listData as { staleHours?: number }).staleHours) {
+    console.log("[warm-tomorrow] Stats older than", (listData as { staleHours: number }).staleHours, "h are treated as needing refresh.");
+  }
   if (listData.hint) {
     console.log("[warm-tomorrow]", listData.hint);
   }

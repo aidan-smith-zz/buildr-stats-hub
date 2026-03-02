@@ -6,17 +6,26 @@ import { nextDateKeys } from "@/lib/slugs";
 import { isTeamStatsOnlyLeague } from "@/lib/leagues";
 
 const MIN_PLAYERS_PER_TEAM = 11;
+/** Default: treat team/player stats as stale after this many hours so we re-warm for tomorrow. Use staleHours=0 to disable. */
+const DEFAULT_STALE_HOURS = 24;
 
 /**
  * GET /api/warm-tomorrow
  * Returns tomorrow's fixture IDs that need warming (player and team stats).
  * Uses UpcomingFixture for tomorrow's date; materializes into Fixture table so existing warm endpoints work.
- * Site behaviour is unchanged (only today's fixtures shown). Run the warm-tomorrow script to warm these.
  * - forceWarm=1: return all tomorrow's fixtures as needing warm.
+ * - staleHours=N: treat stats as needing refresh if older than N hours (default 24). Use 0 to only check presence.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const forceWarm = url.searchParams.get("forceWarm") === "1";
+  const staleHoursParam = url.searchParams.get("staleHours");
+  const staleHours =
+    staleHoursParam !== null && staleHoursParam !== ""
+      ? Math.max(0, parseInt(staleHoursParam, 10) || 0)
+      : DEFAULT_STALE_HOURS;
+  const staleCutoffMs =
+    staleHours > 0 ? Date.now() - staleHours * 60 * 60 * 1000 : null;
   const tomorrowDateKey = nextDateKeys(1)[0];
 
   try {
@@ -41,7 +50,7 @@ export async function GET(request: Request) {
         { teamId: f.awayTeam.id, season: API_SEASON, league },
       ];
     });
-    const [playerCounts, teamStatsExisting] = await Promise.all([
+    const [playerCountsAndMaxUpdated, teamStatsExisting] = await Promise.all([
       prisma.playerSeasonStats.groupBy({
         by: ["teamId", "season", "league"],
         where: {
@@ -52,6 +61,7 @@ export async function GET(request: Request) {
           })),
         },
         _count: { id: true },
+        _max: { updatedAt: true },
       }),
       prisma.teamSeasonStats.findMany({
         where: {
@@ -71,28 +81,40 @@ export async function GET(request: Request) {
           corners: true,
           yellowCards: true,
           redCards: true,
+          updatedAt: true,
         },
       }),
     ]);
 
     const playerCountMap = new Map(
-      playerCounts.map((c) => [`${c.teamId}:${c.season}:${c.league}`, c._count.id]),
+      playerCountsAndMaxUpdated.map((c) => [
+        `${c.teamId}:${c.season}:${c.league}`,
+        { count: c._count.id, updatedAt: c._max.updatedAt ?? null },
+      ]),
     );
     // Only treat team-season stats as present when they have non-zero data (minutes or any stat),
-    // matching warm-today behaviour so partially empty rows don't cause fixtures to be skipped.
-    const teamStatsNonZeroKeys = new Set(
-      teamStatsExisting
-        .filter(
-          (r) =>
-            (r.minutesPlayed ?? 0) > 0 ||
-            r.goalsFor > 0 ||
-            r.goalsAgainst > 0 ||
-            r.corners > 0 ||
-            r.yellowCards > 0 ||
-            r.redCards > 0,
-        )
-        .map((r) => `${r.teamId}:${r.season}:${r.league}`),
+    // and when not stale: if staleHours > 0, updatedAt must be within the last N hours.
+    const teamStatsByKey = new Map(
+      teamStatsExisting.map((r) => [`${r.teamId}:${r.season}:${r.league}`, r]),
     );
+    const teamStatsFreshKeys = new Set<string>();
+    const teamStatsStaleKeys = new Set<string>();
+    for (const r of teamStatsExisting) {
+      const key = `${r.teamId}:${r.season}:${r.league}`;
+      const hasData =
+        (r.minutesPlayed ?? 0) > 0 ||
+        r.goalsFor > 0 ||
+        r.goalsAgainst > 0 ||
+        r.corners > 0 ||
+        r.yellowCards > 0 ||
+        r.redCards > 0;
+      if (!hasData) continue;
+      if (staleCutoffMs != null && (r.updatedAt?.getTime() ?? 0) < staleCutoffMs) {
+        teamStatsStaleKeys.add(key);
+      } else {
+        teamStatsFreshKeys.add(key);
+      }
+    }
 
     const needsWarm = forceWarm
       ? fixtures
@@ -100,16 +122,37 @@ export async function GET(request: Request) {
           const league = f.league ?? "Unknown";
           const isTeamStatsOnly = isTeamStatsOnlyLeague(f.leagueId);
 
-          const homePlayerCount = playerCountMap.get(`${f.homeTeam.id}:${API_SEASON}:${league}`) ?? 0;
-          const awayPlayerCount = playerCountMap.get(`${f.awayTeam.id}:${API_SEASON}:${league}`) ?? 0;
-          // For League One/Two (team-stats-only leagues) there is no player data, so skip the player-stats check.
+          const homeKey = `${f.homeTeam.id}:${API_SEASON}:${league}`;
+          const awayKey = `${f.awayTeam.id}:${API_SEASON}:${league}`;
+          const homePlayer = playerCountMap.get(homeKey) ?? { count: 0, updatedAt: null };
+          const awayPlayer = playerCountMap.get(awayKey) ?? { count: 0, updatedAt: null };
+
+          const homePlayerCount = homePlayer.count;
+          const awayPlayerCount = awayPlayer.count;
+          const homePlayerStale =
+            staleCutoffMs != null &&
+            homePlayer.updatedAt != null &&
+            homePlayer.updatedAt.getTime() < staleCutoffMs;
+          const awayPlayerStale =
+            staleCutoffMs != null &&
+            awayPlayer.updatedAt != null &&
+            awayPlayer.updatedAt.getTime() < staleCutoffMs;
+
           const needsPlayerStats = isTeamStatsOnly
             ? false
-            : homePlayerCount < MIN_PLAYERS_PER_TEAM || awayPlayerCount < MIN_PLAYERS_PER_TEAM;
+            : homePlayerCount < MIN_PLAYERS_PER_TEAM ||
+              awayPlayerCount < MIN_PLAYERS_PER_TEAM ||
+              (staleCutoffMs != null && (homePlayerStale || awayPlayerStale));
 
-          const homeHasTeamStats = teamStatsNonZeroKeys.has(`${f.homeTeam.id}:${API_SEASON}:${league}`);
-          const awayHasTeamStats = teamStatsNonZeroKeys.has(`${f.awayTeam.id}:${API_SEASON}:${league}`);
-          const needsTeamStats = !homeHasTeamStats || !awayHasTeamStats;
+          const homeHasFreshTeamStats = teamStatsFreshKeys.has(homeKey);
+          const awayHasFreshTeamStats = teamStatsFreshKeys.has(awayKey);
+          const homeHasStaleTeamStats = teamStatsStaleKeys.has(homeKey);
+          const awayHasStaleTeamStats = teamStatsStaleKeys.has(awayKey);
+          const needsTeamStats =
+            !homeHasFreshTeamStats ||
+            !awayHasFreshTeamStats ||
+            homeHasStaleTeamStats ||
+            awayHasStaleTeamStats;
 
           return needsPlayerStats || needsTeamStats;
         });
@@ -132,6 +175,7 @@ export async function GET(request: Request) {
       totalTomorrow: fixtures.length,
       dateKey: tomorrowDateKey,
       fixtures: list,
+      staleHours: staleHours > 0 ? staleHours : undefined,
       hint:
         list.length > 0
           ? "If you hit API limits, run warm-today --resume tomorrow to finish warming (uses DB list, no refetch)."
