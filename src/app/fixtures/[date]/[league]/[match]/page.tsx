@@ -90,7 +90,7 @@ export async function generateMetadata({
     const league = fixture.league ?? "Football";
     const year = getYear(dateKey);
     const title = `${home} vs ${away} Preview, Stats & AI insights | ${league} ${year}`;
-    const description = `Preview for ${home} vs ${away} including upcoming team stats, player performance data and AI-powered football insights.`;
+    const description = `${home} vs ${away} ${league} stats and lineups with xG, corners, cards, shots per 90 and bet builder stats, plus AI-powered football insights.`;
     const canonical = `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
     return {
       title,
@@ -124,7 +124,7 @@ export async function generateMetadata({
     const league = warmedFixture.league ?? "Football";
     const year = getYear(dateKey);
     const title = `${home} vs ${away} Preview, Stats & AI insights | ${league} ${year}`;
-    const description = `Preview for ${home} vs ${away} including upcoming team stats, player performance data and AI-powered football insights.`;
+    const description = `${home} vs ${away} ${league} stats and lineups with xG, corners, cards, shots per 90 and bet builder stats, plus AI-powered football insights.`;
     const canonical = `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
     return {
       title,
@@ -163,7 +163,7 @@ export async function generateMetadata({
   const league = fixture.league ?? "Football";
   const year = getYear(dateKey);
   const title = `${home} vs ${away} Preview, Stats & AI insights | ${league} ${year}`;
-  const description = `Preview for ${home} vs ${away} including upcoming team stats, player performance data and AI-powered football insights.`;
+  const description = `${home} vs ${away} ${league} stats and lineups with xG, corners, cards, shots per 90 and bet builder stats, plus AI-powered football insights.`;
   const canonical = `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
   return {
     title,
@@ -209,6 +209,7 @@ export default async function FixtureMatchPage({
     const kickoff = typeof fixture.date === "string" ? fixture.date : fixture.date?.toISOString?.() ?? new Date(dateKey + "T12:00:00.000Z").toISOString();
     const endDate = new Date(new Date(kickoff).getTime() + 2 * 60 * 60 * 1000).toISOString();
     const description = `${home} vs ${away} ${league} match with live stats, confirmed lineups and AI-powered bet builder insights on statsBuildr.`;
+    const displayDate = formatDisplayDate(dateKey);
     const sportsEventJsonLd = {
       "@context": "https://schema.org",
       "@type": "SportsEvent",
@@ -283,10 +284,27 @@ export default async function FixtureMatchPage({
                 ← Back to fixtures
               </NavLinkWithOverlay>
             </div>
-            <h1 className="sr-only">
-              {fixture.homeTeam.shortName ?? fixture.homeTeam.name} vs{" "}
-              {fixture.awayTeam.shortName ?? fixture.awayTeam.name} – stats
-            </h1>
+            <header className="mb-5 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                    {league ?? "Football"} · {displayDate}
+                  </p>
+                  <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
+                    {home}
+                    <span className="mx-2 text-neutral-400 dark:text-neutral-500">vs</span>
+                    {away}
+                  </h1>
+                </div>
+                <span className="inline-flex items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900">
+                  Match stats &amp; lineups
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                On {displayDate}, {home} face {away} in the {league}. This page shows match stats,
+                confirmed lineups, xG, corners, cards and player performance numbers to help you build smarter bet builder selections.
+              </p>
+            </header>
             <TodayFixturesDashboard
               fixtures={fixtures}
               initialSelectedId={String(fixture.id)}
@@ -329,6 +347,7 @@ export default async function FixtureMatchPage({
     const kickoff = typeof fixture.date === "string" ? fixture.date : fixture.date?.toISOString?.() ?? new Date(dateKey + "T12:00:00.000Z").toISOString();
     const endDate = new Date(new Date(kickoff).getTime() + 2 * 60 * 60 * 1000).toISOString();
     const description = `${home} vs ${away} ${league} match with live stats, confirmed lineups and AI-powered bet builder insights on statsBuildr.`;
+    const displayDate = formatDisplayDate(dateKey);
     const sportsEventJsonLd = {
       "@context": "https://schema.org",
       "@type": "SportsEvent",
@@ -393,10 +412,27 @@ export default async function FixtureMatchPage({
                 ← Back to fixtures
               </NavLinkWithOverlay>
             </div>
-            <h1 className="sr-only">
-              {fixture.homeTeam.shortName ?? fixture.homeTeam.name} vs{" "}
-              {fixture.awayTeam.shortName ?? fixture.awayTeam.name} – stats
-            </h1>
+            <header className="mb-5 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                    {league ?? "Football"} · {displayDate}
+                  </p>
+                  <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
+                    {home}
+                    <span className="mx-2 text-neutral-400 dark:text-neutral-500">vs</span>
+                    {away}
+                  </h1>
+                </div>
+                <span className="inline-flex items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900">
+                  Match stats &amp; lineups
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                On {displayDate}, {home} face {away} in the {league}. This page shows match stats,
+                confirmed lineups, xG, corners, cards and player performance numbers to help you build smarter bet builder selections.
+              </p>
+            </header>
             <TodayFixturesDashboard
               fixtures={fixtures}
               initialSelectedId={String(fixture.id)}
@@ -500,9 +536,9 @@ export default async function FixtureMatchPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(sportsEventJsonLdPreview) }}
       />
-      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <div>
-          <FixturePreviewContent fixture={fixture} dateKey={dateKey} />
+          <FixturePreviewContent fixture={fixture} dateKey={dateKey} leagueSlug={leagueSlug} matchSlugParam={matchSlugParam} />
         </div>
       </main>
     </div>
@@ -544,28 +580,62 @@ function TeamCrest({
 function FixturePreviewContent({
   fixture,
   dateKey,
+  leagueSlug,
+  matchSlugParam,
 }: {
   fixture: RawFixture;
   dateKey: string;
+  leagueSlug: string;
+  matchSlugParam: string;
 }) {
   const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
   const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
-  const league = fixture.league ?? "League";
+  const league = fixture.league ?? "Football";
   const kickoff = formatKickoff(fixture.date);
   const displayDate = formatDisplayDate(dateKey);
 
+  const breadcrumbItems = [
+    { href: "/", label: "Home" },
+    { href: `/fixtures/${dateKey}`, label: displayDate },
+    { href: `/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`, label: `${home} vs ${away}` },
+  ];
+
   return (
     <>
-        <div className="mb-8">
-          <NavLinkWithOverlay
-            href={`/fixtures/${dateKey}`}
-            className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-          >
-            ← Back to fixtures
-          </NavLinkWithOverlay>
-        </div>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <Breadcrumbs items={breadcrumbItems} className="flex-1" />
+        <NavLinkWithOverlay
+          href={`/fixtures/${dateKey}`}
+          className="hidden text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 sm:inline"
+        >
+          ← Back to fixtures
+        </NavLinkWithOverlay>
+      </div>
 
-        <div className="mb-6 flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+      <header className="mb-5 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+              {league} · {displayDate}
+            </p>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
+              {home}
+              <span className="mx-2 text-neutral-400 dark:text-neutral-500">vs</span>
+              {away}
+            </h1>
+          </div>
+          <span className="inline-flex items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900">
+            Match preview
+          </span>
+        </div>
+        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+          On {displayDate}, {home} face {away} in the {league}. This page will show match stats,
+          confirmed lineups, xG, corners, cards and player performance once the fixture is loaded – check back closer to kick-off{kickoff ? ` (${kickoff})` : ""}.
+        </p>
+      </header>
+
+      <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
           <div className="flex flex-col items-center gap-2">
             <TeamCrest crestUrl={fixture.homeTeam.crestUrl} alt={home} />
             <span className="text-center text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
@@ -582,50 +652,47 @@ function FixturePreviewContent({
             </span>
           </div>
         </div>
+        {kickoff && (
+          <p className="mt-4 text-center text-sm text-neutral-500 dark:text-neutral-400">
+            Kick-off {kickoff}
+          </p>
+        )}
+      </div>
 
-        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
-          {home} vs {away} Preview – {league} ({displayDate})
-        </h1>
-        <p className="mt-2 text-neutral-600 dark:text-neutral-400">
-          {kickoff && `Kick-off ${kickoff}`}
-          {kickoff && " · "}
-          {league}
-        </p>
+      <section className="mt-8 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+          Match Preview
+        </h2>
+        <div className="mt-3 space-y-3 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+          <p>
+            {home} take on {away} in the {league} on {displayDate}. This match
+            preview includes upcoming team statistics, player performance data
+            and AI-powered betting insights ahead of kick-off.
+          </p>
+          <p>
+            Historical trends such as goals scored and conceded, average
+            corners, cards per match and shots per 90 will be analysed as the
+            fixture approaches. Confirmed starting lineups, live score updates
+            and in-play match statistics will also be available once the game
+            begins.
+          </p>
+          <p>
+            Explore data-driven insights for {home} vs {away} and uncover key
+            performance trends before placing any bet builder selections.
+          </p>
+        </div>
+      </section>
 
-        <section className="mt-10">
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-            Match Preview
-          </h2>
-          <div className="mt-3 space-y-3 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-            <p>
-              {home} take on {away} in the {league} on {displayDate}. This match
-              preview includes upcoming team statistics, player performance data
-              and AI-powered betting insights ahead of kick-off.
-            </p>
-            <p>
-              Historical trends such as goals scored and conceded, average
-              corners, cards per match and shots per 90 will be analysed as the
-              fixture approaches. Confirmed starting lineups, live score updates
-              and in-play match statistics will also be available once the game
-              begins.
-            </p>
-            <p>
-              Explore data-driven insights for {home} vs {away} and uncover key
-              performance trends before placing any bet builder selections.
-            </p>
-          </div>
-        </section>
-
-        <section className="mt-10">
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-            What To Expect
-          </h2>
-          <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
-            <li>Player season statistics</li>
-            <li>Team season / last 5 matches statistics</li>
-            <li>AI-powered match insights (available before kick-off)</li>
-          </ul>
-        </section>
+      <section className="mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+          What To Expect
+        </h2>
+        <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+          <li>Player season statistics</li>
+          <li>Team season / last 5 matches statistics</li>
+          <li>AI-powered match insights (available before kick-off)</li>
+        </ul>
+      </section>
     </>
   );
 }

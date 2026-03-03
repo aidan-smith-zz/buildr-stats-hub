@@ -120,6 +120,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
   const [sortBy, setSortBy] = useState<PlayerSortKey>("goals");
   const [activeTab, setActiveTab] = useState<"home" | "away">("home");
   const [lineupTab, setLineupTab] = useState<"home" | "away">("home");
+  const DETAIL_HASHES = { team: "team-stats", players: "player-stats", lineups: "lineups" } as const;
   const [detailTab, setDetailTab] = useState<"team" | "players" | "lineups">("team");
   const [shareLabel, setShareLabel] = useState<"Share" | "…" | "Copied!" | "Shared!">("Share");
   const [teamStatsView, setTeamStatsView] = useState<"season" | "last5">("season");
@@ -283,6 +284,34 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
       cancelled = true;
     };
   }, [selectedId, stats]);
+
+  // Sync URL hash with detail tab (#team-stats, #player-stats, #lineups) for deep-linking and back/forward.
+  useEffect(() => {
+    const hashToTab = (hash: string): "team" | "players" | "lineups" | null => {
+      const normalized = hash.replace(/^#/, "").toLowerCase();
+      if (normalized === "team-stats") return "team";
+      if (normalized === "player-stats") return "players";
+      if (normalized === "lineups") return "lineups";
+      return null;
+    };
+    const sync = () => {
+      const hash = typeof window === "undefined" ? "" : window.location.hash;
+      const tab = hashToTab(hash);
+      if (tab === "lineups" && (!stats?.hasLineup || !(stats?.teams?.length >= 2))) return; // don't switch to lineups if unavailable
+      if (tab) setDetailTab(tab);
+    };
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, [stats?.hasLineup, stats?.teams?.length]);
+
+  const setDetailTabWithHash = (tab: "team" | "players" | "lineups") => {
+    setDetailTab(tab);
+    const hash = `#${DETAIL_HASHES[tab]}`;
+    if (typeof window !== "undefined" && window.location.hash !== hash) {
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${hash}`);
+    }
+  };
 
   if (filteredFixtures.length === 0) {
     return (
@@ -481,10 +510,14 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                       <span className="text-neutral-300 dark:text-neutral-600" aria-hidden> | </span>
                       <NavLinkWithOverlay
                         href={`/fixtures/${new Date(selectedFixture.date).toLocaleDateString("en-CA", { timeZone: "Europe/London" })}/${leagueToSlug(selectedFixture.league)}/${matchSlug(selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name, selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name)}/live`}
-                        className="font-medium text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-500 dark:bg-green-500 dark:hover:bg-green-400"
                         message="Loading live…"
                       >
-                        In-play here
+                        <span className="relative flex h-2 w-2" aria-hidden>
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+                        </span>
+                        In-play here →
                       </NavLinkWithOverlay>
                     </>
                   )}
@@ -530,10 +563,14 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                       <span className="text-neutral-300 dark:text-neutral-600" aria-hidden> | </span>
                       <NavLinkWithOverlay
                         href={`/fixtures/${new Date(selectedFixture.date).toLocaleDateString("en-CA", { timeZone: "Europe/London" })}/${leagueToSlug(selectedFixture.league)}/${matchSlug(selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name, selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name)}/live`}
-                        className="font-medium text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-500 dark:bg-green-500 dark:hover:bg-green-400"
                         message="Loading live…"
                       >
-                        In-play here
+                        <span className="relative flex h-2 w-2" aria-hidden>
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+                        </span>
+                        In-play here →
                       </NavLinkWithOverlay>
                     </>
                   )}
@@ -565,8 +602,10 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
               <button
                 type="button"
                 role="tab"
+                id="team-stats-tab"
                 aria-selected={detailTab === "team"}
-                onClick={() => setDetailTab("team")}
+                aria-controls="team-stats"
+                onClick={() => setDetailTabWithHash("team")}
                 className={`min-w-[5.5rem] rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
                   detailTab === "team"
                     ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-900 dark:text-neutral-50"
@@ -578,8 +617,10 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
               <button
                 type="button"
                 role="tab"
+                id="player-stats-tab"
                 aria-selected={detailTab === "players"}
-                onClick={() => setDetailTab("players")}
+                aria-controls="player-stats"
+                onClick={() => setDetailTabWithHash("players")}
                 className={`min-w-[5.5rem] rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
                   detailTab === "players"
                     ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-900 dark:text-neutral-50"
@@ -591,8 +632,10 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
               <button
                 type="button"
                 role="tab"
+                id="lineups-tab"
                 aria-selected={detailTab === "lineups"}
-                onClick={() => !loading && stats?.hasLineup && stats.teams?.length >= 2 && setDetailTab("lineups")}
+                aria-controls="lineups"
+                onClick={() => !loading && stats?.hasLineup && stats.teams?.length >= 2 && setDetailTabWithHash("lineups")}
                 disabled={loading || !stats?.hasLineup || !(stats.teams?.length >= 2)}
                 className={`min-w-[5.5rem] rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
                   detailTab === "lineups"
@@ -608,6 +651,13 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
 
           <div className="p-4 sm:p-6">
             {/* Team stats panel */}
+            <div
+              id="team-stats"
+              role="tabpanel"
+              aria-labelledby="team-stats-tab"
+              hidden={detailTab !== "team"}
+              className={detailTab !== "team" ? "sr-only" : undefined}
+            >
             {detailTab === "team" && (
               <>
                 {loading || !stats ? null : stats.teamStats ? (
@@ -766,6 +816,9 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                                   <h3 className="text-[0.7rem] font-semibold uppercase tracking-wide text-neutral-700 dark:text-neutral-300 sm:text-xs">
                                     Last 5 matches
                                   </h3>
+                                  <p className="text-[0.7rem] text-neutral-600 dark:text-neutral-400 sm:text-xs">
+                                    See how often over 1.5 goals, over 2.5 goals and both teams to score (BTTS) have landed in each team&apos;s last 5 matches for quick bet builder stats.
+                                  </p>
                                   <p className="mt-0.5 text-[0.7rem] text-neutral-500 dark:text-neutral-500 sm:text-xs">
                                     Green = selection landed, red = did not. Left to right: oldest → latest.
                                   </p>
@@ -866,8 +919,16 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                 ) : null}
               </>
             )}
+            </div>
 
             {/* Lineups panel */}
+            <div
+              id="lineups"
+              role="tabpanel"
+              aria-labelledby="lineups-tab"
+              hidden={detailTab !== "lineups"}
+              className={detailTab !== "lineups" ? "sr-only" : undefined}
+            >
             {detailTab === "lineups" && stats && stats.hasLineup && stats.teams?.length >= 2 && (
               <section aria-label="Team lineups">
                 <header className="border-b border-neutral-200 pb-4 dark:border-neutral-800">
@@ -980,8 +1041,16 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                 </div>
               </section>
             )}
+            </div>
 
             {/* Player stats panel */}
+            <div
+              id="player-stats"
+              role="tabpanel"
+              aria-labelledby="player-stats-tab"
+              hidden={detailTab !== "players"}
+              className={detailTab !== "players" ? "sr-only" : undefined}
+            >
             {detailTab === "players" && !error && stats && (
               <>
                 {loading ? null : stats.teams?.some((t) => (t.players?.length ?? 0) > 0) ? (
@@ -1191,6 +1260,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                 )}
               </>
             )}
+            </div>
           </div>
         </section>
       )}
