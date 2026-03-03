@@ -24,13 +24,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { date: dateParam } = await params;
   const dateKey = normalizeDateKey(dateParam);
-  const displayDate = new Date(dateKey + "T12:00:00.000Z").toLocaleDateString("en-GB", {
-    timeZone: "Europe/London",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const data = await getMatchdayInsightsData(dateKey);
+  const hasContent =
+    data.top5ShotsOnTargetPer90.length > 0 || data.top5FixturesCombinedXg.length > 0;
+  const displayDate = data.displayDate;
   const title = `Matchday insights & stat leaders for ${displayDate} | Football stats`;
   const description = `Matchday insights and stat leaders for ${displayDate}: shots on target, fouls, yellow cards, team xG and corners per match across this matchday's fixtures.`;
   const canonical = `${BASE_URL}/fixtures/${dateKey}/matchday-insights`;
@@ -38,7 +35,7 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical },
-    robots: { index: true, follow: true },
+    robots: hasContent ? { index: true, follow: true } : { index: false, follow: true },
     openGraph: {
       title,
       description,

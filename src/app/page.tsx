@@ -7,6 +7,14 @@ export const dynamic = "force-dynamic";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "statsBuildr",
+  url: siteUrl,
+  logo: `${siteUrl}/stats-buildr.png`,
+};
+
 export const metadata: Metadata = {
   title: "Today's Football Fixtures & Player Stats | Bet Builder Analytics",
   description:
@@ -98,6 +106,10 @@ export default async function Home() {
 
     return (
       <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
         {itemListJsonLd ? (
           <script
             type="application/ld+json"
@@ -120,6 +132,10 @@ export default async function Home() {
     console.error("[Home] Failed to load fixtures:", err);
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
         <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-950/30">
             <p className="font-medium text-amber-900 dark:text-amber-200">

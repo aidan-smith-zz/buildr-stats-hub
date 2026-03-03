@@ -1,6 +1,16 @@
 import type { Metadata } from "next";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "statsBuildr",
+  url: siteUrl,
+  logo: `${siteUrl}/stats-buildr.png`,
+};
+
 export const metadata: Metadata = {
   title: "What is statsBuildr? | Football stats for bet builders",
   description:
@@ -10,6 +20,10 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <div className="mb-6">
           <NavLinkWithOverlay

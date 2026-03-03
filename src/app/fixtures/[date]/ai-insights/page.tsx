@@ -41,6 +41,8 @@ export async function generateMetadata({
   const { date: dateParam } = await params;
   const dateKey = normalizeDateKey(dateParam);
   const displayDate = formatDisplayDate(dateKey);
+  const insights = await generateInsights(dateKey);
+  const hasContent = insights.length > 0;
   const title = `AI football insights & bet builder stats for ${displayDate}`;
   const description = `AI-powered football insights and bet builder stats for ${displayDate}: xG, corners, cards, shots per 90 and over 1.5 / over 2.5 / BTTS trends across today's fixtures.`;
   const canonical = `${BASE_URL}/fixtures/${dateKey}/ai-insights`;
@@ -48,7 +50,7 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical },
-    robots: { index: true, follow: true },
+    robots: hasContent ? { index: true, follow: true } : { index: false, follow: true },
     openGraph: {
       title,
       description,
