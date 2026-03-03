@@ -42,11 +42,29 @@ export async function generateMetadata({
   const { date: dateParam } = await params;
   const dateKey = normalizeDateKey(dateParam);
   const displayDate = formatDisplayDate(dateKey);
+  const title = `Form table for ${displayDate} | Last 5, last 10 & season form | Football stats`;
+  const description = `Team form table for ${displayDate}: last 5, last 10 and season averages. Goals, corners, cards, xG per match. Sortable form for bet builder stats and teams in action.`;
+  const canonical = `${BASE_URL}/fixtures/${dateKey}/form`;
   return {
-    title: `Form table for ${displayDate} | Last 5, last 10 & season | Football stats`,
-    description: `Team form for ${displayDate}: last 5, last 10 and season averages. Goals, corners, cards and xG per match. Sortable form table for teams in action.`,
-    alternates: { canonical: `${BASE_URL}/fixtures/${dateKey}/form` },
+    title,
+    description,
+    alternates: { canonical },
     robots: { index: true, follow: true },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName: "statsBuildr",
+      type: "website",
+      images: [{ url: `${BASE_URL}/stats-buildr.png`, width: 512, height: 160, alt: `Form table for ${displayDate} on statsBuildr` }],
+      locale: "en_GB",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [`${BASE_URL}/stats-buildr.png`],
+    },
   };
 }
 
@@ -103,37 +121,34 @@ export default async function FormPage({
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-3" />
         <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <NavLinkWithOverlay
-              href={fixturesHref}
-              className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-            >
-              ← Back to fixtures
-            </NavLinkWithOverlay>
+          <div className="flex items-center justify-end">
             <ShareUrlButton className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700" />
           </div>
-          <div className="mt-3 flex items-center gap-3">
-            <img
-              src="/stats-buildr-mini.png"
-              alt="statsBuildr"
-              className="h-9 w-9 rounded-full shadow-md sm:h-10 sm:w-10"
-            />
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
-                Form table
-              </h1>
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500 sm:text-[13px]">
-                statsBuildr · {displayDate}
-              </p>
+          <header className="mt-4 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                  {displayDate}
+                </p>
+                <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
+                  Form table – last 5, last 10 &amp; season
+                </h1>
+                <p className="mt-0.5 text-xs font-medium text-neutral-400 dark:text-neutral-500 sm:text-[13px]">
+                  statsBuildr · Team form for {dateContext === "today" ? "today" : dateContext === "tomorrow" ? "tomorrow" : "this date"}
+                </p>
+              </div>
+              <span className="inline-flex items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900">
+                Goals · Corners · Cards · xG
+              </span>
             </div>
-          </div>
-          <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
-            {dateContext === "today"
-              ? "Last 5, last 10 and season form for all teams in action today — goals, corners, cards and xG per match."
-              : dateContext === "tomorrow"
-                ? "Last 5, last 10 and season form for all teams in action tomorrow — goals, corners, cards and xG per match."
-                : `Last 5, last 10 and season form for all teams in action on ${displayDate} — goals, corners, cards and xG per match.`}
-          </p>
+            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+              {dateContext === "today"
+                ? "Last 5, last 10 and season form for all teams in action today — goals, corners, cards and xG per match. Sortable table for bet builder stats."
+                : dateContext === "tomorrow"
+                  ? "Last 5, last 10 and season form for all teams in action tomorrow — goals, corners, cards and xG per match. Sortable table for bet builder stats."
+                  : `Last 5, last 10 and season form for all teams in action on ${displayDate} — goals, corners, cards and xG per match. Sortable table for bet builder stats.`}
+            </p>
+          </header>
         </div>
 
         {!hasData && !hasFixtures ? (
@@ -164,6 +179,9 @@ export default async function FormPage({
             ) : null}
             {hasData ? (
               <section className="mb-10">
+                <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
+                  Use the form table below to compare goals, corners, cards and xG across last 5, last 10 and full season for bet builder stats.
+                </p>
                 <FormTableClient last5={last5} last10={last10} season={season} />
               </section>
             ) : null}
@@ -177,6 +195,24 @@ export default async function FormPage({
             ) : null}
           </>
         )}
+
+        <section className="mt-10 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            For match previews and lineups, see{" "}
+            <NavLinkWithOverlay href={fixturesHref} className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300">
+              {dateContext === "today" ? "today's fixtures" : dateContext === "tomorrow" ? "tomorrow's fixtures" : "fixtures for this date"}
+            </NavLinkWithOverlay>
+            ,{" "}
+            <NavLinkWithOverlay href={`/fixtures/${dateKey}/ai-insights`} className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300">
+              AI football insights
+            </NavLinkWithOverlay>
+            {" "}and{" "}
+            <NavLinkWithOverlay href={`/fixtures/${dateKey}/matchday-insights`} className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300">
+              matchday insights
+            </NavLinkWithOverlay>
+            .
+          </p>
+        </section>
       </main>
     </div>
   );

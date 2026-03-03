@@ -31,14 +31,36 @@ export async function generateMetadata({
     month: "long",
     year: "numeric",
   });
-  const title = `Matchday insights for ${displayDate} | Football stats`;
-  const description = `Which players average the most yellow cards? Which teams have the highest xG or corners per match? Matchday insights and data leaders for ${displayDate} — shots, fouls, cards and more.`;
+  const title = `Matchday insights & stat leaders for ${displayDate} | Football stats`;
+  const description = `Matchday insights and stat leaders for ${displayDate}: shots on target, fouls, yellow cards, team xG and corners per match across this matchday's fixtures.`;
   const canonical = `${BASE_URL}/fixtures/${dateKey}/matchday-insights`;
   return {
     title,
     description,
     alternates: { canonical },
     robots: { index: true, follow: true },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName: "statsBuildr",
+      type: "website",
+      images: [
+        {
+          url: `${BASE_URL}/stats-buildr.png`,
+          width: 512,
+          height: 160,
+          alt: `Matchday insights and stat leaders for ${displayDate} on statsBuildr`,
+        },
+      ],
+      locale: "en_GB",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [`${BASE_URL}/stats-buildr.png`],
+    },
   };
 }
 
@@ -82,24 +104,30 @@ export default async function MatchdayInsightsPage({
           <div className="flex items-center justify-end">
             <ShareUrlButton className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700" />
           </div>
-          <div className="mt-3 flex items-center gap-3">
-            <img
-              src="/stats-buildr-mini.png"
-              alt="statsBuildr"
-              className="h-9 w-9 rounded-full shadow-md sm:h-10 sm:w-10"
-            />
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
-                Matchday insights
-              </h1>
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500 sm:text-[13px]">
-                statsBuildr · {data.displayDate}
-              </p>
+          <header className="mt-4 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
+            <div className="flex items-center gap-3">
+              <img
+                src="/stats-buildr-mini.png"
+                alt="statsBuildr"
+                className="h-9 w-9 rounded-full shadow-md sm:h-10 sm:w-10"
+              />
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1 rounded-full bg-neutral-900 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-50 dark:bg-neutral-100 dark:text-neutral-900">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
+                  Matchday insights
+                </span>
+                <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
+                  Matchday insights &amp; stat leaders
+                </h1>
+                <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500 sm:text-[13px]">
+                  statsBuildr · Matchday stats for {data.displayDate}
+                </p>
+              </div>
             </div>
-          </div>
-          <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
-            Which players average the most yellow cards? Which teams have the highest xG or corners per match? See the data leaders across today&apos;s fixtures.
-          </p>
+            <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
+              Which players average the most yellow cards or shots on target? Which teams have the highest xG or corners per match? See today&apos;s matchday stat leaders for cards, fouls, shots and more.
+            </p>
+          </header>
         </div>
 
         <MatchdayInsightsClient data={data} />
@@ -118,6 +146,33 @@ export default async function MatchdayInsightsPage({
             </NavLinkWithOverlay>
           </div>
         )}
+
+        <section className="mt-10 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            For full match previews, AI picks and team form, see{" "}
+            <NavLinkWithOverlay
+              href={fixturesHref}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              today&apos;s fixtures
+            </NavLinkWithOverlay>
+            ,{" "}
+            <NavLinkWithOverlay
+              href={`/fixtures/${dateKey}/ai-insights`}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              AI football insights
+            </NavLinkWithOverlay>{" "}
+            and{" "}
+            <NavLinkWithOverlay
+              href={`/fixtures/${dateKey}/form`}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              the form table
+            </NavLinkWithOverlay>
+            .
+          </p>
+        </section>
       </main>
     </div>
   );
