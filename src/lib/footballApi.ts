@@ -740,11 +740,25 @@ export function getFixtureExternalId(raw: RawFixture) {
   return String(raw.id);
 }
 
+type RawFixtureLineupPlayer = {
+  player: {
+    id: number;
+    name: string;
+    /** Short position code from lineup endpoint, e.g. "G", "D", "M", "F". */
+    pos?: string | null;
+    /** Shirt number from lineup endpoint (if available). */
+    number?: number | null;
+    // Other fields from the API (e.g. grid, rating) are ignored.
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
 /** Raw lineup entry from API: one per team with startXI and substitutes */
 export type RawFixtureLineupTeam = {
   team: { id: number };
-  startXI?: Array<{ player: { id: number; name: string }; [key: string]: unknown }>;
-  substitutes?: Array<{ player: { id: number; name: string }; [key: string]: unknown }>;
+  startXI?: RawFixtureLineupPlayer[];
+  substitutes?: RawFixtureLineupPlayer[];
 };
 
 /**

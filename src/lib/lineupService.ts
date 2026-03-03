@@ -61,6 +61,10 @@ export async function ensureLineupIfWithinWindow(
       apiId: string;
       playerName: string;
       lineupStatus: PrismaLineupStatus;
+      /** Short position code from lineup endpoint, e.g. "G", "D", "M", "F" (may be null). */
+      position: string | null;
+      /** Shirt number from lineup endpoint (may be null). */
+      shirtNumber: number | null;
     };
     const allPlayers: PlayerWithStatus[] = [];
 
@@ -72,17 +76,31 @@ export async function ensureLineupIfWithinWindow(
       const startXI = teamLineup.startXI ?? [];
       const substitutes = teamLineup.substitutes ?? [];
 
-      for (const item of startXI) {
+      const pushFromItem = (item: { player?: { id?: number; name?: string; pos?: string | null; number?: number | null } }, status: PrismaLineupStatus) => {
         const apiId = String(item.player?.id ?? 0);
         const playerName = item.player?.name ?? "Unknown";
-        if (!apiId || apiId === "0") continue;
-        allPlayers.push({ teamId, apiId, playerName, lineupStatus: "starting" });
+        if (!apiId || apiId === "0") return;
+        const rawPos = item.player?.pos ?? null;
+        const position = typeof rawPos === "string" && rawPos.trim().length > 0 ? rawPos : null;
+        const rawNumber = item.player?.number;
+        const shirtNumber =
+          typeof rawNumber === "number" && Number.isFinite(rawNumber) ? rawNumber : null;
+
+        allPlayers.push({
+          teamId,
+          apiId,
+          playerName,
+          lineupStatus: status,
+          position,
+          shirtNumber,
+        });
+      };
+
+      for (const item of startXI) {
+        pushFromItem(item, "starting");
       }
       for (const item of substitutes) {
-        const apiId = String(item.player?.id ?? 0);
-        const playerName = item.player?.name ?? "Unknown";
-        if (!apiId || apiId === "0") continue;
-        allPlayers.push({ teamId, apiId, playerName, lineupStatus: "substitute" });
+        pushFromItem(item, "substitute");
       }
     }
 
@@ -98,15 +116,32 @@ export async function ensureLineupIfWithinWindow(
     });
 
     // Batch 1: find existing by (teamId, apiId)
+    type ExistingPlayerInfo = {
+      id: number;
+      teamId: number;
+      apiId: string;
+      position: string | null;
+      shirtNumber: number | null;
+    };
+
     const existingByTeamAndApi = await prisma.player.findMany({
       where: {
         OR: uniquePlayers.map((p) => ({ teamId: p.teamId, apiId: p.apiId })),
       },
-      select: { id: true, teamId: true, apiId: true },
+      select: { id: true, teamId: true, apiId: true, position: true, shirtNumber: true },
     });
-    const existingMap = new Map<string, number>();
+    const existingMap = new Map<string, ExistingPlayerInfo>();
+    const playerIdToExisting = new Map<number, ExistingPlayerInfo>();
     for (const p of existingByTeamAndApi) {
-      existingMap.set(`${p.teamId}:${p.apiId}`, p.id);
+      const info: ExistingPlayerInfo = {
+        id: p.id,
+        teamId: p.teamId,
+        apiId: p.apiId,
+        position: p.position ?? null,
+        shirtNumber: p.shirtNumber ?? null,
+      };
+      existingMap.set(`${p.teamId}:${p.apiId}`, info);
+      playerIdToExisting.set(p.id, info);
     }
 
     // Batch 2: for missing, find by apiId only (player may be in different team)
@@ -117,10 +152,21 @@ export async function ensureLineupIfWithinWindow(
       missingApiIds.length > 0
         ? await prisma.player.findMany({
             where: { apiId: { in: missingApiIds } },
-            select: { id: true, apiId: true },
+            select: { id: true, apiId: true, position: true, shirtNumber: true },
           })
         : [];
     const apiIdToPlayerId = new Map(existingByApiId.map((p) => [p.apiId, p.id]));
+    for (const p of existingByApiId) {
+      if (!playerIdToExisting.has(p.id)) {
+        playerIdToExisting.set(p.id, {
+          id: p.id,
+          teamId: 0,
+          apiId: p.apiId,
+          position: p.position ?? null,
+          shirtNumber: p.shirtNumber ?? null,
+        });
+      }
+    }
 
     // Batch 3: create only players that don't exist
     const toCreatePlayers = missing.filter((p) => !apiIdToPlayerId.has(p.apiId));
@@ -131,8 +177,8 @@ export async function ensureLineupIfWithinWindow(
             apiId: p.apiId,
             name: p.playerName,
             teamId: p.teamId,
-            position: null,
-            shirtNumber: null,
+            position: p.position,
+            shirtNumber: p.shirtNumber,
           },
           select: { id: true, apiId: true },
         }),
@@ -145,7 +191,9 @@ export async function ensureLineupIfWithinWindow(
     // Resolve playerId for each unique player
     const getPlayerId = (p: PlayerWithStatus): number => {
       const key = `${p.teamId}:${p.apiId}`;
-      return existingMap.get(key) ?? apiIdToPlayerId.get(p.apiId)!;
+      const existing = existingMap.get(key);
+      if (existing) return existing.id;
+      return apiIdToPlayerId.get(p.apiId)!;
     };
 
     const lineupRows = uniquePlayers.map((p) => ({
@@ -154,6 +202,43 @@ export async function ensureLineupIfWithinWindow(
       playerId: getPlayerId(p),
       lineupStatus: p.lineupStatus,
     }));
+
+    // For existing players, backfill position/shirtNumber from lineup when missing.
+    const playersToUpdate: Array<{
+      id: number;
+      data: { position?: string | null; shirtNumber?: number | null };
+    }> = [];
+
+    for (const p of uniquePlayers) {
+      if (!p.position && p.shirtNumber == null) continue;
+      const playerId = getPlayerId(p);
+      const existing = playerIdToExisting.get(playerId);
+      if (!existing) continue;
+
+      const data: { position?: string | null; shirtNumber?: number | null } = {};
+
+      if (p.position && (!existing.position || existing.position.trim() === "")) {
+        data.position = p.position;
+      }
+      if (p.shirtNumber != null && existing.shirtNumber == null) {
+        data.shirtNumber = p.shirtNumber;
+      }
+
+      if (Object.keys(data).length > 0) {
+        playersToUpdate.push({ id: playerId, data });
+      }
+    }
+
+    if (playersToUpdate.length > 0) {
+      await Promise.all(
+        playersToUpdate.map((p) =>
+          prisma.player.update({
+            where: { id: p.id },
+            data: p.data,
+          }),
+        ),
+      );
+    }
 
     if (lineupRows.length > 0) {
       await prisma.fixtureLineup.createMany({
