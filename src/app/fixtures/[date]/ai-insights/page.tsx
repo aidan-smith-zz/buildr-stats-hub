@@ -121,13 +121,7 @@ export default async function AIInsightsPage({
       <main className="mx-auto max-w-2xl px-4 pt-6 pb-10 sm:px-6 sm:pt-8 sm:pb-12">
         <Breadcrumbs items={breadcrumbItems} className="mb-3" />
         <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <NavLinkWithOverlay
-              href={fixturesHref}
-              className="text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors"
-            >
-              ← Back to fixtures
-            </NavLinkWithOverlay>
+          <div className="flex items-center justify-end">
             <ShareUrlButton className="rounded-lg border border-slate-600 bg-slate-800/50 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700/50 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700" />
           </div>
           <div className="mt-4 rounded-2xl border border-slate-700/70 bg-slate-900/80 px-4 py-3 shadow-sm backdrop-blur-sm sm:px-5 sm:py-4">

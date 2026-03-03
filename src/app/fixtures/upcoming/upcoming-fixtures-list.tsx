@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import { LEAGUE_DISPLAY_NAMES, LEAGUE_ORDER } from "@/lib/leagues";
@@ -42,6 +42,13 @@ function leagueSortIndex(leagueId: number | null): number {
   if (leagueId == null) return LEAGUE_ORDER.length;
   const i = LEAGUE_ORDER.indexOf(leagueId);
   return i === -1 ? LEAGUE_ORDER.length : i;
+}
+
+function slugifyForHash(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function TeamCrest({
@@ -109,6 +116,27 @@ export function UpcomingFixturesList({ byDate, warmedByKey }: Props) {
     return { leagues, teams };
   }, [byDate]);
 
+  // Initialise filters from URL hash (e.g. #chelsea or #premier-league) so shared links open with the same view.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.location.hash.replace(/^#/, "").toLowerCase();
+    if (!raw) return;
+    const hash = raw.trim();
+    if (!hash) return;
+
+    // Try to match a team first
+    const teamMatch = teams.find((name) => slugifyForHash(name) === hash);
+    if (teamMatch) {
+      setTeamFilter(teamMatch);
+      return;
+    }
+    // Fallback: match a league name
+    const leagueMatch = leagues.find((league) => slugifyForHash(league.name) === hash);
+    if (leagueMatch) {
+      setLeagueFilter(leagueMatch.id);
+    }
+  }, [leagues, teams]);
+
   const filteredByDate = useMemo(() => {
     const leagueId = leagueFilter === "" ? null : leagueFilter;
     const team = teamFilter === "" ? null : teamFilter;
@@ -131,6 +159,25 @@ export function UpcomingFixturesList({ byDate, warmedByKey }: Props) {
 
   const hasActiveFilters = leagueFilter !== "" || teamFilter !== "";
   const totalFiltered = filteredByDate.reduce((acc, g) => acc + g.fixtures.length, 0);
+
+  // When filters change, update the URL hash so links can be shared/bookmarked (e.g. #chelsea or #premier-league).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let hashValue = "";
+    if (teamFilter) {
+      hashValue = slugifyForHash(teamFilter);
+    } else if (leagueFilter !== "") {
+      const leagueName = leagues.find((l) => l.id === leagueFilter)?.name;
+      if (leagueName) {
+        hashValue = slugifyForHash(leagueName);
+      }
+    }
+    const current = window.location.hash.replace(/^#/, "");
+    const nextHash = hashValue ? `#${hashValue}` : "";
+    if (current === hashValue) return;
+    const newUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
+    window.history.replaceState(null, "", newUrl);
+  }, [leagueFilter, teamFilter, leagues]);
 
   if (byDate.length === 0) {
     return (
