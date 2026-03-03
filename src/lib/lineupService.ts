@@ -119,7 +119,7 @@ export async function ensureLineupIfWithinWindow(
     type ExistingPlayerInfo = {
       id: number;
       teamId: number;
-      apiId: string;
+      apiId: string | null;
       position: string | null;
       shirtNumber: number | null;
     };

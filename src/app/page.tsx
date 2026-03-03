@@ -5,15 +5,19 @@ import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
 export const dynamic = "force-dynamic";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
+
 export const metadata: Metadata = {
   title: "Today's Football Fixtures & Player Stats | Bet Builder Analytics",
   description:
     "Today's football fixtures with team and player statistics: goals, assists, xG, corners, cards per 90. Build your bet with data-driven match insights.",
+  alternates: { canonical: siteUrl },
+  robots: { index: true, follow: true },
   openGraph: {
     title: "Today's Football Fixtures & Player Stats | Bet Builder Analytics",
     description:
       "Today's football fixtures with team and player statistics: goals, assists, xG, corners, cards per 90. Build your bet with data-driven match insights.",
-    url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com",
+    url: siteUrl,
     siteName: "statsBuildr",
     images: [{ url: "/stats-buildr.png", width: 512, height: 160, alt: "statsBuildr – Football stats and bet builder analytics" }],
     locale: "en_GB",

@@ -1,6 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const HASH_TODAY = "today";
+const HASH_TOMORROW = "tomorrow";
+
+function tabFromHash(): "today" | "tomorrow" {
+  if (typeof window === "undefined") return "today";
+  const hash = window.location.hash.slice(1).toLowerCase();
+  return hash === HASH_TOMORROW ? "tomorrow" : "today";
+}
 
 type Props = {
   hasTomorrow: boolean;
@@ -19,6 +28,23 @@ export function TodayTomorrowTabs({
 }: Props) {
   const [active, setActive] = useState<"tomorrow" | "today">("today");
 
+  // Sync tab with URL hash on load and when hash changes (e.g. back button or manual edit). Initial state is "today" to match SSR and avoid hydration mismatch.
+  useEffect(() => {
+    if (!hasTomorrow) return;
+    const sync = () => setActive(tabFromHash());
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, [hasTomorrow]);
+
+  const setTab = (tab: "today" | "tomorrow") => {
+    setActive(tab);
+    const hash = tab === "tomorrow" ? `#${HASH_TOMORROW}` : `#${HASH_TODAY}`;
+    if (typeof window !== "undefined" && window.location.hash !== hash) {
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${hash}`);
+    }
+  };
+
   if (!hasTomorrow) {
     return <>{todayContent}</>;
   }
@@ -34,10 +60,10 @@ export function TodayTomorrowTabs({
           type="button"
           role="tab"
           aria-selected={active === "today"}
-          aria-controls="today-panel"
+          aria-controls="today"
           id="today-tab"
           tabIndex={active === "today" ? 0 : -1}
-          onClick={() => setActive("today")}
+          onClick={() => setTab("today")}
           className={`min-w-0 flex-1 rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-colors sm:px-5 sm:py-3 sm:text-base ${
             active === "today"
               ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-50"
@@ -50,10 +76,10 @@ export function TodayTomorrowTabs({
           type="button"
           role="tab"
           aria-selected={active === "tomorrow"}
-          aria-controls="tomorrow-panel"
+          aria-controls="tomorrow"
           id="tomorrow-tab"
           tabIndex={active === "tomorrow" ? 0 : -1}
-          onClick={() => setActive("tomorrow")}
+          onClick={() => setTab("tomorrow")}
           className={`min-w-0 flex-1 rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-colors sm:px-5 sm:py-3 sm:text-base ${
             active === "tomorrow"
               ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-50"
@@ -65,11 +91,21 @@ export function TodayTomorrowTabs({
       </div>
       <div
         role="tabpanel"
-        id={active === "tomorrow" ? "tomorrow-panel" : "today-panel"}
-        aria-labelledby={active === "tomorrow" ? "tomorrow-tab" : "today-tab"}
-        hidden={false}
+        id="today"
+        aria-labelledby="today-tab"
+        hidden={active !== "today"}
+        className={active !== "today" ? "sr-only" : undefined}
       >
-        {active === "tomorrow" ? tomorrowContent : todayContent}
+        {todayContent}
+      </div>
+      <div
+        role="tabpanel"
+        id="tomorrow"
+        aria-labelledby="tomorrow-tab"
+        hidden={active !== "tomorrow"}
+        className={active !== "tomorrow" ? "sr-only" : undefined}
+      >
+        {tomorrowContent}
       </div>
     </div>
   );
