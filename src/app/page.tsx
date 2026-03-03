@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getFixturesForDateFromDbOnly, getOrRefreshTodayFixtures } from "@/lib/fixturesService";
-import { todayDateKey, tomorrowDateKey } from "@/lib/slugs";
+import { leagueToSlug, matchSlug, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
 export const dynamic = "force-dynamic";
@@ -67,14 +67,51 @@ export default async function Home() {
       getOrRefreshTodayFixtures(now),
       getFixturesForDateFromDbOnly(tomorrowKey),
     ]);
+
+    const itemListElements =
+      fixtures?.length > 0
+        ? fixtures.map((f, index) => {
+            const home = f.homeTeam.shortName ?? f.homeTeam.name;
+            const away = f.awayTeam.shortName ?? f.awayTeam.name;
+            const leagueSlug = leagueToSlug(f.league);
+            const match = matchSlug(home, away);
+            return {
+              "@type": "ListItem",
+              position: index + 1,
+              url: `${siteUrl}/fixtures/${todayKey}/${leagueSlug}/${match}`,
+              name: `${home} vs ${away}${f.league ? ` – ${f.league}` : ""}`,
+            };
+          })
+        : [];
+
+    const itemListJsonLd =
+      itemListElements.length > 0
+        ? {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            name: "Today's football fixtures",
+            itemListOrder: "http://schema.org/ItemListOrderAscending",
+            numberOfItems: itemListElements.length,
+            itemListElement: itemListElements,
+          }
+        : null;
+
     return (
-      <TodayFixturesList
-        fixtures={fixtures}
-        showHero
-        todayKey={todayKey}
-        tomorrowFixtures={tomorrowFixtures}
-        tomorrowKey={tomorrowKey}
-      />
+      <>
+        {itemListJsonLd ? (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+          />
+        ) : null}
+        <TodayFixturesList
+          fixtures={fixtures}
+          showHero
+          todayKey={todayKey}
+          tomorrowFixtures={tomorrowFixtures}
+          tomorrowKey={tomorrowKey}
+        />
+      </>
     );
   } catch (err) {
     const { message, showConfigHints } = getFixtureErrorDisplay(err);

@@ -238,17 +238,21 @@ export function TodayFixturesList({
           {showHero ? (
             <section className="mb-10">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white/80 px-3 py-2 shadow-sm backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-900/70 sm:px-4 sm:py-3">
                   <img
                     src="/stats-buildr-mini.png"
                     alt="statsBuildr"
-                    className="h-11 w-11 rounded-full shadow-md sm:h-12 sm:w-12"
+                    className="h-10 w-10 rounded-2xl border border-neutral-200 bg-neutral-900 p-1 shadow-md sm:h-11 sm:w-11 dark:border-neutral-600"
                   />
-                  <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
+                  <div className="space-y-1">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
                       statsBuildr
+                    </span>
+                    <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
+                      Today&apos;s Football Fixtures &amp; Player Stats
                     </h1>
-                    <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500 sm:text-[13px]">
+                    <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 sm:text-[13px]">
                       Football stats for smarter bet builders
                     </p>
                   </div>
@@ -266,7 +270,7 @@ export function TodayFixturesList({
                 </div>
               </div>
               <p className="mt-4 max-w-2xl text-neutral-600 dark:text-neutral-400 sm:text-sm">
-                Explore team season averages, player performance and xG-based insights before you build your bet.
+                See today&apos;s football fixtures with team form and detailed player stats – goals, assists, xG, corners and cards – before you build your bet builder selections.
               </p>
             </section>
           ) : null}
@@ -351,6 +355,32 @@ export function TodayFixturesList({
             />
           </section>
         </div>
+
+        <section className="max-w-2xl space-y-2 text-sm text-neutral-600 dark:text-neutral-400">
+          <p>
+            <strong>statsBuildr</strong> is a data-driven football stats tool for bet builders. We combine team form, player season numbers and xG-based metrics so you can see how a match usually plays before you place a bet.
+          </p>
+          <p>
+            For every fixture today you can view goals scored and conceded, shots, xG, corners, cards and player contribution stats to help build smarter shots, cards and goals selections.
+          </p>
+          <p>
+            Looking for a summary view?{" "}
+            <a
+              href={`/fixtures/${todayKey}/matchday-insights`}
+              className="font-medium text-violet-700 underline decoration-violet-300 underline-offset-2 hover:text-violet-600 dark:text-violet-300 dark:hover:text-violet-200"
+            >
+              See today&apos;s match insights
+            </a>{" "}
+            or{" "}
+            <a
+              href={`/fixtures/${todayKey}/form`}
+              className="font-medium text-violet-700 underline decoration-violet-300 underline-offset-2 hover:text-violet-600 dark:text-violet-300 dark:hover:text-violet-200"
+            >
+              view the form table for today&apos;s fixtures
+            </a>
+            .
+          </p>
+        </section>
 
         <section className="mt-14 border-t border-neutral-200 pt-12 dark:border-neutral-800">
           <h2 className="mb-6 text-center text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
