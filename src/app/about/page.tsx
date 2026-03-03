@@ -15,6 +15,31 @@ export const metadata: Metadata = {
   title: "What is statsBuildr? | Football stats for bet builders",
   description:
     "Learn what statsBuildr is, which football stats it tracks, and how to use it to build smarter bet builders using goals, xG, corners, cards and more.",
+  alternates: { canonical: `${siteUrl}/about` },
+  openGraph: {
+    title: "What is statsBuildr? | Football stats for bet builders",
+    description:
+      "What is statsBuildr? Football stats for bet builders: goals, xG, corners, cards and match insights.",
+    url: `${siteUrl}/about`,
+    siteName: "statsBuildr",
+    type: "website",
+    images: [
+      {
+        url: `${siteUrl}/stats-buildr.png`,
+        width: 512,
+        height: 160,
+        alt: "statsBuildr – Football stats for bet builders",
+      },
+    ],
+    locale: "en_GB",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "What is statsBuildr? | Football stats for bet builders",
+    description:
+      "What is statsBuildr? Football stats for bet builders: goals, xG, corners, cards and match insights.",
+    images: [`${siteUrl}/stats-buildr.png`],
+  },
 };
 
 export default function AboutPage() {

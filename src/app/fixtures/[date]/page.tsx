@@ -35,11 +35,34 @@ export async function generateMetadata({
   const displayDate = formatDisplayDate(dateKey);
   const title = `Football fixtures for ${displayDate} | Team & player stats`;
   const description = `View ${displayDate}'s football fixtures with team season stats, player data (goals, assists, xG, corners, cards) and match previews.`;
+  const canonical = `${BASE_URL}/fixtures/${dateKey}`;
   return {
     title,
     description,
-    alternates: { canonical: `${BASE_URL}/fixtures/${dateKey}` },
+    alternates: { canonical },
     robots: { index: true, follow: true },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName: "statsBuildr",
+      type: "website",
+      images: [
+        {
+          url: `${BASE_URL}/stats-buildr.png`,
+          width: 512,
+          height: 160,
+          alt: `Football fixtures for ${displayDate} on statsBuildr`,
+        },
+      ],
+      locale: "en_GB",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [`${BASE_URL}/stats-buildr.png`],
+    },
   };
 }
 
@@ -48,21 +71,36 @@ export default async function FixturesDatePage({
 }: {
   params: Promise<{ date: string }>;
 }) {
-  await params;
-  const now = new Date();
+  const { date: dateParam } = await params;
+  const dateKey = normalizeDateKey(dateParam);
   const todayKey = todayDateKey();
-  const tomorrowKey = tomorrowDateKey();
-  const [fixtures, tomorrowFixtures] = await Promise.all([
-    getOrRefreshTodayFixtures(now),
-    getFixturesForDateFromDbOnly(tomorrowKey),
-  ]);
+
+  // Today: behave like the homepage – show hero, today + tomorrow tabs.
+  if (dateKey === todayKey) {
+    const now = new Date();
+    const tomorrowKey = tomorrowDateKey();
+    const [fixtures, tomorrowFixtures] = await Promise.all([
+      getOrRefreshTodayFixtures(now),
+      getFixturesForDateFromDbOnly(tomorrowKey),
+    ]);
+    return (
+      <TodayFixturesList
+        fixtures={fixtures}
+        showHero
+        todayKey={todayKey}
+        tomorrowFixtures={tomorrowFixtures}
+        tomorrowKey={tomorrowKey}
+      />
+    );
+  }
+
+  // Other dates: show fixtures for that specific date only (no hero, no tomorrow tab).
+  const fixtures = await getFixturesForDateFromDbOnly(dateKey);
   return (
     <TodayFixturesList
       fixtures={fixtures}
-      showHero
-      todayKey={todayKey}
-      tomorrowFixtures={tomorrowFixtures}
-      tomorrowKey={tomorrowKey}
+      showHero={false}
+      todayKey={dateKey}
     />
   );
 }

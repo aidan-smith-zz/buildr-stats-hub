@@ -315,15 +315,13 @@ export function TodayFixturesList({
             }
             todayContent={
               <>
-                {showTomorrowTab && (
-                  <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
-                    {displayDate}
-                  </p>
-                )}
+                <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
+                  {displayDate}
+                </p>
                 {sortedFixtures.length === 0 ? (
                   <div className="rounded-2xl border border-neutral-200 bg-white p-10 text-center shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
                     <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                      No fixtures for today in the selected leagues.
+                      No fixtures for {displayDate} in the selected leagues.
                     </p>
                   </div>
                 ) : (
