@@ -4,6 +4,7 @@ import { RefreshInsightsButton } from "@/app/_components/refresh-insights-button
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { generateInsights } from "@/lib/insightsService";
+import { decodeHtmlEntities } from "@/lib/text";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -40,11 +41,36 @@ export async function generateMetadata({
   const { date: dateParam } = await params;
   const dateKey = normalizeDateKey(dateParam);
   const displayDate = formatDisplayDate(dateKey);
+  const title = `AI football insights & bet builder stats for ${displayDate}`;
+  const description = `AI-powered football insights and bet builder stats for ${displayDate}: xG, corners, cards, shots per 90 and over 1.5 / over 2.5 / BTTS trends across today's fixtures.`;
+  const canonical = `${BASE_URL}/fixtures/${dateKey}/ai-insights`;
   return {
-    title: `AI match insights for ${displayDate} | Football stats`,
-    description: `AI-powered football insights for ${displayDate}: key stats, talking points and match previews. See the numbers before kick-off.`,
-    alternates: { canonical: `${BASE_URL}/fixtures/${dateKey}/ai-insights` },
+    title,
+    description,
+    alternates: { canonical },
     robots: { index: true, follow: true },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName: "statsBuildr",
+      type: "website",
+      images: [
+        {
+          url: `${BASE_URL}/stats-buildr.png`,
+          width: 512,
+          height: 160,
+          alt: `AI football insights and bet builder stats for ${displayDate} on statsBuildr`,
+        },
+      ],
+      locale: "en_GB",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [`${BASE_URL}/stats-buildr.png`],
+    },
   };
 }
 
@@ -104,20 +130,29 @@ export default async function AIInsightsPage({
             </NavLinkWithOverlay>
             <ShareUrlButton className="rounded-lg border border-slate-600 bg-slate-800/50 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700/50 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700" />
           </div>
-          <div className="mt-3 flex items-center gap-3">
-            <img
-              src="/stats-buildr-mini.png"
-              alt="statsBuildr"
-              className="h-9 w-9 rounded-full shadow-md sm:h-10 sm:w-10"
-            />
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                AI insights
-              </h1>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400 sm:text-[13px]">
-                statsBuildr · {displayDate}
-              </p>
+          <div className="mt-4 rounded-2xl border border-slate-700/70 bg-slate-900/80 px-4 py-3 shadow-sm backdrop-blur-sm sm:px-5 sm:py-4">
+            <div className="flex items-center gap-3">
+              <img
+                src="/stats-buildr-mini.png"
+                alt="statsBuildr"
+                className="h-9 w-9 rounded-2xl border border-slate-600 bg-slate-950 p-1 shadow-md sm:h-10 sm:w-10"
+              />
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
+                  AI insights
+                </span>
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">
+                  AI football insights &amp; bet builder stats
+                </h1>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400 sm:text-[13px]">
+                  statsBuildr · AI insights for {displayDate}
+                </p>
+              </div>
             </div>
+            <p className="mt-3 text-xs text-slate-300 sm:text-sm">
+              We scan today&apos;s fixtures, xG, corners, cards, shots and player stats to surface AI-powered angles and bet builder ideas before kick-off.
+            </p>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center rounded-full bg-gradient-to-r from-sky-500 via-emerald-400 to-violet-600 px-3 py-1 text-xs font-medium text-white shadow-sm">
@@ -162,35 +197,65 @@ export default async function AIInsightsPage({
             </NavLinkWithOverlay>
           </div>
         ) : (
-          <ul className="space-y-4">
-            {insights.map((insight, i) => (
-              <li
-                key={`${insight.type}-${i}`}
-                className="rounded-xl border border-slate-700/50 bg-slate-800/30 px-5 py-4 shadow-lg transition hover:border-slate-600/50 hover:bg-slate-800/50"
-              >
-                <p className="text-slate-100 leading-relaxed">{insight.text}</p>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <span className="text-xs text-slate-500">
-                    {insight.type === "team_last5"
-                      ? "Last 5"
-                      : insight.type === "team_last10"
-                        ? "Last 10"
-                        : insight.type === "team_season"
-                          ? "Season"
-                          : "Player · Season"}
-                  </span>
-                  {insight.href && (
-                    <NavLinkWithOverlay
-                      href={insight.href}
-                      className="text-xs font-medium text-violet-400 hover:text-violet-300"
-                    >
-                      View fixture →
-                    </NavLinkWithOverlay>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-4">
+              {insights.map((insight, i) => (
+                <li
+                  key={`${insight.type}-${i}`}
+                  className="rounded-xl border border-slate-700/50 bg-slate-800/30 px-5 py-4 shadow-lg transition hover:border-slate-600/50 hover:bg-slate-800/50"
+                >
+                  <p className="text-slate-100 leading-relaxed">
+                    {decodeHtmlEntities(insight.text)}
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <span className="text-xs text-slate-500">
+                      {insight.type === "team_last5"
+                        ? "Last 5"
+                        : insight.type === "team_last10"
+                          ? "Last 10"
+                          : insight.type === "team_season"
+                            ? "Season"
+                            : "Player · Season"}
+                    </span>
+                    {insight.href && (
+                      <NavLinkWithOverlay
+                        href={insight.href}
+                        className="text-xs font-medium text-violet-400 hover:text-violet-300"
+                      >
+                        View fixture →
+                      </NavLinkWithOverlay>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <section className="mt-8 text-xs text-slate-400 sm:text-sm">
+              <p>
+                For more detailed numbers on {displayDate}, see{" "}
+                <NavLinkWithOverlay
+                  href={fixturesHref}
+                  className="font-medium text-violet-300 hover:text-violet-200"
+                >
+                  today&apos;s fixtures
+                </NavLinkWithOverlay>
+                ,{" "}
+                <NavLinkWithOverlay
+                  href={`/fixtures/${dateKey}/form`}
+                  className="font-medium text-violet-300 hover:text-violet-200"
+                >
+                  today&apos;s form table
+                </NavLinkWithOverlay>{" "}
+                and{" "}
+                <NavLinkWithOverlay
+                  href={`/fixtures/${dateKey}/matchday-insights`}
+                  className="font-medium text-violet-300 hover:text-violet-200"
+                >
+                  matchday insights
+                </NavLinkWithOverlay>
+                .
+              </p>
+            </section>
+          </>
         )}
       </main>
     </div>
