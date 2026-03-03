@@ -5,6 +5,7 @@ import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { copyToClipboard } from "@/app/_components/share-url-button";
 import type { FixtureSummary } from "@/lib/statsService";
 import type { FixtureStatsResponse } from "@/lib/statsService";
+import { decodeHtmlEntities } from "@/lib/text";
 
 const FIXTURES_TZ = "Europe/London";
 
@@ -296,7 +297,7 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
                           {p.shirtNumber ?? "·"}
                         </span>
                         <span>
-                          {p.name}
+                          {decodeHtmlEntities(p.name)}
                           {p.position ? ` (${p.position})` : ""}
                         </span>
                       </li>
@@ -314,7 +315,7 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
                               {p.shirtNumber ?? "·"}
                             </span>
                             <span>
-                              {p.name}
+                              {decodeHtmlEntities(p.name)}
                               {p.position ? ` (${p.position})` : ""}
                             </span>
                           </li>

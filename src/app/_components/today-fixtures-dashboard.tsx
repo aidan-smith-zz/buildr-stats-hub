@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { copyToClipboard } from "@/app/_components/share-url-button";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { decodeHtmlEntities } from "@/lib/text";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import type { FixtureSummary, FixtureStatsResponse } from "@/lib/statsService";
 
@@ -941,7 +942,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                                 {p.shirtNumber ?? "·"}
                               </span>
                               <span>
-                                {p.name}
+                                {decodeHtmlEntities(p.name)}
                                 {p.position ? ` (${p.position})` : ""}
                               </span>
                             </li>
@@ -965,7 +966,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                                     {p.shirtNumber ?? "·"}
                                   </span>
                                   <span>
-                                    {p.name}
+                                    {decodeHtmlEntities(p.name)}
                                     {p.position ? ` (${p.position})` : ""}
                                   </span>
                                 </li>

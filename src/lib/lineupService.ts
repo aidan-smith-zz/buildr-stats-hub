@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { fetchFixtureLineups } from "@/lib/footballApi";
+import { decodeHtmlEntities } from "@/lib/text";
 import type { LineupStatus as PrismaLineupStatus } from "@prisma/client";
 
 const WINDOW_MINUTES_BEFORE_KICKOFF = 30;
@@ -78,7 +79,7 @@ export async function ensureLineupIfWithinWindow(
 
       const pushFromItem = (item: { player?: { id?: number; name?: string; pos?: string | null; number?: number | null } }, status: PrismaLineupStatus) => {
         const apiId = String(item.player?.id ?? 0);
-        const playerName = item.player?.name ?? "Unknown";
+        const playerName = decodeHtmlEntities(item.player?.name ?? "Unknown");
         if (!apiId || apiId === "0") return;
         const rawPos = item.player?.pos ?? null;
         const position = typeof rawPos === "string" && rawPos.trim().length > 0 ? rawPos : null;

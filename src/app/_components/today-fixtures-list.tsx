@@ -270,7 +270,7 @@ export function TodayFixturesList({
                 </div>
               </div>
               <p className="mt-4 max-w-2xl text-neutral-600 dark:text-neutral-400 sm:text-sm">
-                See today&apos;s football fixtures with team form and detailed player stats – goals, assists, xG, corners and cards – before you build your bet builder selections.
+                See today&apos;s football fixtures with team form, detailed player stats – goals, assists, xG, corners and cards – plus confirmed lineups as they are released before kick-off, so you can build sharper bet builder selections.
               </p>
             </section>
           ) : null}
