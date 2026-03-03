@@ -275,15 +275,7 @@ export default async function FixtureMatchPage({
         />
         <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <div>
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <Breadcrumbs items={breadcrumbItems} className="flex-1" />
-              <NavLinkWithOverlay
-                href={`/fixtures/${dateKey}`}
-                className="hidden text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 sm:inline"
-              >
-                ← Back to fixtures
-              </NavLinkWithOverlay>
-            </div>
+            <Breadcrumbs items={breadcrumbItems} className="mb-3" />
             <header className="mb-5 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
                 <div>
@@ -403,15 +395,7 @@ export default async function FixtureMatchPage({
         />
         <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <div>
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <Breadcrumbs items={breadcrumbItems} className="flex-1" />
-              <NavLinkWithOverlay
-                href={`/fixtures/${dateKey}`}
-                className="hidden text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 sm:inline"
-              >
-                ← Back to fixtures
-              </NavLinkWithOverlay>
-            </div>
+            <Breadcrumbs items={breadcrumbItems} className="mb-3" />
             <header className="mb-5 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
                 <div>
@@ -474,14 +458,6 @@ export default async function FixtureMatchPage({
             <p className="text-center text-neutral-600 dark:text-neutral-400">
               No fixtures scheduled for this date.
             </p>
-            <div className="mt-6 flex justify-center">
-              <NavLinkWithOverlay
-                href={`/fixtures/${dateKey}`}
-                className="text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400"
-              >
-                ← Back to fixtures
-              </NavLinkWithOverlay>
-            </div>
           </div>
         </main>
       </div>
@@ -602,15 +578,7 @@ function FixturePreviewContent({
 
   return (
     <>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <Breadcrumbs items={breadcrumbItems} className="flex-1" />
-        <NavLinkWithOverlay
-          href={`/fixtures/${dateKey}`}
-          className="hidden text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 sm:inline"
-        >
-          ← Back to fixtures
-        </NavLinkWithOverlay>
-      </div>
+      <Breadcrumbs items={breadcrumbItems} className="mb-3" />
 
       <header className="mb-5 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
