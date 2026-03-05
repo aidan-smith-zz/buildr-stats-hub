@@ -115,6 +115,10 @@ export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
           >
             Matchday insights
           </Link>
+          <p className={sectionLabelClass}>Leagues</p>
+          <Link href="/leagues/all" onClick={closeMenu} className={linkClass} role="menuitem">
+            All leagues
+          </Link>
 
           <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
           <p className={sectionLabelClass}>Fixtures</p>

@@ -92,6 +92,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] Failed to fetch upcoming fixtures:", err);
   }
 
+  // Leagues landing page.
+  entries.push({
+    url: `${baseUrl}/leagues/all`,
+    lastModified: now,
+    changeFrequency: "daily",
+    priority: 0.7,
+  });
+
   // League standings pages (one per standings league).
   for (const slug of Object.values(STANDINGS_LEAGUE_SLUG_BY_ID)) {
     entries.push({

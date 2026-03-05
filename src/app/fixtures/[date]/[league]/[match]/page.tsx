@@ -8,7 +8,7 @@ import {
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { RawFixture } from "@/lib/footballApi";
 import type { FixtureSummary } from "@/lib/statsService";
-import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
 import { TodayFixturesDashboard } from "@/app/_components/today-fixtures-dashboard";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
@@ -296,6 +296,20 @@ export default async function FixtureMatchPage({
                 On {displayDate}, {home} face {away} in the {league}. This page shows match stats,
                 confirmed lineups, xG, corners, cards and player performance numbers to help you build smarter bet builder selections.
               </p>
+              {Object.values(STANDINGS_LEAGUE_SLUG_BY_ID).includes(leagueSlug) && (
+                <nav
+                  className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-700"
+                  aria-label="League table"
+                >
+                  <NavLinkWithOverlay
+                    href={`/leagues/${leagueSlug}/standings`}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+                    message="Loading league table…"
+                  >
+                    View {league} league table →
+                  </NavLinkWithOverlay>
+                </nav>
+              )}
             </header>
             <TodayFixturesDashboard
               fixtures={fixtures}
@@ -416,6 +430,20 @@ export default async function FixtureMatchPage({
                 On {displayDate}, {home} face {away} in the {league}. This page shows match stats,
                 confirmed lineups, xG, corners, cards and player performance numbers to help you build smarter bet builder selections.
               </p>
+              {Object.values(STANDINGS_LEAGUE_SLUG_BY_ID).includes(leagueSlug) && (
+                <nav
+                  className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-700"
+                  aria-label="League table"
+                >
+                  <NavLinkWithOverlay
+                    href={`/leagues/${leagueSlug}/standings`}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+                    message="Loading league table…"
+                  >
+                    View {league} league table →
+                  </NavLinkWithOverlay>
+                </nav>
+              )}
             </header>
             <TodayFixturesDashboard
               fixtures={fixtures}
@@ -600,6 +628,20 @@ function FixturePreviewContent({
           On {displayDate}, {home} face {away} in the {league}. This page will show match stats,
           confirmed lineups, xG, corners, cards and player performance once the fixture is loaded – check back closer to kick-off{kickoff ? ` (${kickoff})` : ""}.
         </p>
+        {Object.values(STANDINGS_LEAGUE_SLUG_BY_ID).includes(leagueSlug) && (
+          <nav
+            className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-700"
+            aria-label="League table"
+          >
+            <NavLinkWithOverlay
+              href={`/leagues/${leagueSlug}/standings`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+              message="Loading league table…"
+            >
+              View {league} league table →
+            </NavLinkWithOverlay>
+          </nav>
+        )}
       </header>
 
       <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
