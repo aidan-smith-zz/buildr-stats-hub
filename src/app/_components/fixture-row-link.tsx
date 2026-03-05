@@ -71,7 +71,6 @@ export function FixtureStatsLink({
 type NavLinkWithOverlayProps = Props & {
   message?: string;
   italic?: boolean;
-  onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 };
 
 export function NavLinkWithOverlay({
@@ -80,7 +79,6 @@ export function NavLinkWithOverlay({
   className,
   message = DEFAULT_LOADING_MESSAGE,
   italic = true,
-  onClick,
 }: NavLinkWithOverlayProps) {
   const [isNavigating, setIsNavigating] = useState(false);
   const pathname = usePathname();
@@ -94,10 +92,7 @@ export function NavLinkWithOverlay({
       <Link
         href={href}
         className={className}
-        onClick={(event) => {
-          setIsNavigating(true);
-          if (onClick) onClick(event);
-        }}
+        onClick={() => setIsNavigating(true)}
         aria-busy={isNavigating}
       >
         {children}

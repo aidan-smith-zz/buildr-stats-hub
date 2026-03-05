@@ -1,8 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 
 /** Today's date YYYY-MM-DD (Europe/London) for AI insights URL */
 function todayDateKey(): string {
@@ -13,6 +13,9 @@ type BurgerMenuProps = {
   /** When set, show "Tomorrow's form" link (only after tomorrow's fixtures are warmed). */
   tomorrowFormHref?: string;
 };
+
+const linkClass =
+  "block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800";
 
 export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
   const pathname = usePathname();
@@ -39,9 +42,7 @@ export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
   const formHref = `/fixtures/${dateKey}/form`;
   const matchdayInsightsHref = `/fixtures/${dateKey}/matchday-insights`;
 
-  const handleMenuClick = () => {
-    setOpen(false);
-  };
+  const closeMenu = () => setOpen(false);
 
   return (
     <div className="relative flex items-center">
@@ -77,71 +78,49 @@ export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
           role="menu"
           onClick={(e) => e.stopPropagation()}
         >
-          <NavLinkWithOverlay
-            href="/"
-            onClick={handleMenuClick}
-            message="Building your Stats"
-            italic
-            className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
-          >
+          <Link href="/" onClick={closeMenu} className={linkClass} role="menuitem">
             Home
-          </NavLinkWithOverlay>
-          <NavLinkWithOverlay
-            href={formHref}
-            onClick={handleMenuClick}
-            message="Building your Stats"
-            italic
-            className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
-          >
+          </Link>
+          <Link href={formHref} onClick={closeMenu} className={linkClass} role="menuitem">
             Form
-          </NavLinkWithOverlay>
+          </Link>
           {tomorrowFormHref ? (
-            <NavLinkWithOverlay
+            <Link
               href={tomorrowFormHref}
-              onClick={handleMenuClick}
-              message="Building your Stats"
-              italic
-              className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              onClick={closeMenu}
+              className={linkClass}
+              role="menuitem"
             >
               Tomorrow&apos;s form
-            </NavLinkWithOverlay>
+            </Link>
           ) : null}
-          <NavLinkWithOverlay
+          <Link
             href={matchdayInsightsHref}
-            onClick={handleMenuClick}
-            message="Building your Stats"
-            italic
-            className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            onClick={closeMenu}
+            className={linkClass}
+            role="menuitem"
           >
             Matchday insights
-          </NavLinkWithOverlay>
-          <NavLinkWithOverlay
+          </Link>
+          <Link
             href="/fixtures/upcoming"
-            onClick={handleMenuClick}
-            message="Building your Stats"
-            italic
-            className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            onClick={closeMenu}
+            className={linkClass}
+            role="menuitem"
           >
             Upcoming fixtures
-          </NavLinkWithOverlay>
-          <NavLinkWithOverlay
+          </Link>
+          <Link
             href={insightsHref}
-            onClick={handleMenuClick}
-            message="Building your Stats"
-            italic
-            className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            onClick={closeMenu}
+            className={linkClass}
+            role="menuitem"
           >
             AI insights
-          </NavLinkWithOverlay>
-          <NavLinkWithOverlay
-            href="/about"
-            onClick={handleMenuClick}
-            message="Building your Stats"
-            italic
-            className="block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
-          >
+          </Link>
+          <Link href="/about" onClick={closeMenu} className={linkClass} role="menuitem">
             What is statsBuildr?
-          </NavLinkWithOverlay>
+          </Link>
         </nav>
       )}
     </div>
