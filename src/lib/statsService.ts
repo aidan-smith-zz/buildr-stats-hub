@@ -8,7 +8,7 @@ import {
   getPlayerExternalId,
   type RawPlayerSeasonStats,
 } from "@/lib/footballApi";
-import { isTeamStatsOnlyLeague } from "@/lib/leagues";
+import { getStatsLeagueForFixture, isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { ensureLineupIfWithinWindow, getLineupForFixture } from "@/lib/lineupService";
 
 /** Prisma client with TeamFixtureCache (avoids TS errors when generated client is out of date). */
@@ -582,12 +582,9 @@ export async function warmFixturePart(
   });
   if (!fixture) throw new Error("Fixture not found");
   const fixtureWithLeague = fixture as FixtureWithLeagueId;
-  const leagueId =
-    fixtureWithLeague.leagueId ??
-    (fixture.league ? LEAGUE_ID_MAP[fixture.league] : undefined);
-  const leagueKey = fixture.league ?? "Unknown";
+  const { leagueId, leagueKey } = getStatsLeagueForFixture(fixtureWithLeague);
 
-  const teamStatsOnly = isTeamStatsOnlyLeague(leagueId);
+  const teamStatsOnly = isTeamStatsOnlyLeague(fixtureWithLeague.leagueId);
 
   if (part === "teamstats") {
     if (!teamStatsOnly) return { ok: true, done: true };
@@ -665,7 +662,7 @@ export async function warmFixturePart(
       teamId,
       team.apiId,
       API_SEASON,
-      fixture.league,
+      leagueKey,
       leagueId,
     );
   }
@@ -697,14 +694,13 @@ export async function getFixtureStats(
 
   const fixtureWithLeagueId = fixture as FixtureWithLeagueId;
   const teamIds = [fixture.homeTeamId, fixture.awayTeamId];
-  const leagueFilter = fixture.league ? { league: fixture.league } : {};
-  const leagueKeyForTeamStats = fixture.league ?? "Unknown";
-  const leagueIdForTeamStats =
-    fixtureWithLeagueId.leagueId ??
-    (fixture.league ? LEAGUE_ID_MAP[fixture.league] : undefined);
+  const { leagueId: leagueIdForTeamStats, leagueKey: leagueKeyForTeamStats } =
+    getStatsLeagueForFixture(fixtureWithLeagueId);
+  const leagueFilter =
+    leagueKeyForTeamStats !== "Unknown" ? { league: leagueKeyForTeamStats } : {};
   /** Canonical key for TeamFixtureCache (leagueId as string) so last-5 matches across API name variants. */
   const canonicalLeagueKey =
-    leagueIdForTeamStats != null ? String(leagueIdForTeamStats) : (fixture.league ?? "Unknown");
+    leagueIdForTeamStats != null ? String(leagueIdForTeamStats) : leagueKeyForTeamStats;
 
   const teamStatsWhere = (teamId: number) => ({
     teamId,
@@ -740,10 +736,6 @@ export async function getFixtureStats(
     : teamIds.filter((tid) => (countByTeam.get(tid) ?? 0) < MIN_PLAYERS_PER_TEAM);
 
   if (!dbOnly && teamsNeedingStats.length > 0) {
-    const leagueId =
-      fixtureWithLeagueId.leagueId ??
-      (fixture.league ? LEAGUE_ID_MAP[fixture.league] : undefined);
-
     for (const teamId of teamsNeedingStats) {
       const team = teamId === fixture.homeTeamId ? fixture.homeTeam : fixture.awayTeam;
       if (team.apiId) {
@@ -752,8 +744,8 @@ export async function getFixtureStats(
             teamId,
             team.apiId,
             API_SEASON,
-            fixture.league,
-            leagueId,
+            leagueKeyForTeamStats,
+            leagueIdForTeamStats,
           );
         } catch (error) {
           console.error("[statsService] Failed to fetch stats for team");
@@ -909,19 +901,25 @@ export async function getFixtureStats(
     }
   }
 
-  // One row per team: prefer the one that matches this fixture's league (same leagueId or league string).
-  const fixtureLeagueId = fixtureWithLeagueId.leagueId ?? (fixture.league ? LEAGUE_ID_MAP[fixture.league] : null);
-  const fixtureLeague = fixture.league ?? null;
+  // One row per team: prefer the one we use for stats (e.g. Scottish Premiership for Scottish Cup), then fixture league.
   const pickBestForTeam = (teamId: number) => {
     const rows = teamSeasonRows.filter((r) => r.teamId === teamId);
     if (rows.length === 0) return null;
     if (rows.length === 1) return rows[0];
-    const matchLeague = rows.find(
+    const matchStatsLeague = rows.find(
+      (r) =>
+        (leagueIdForTeamStats != null && r.leagueId === leagueIdForTeamStats) ||
+        (leagueKeyForTeamStats !== "Unknown" && r.league === leagueKeyForTeamStats)
+    );
+    if (matchStatsLeague) return matchStatsLeague;
+    const fixtureLeagueId = fixtureWithLeagueId.leagueId ?? (fixture.league ? LEAGUE_ID_MAP[fixture.league] : null);
+    const fixtureLeague = fixture.league ?? null;
+    const matchFixtureLeague = rows.find(
       (r) =>
         (fixtureLeagueId != null && r.leagueId === fixtureLeagueId) ||
         (fixtureLeague != null && r.league === fixtureLeague)
     );
-    return matchLeague ?? rows[0];
+    return matchFixtureLeague ?? rows[0];
   };
   const homeRow = pickBestForTeam(fixture.homeTeamId);
   const awayRow = pickBestForTeam(fixture.awayTeamId);

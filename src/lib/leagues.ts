@@ -10,6 +10,11 @@ export const BASE_REQUIRED_LEAGUE_IDS = [39, 40, 2, 3, 179, 45, 41, 42, 181] as 
 /** All competitions the site brings in fixtures for. */
 export const REQUIRED_LEAGUE_IDS: readonly number[] = [...BASE_REQUIRED_LEAGUE_IDS];
 
+/** Scottish Cup: we detect by this id but warm/read stats using Scottish Premiership (179). */
+export const SCOTTISH_CUP_LEAGUE_ID = 181;
+/** Scottish Premiership: used for warming and reading stats when the fixture is Scottish Cup. */
+export const SCOTTISH_PREMIERSHIP_LEAGUE_ID = 179;
+
 /** Leagues that only have team stats (no player stats or lineups). */
 export const LEAGUES_WITHOUT_PLAYER_STATS: readonly number[] = [41, 42];
 
@@ -55,6 +60,37 @@ export const LEAGUE_DISPLAY_NAMES: Record<number, string> = (() => {
   return base;
 })();
 
+/** League name -> id for resolving leagueId when API omits it. Matches variants used in statsService. */
+const LEAGUE_NAME_TO_ID: Record<string, number> = (() => {
+  const fromDisplay = Object.fromEntries(
+    Object.entries(LEAGUE_DISPLAY_NAMES).map(([id, name]) => [name, Number(id)])
+  );
+  return {
+    ...fromDisplay,
+    "English League Championship": 40,
+    "EFL Championship": 40,
+    "The Championship": 40,
+    "English Championship": 40,
+    "UEFA Champions League": 2,
+    "UEFA Europa League": 3,
+    "Champions League": 2,
+    "Europa League": 3,
+    "Scottish Championship": 179,
+    "FA Cup": 45,
+    "League 41": 41,
+    "League 1": 41,
+    "League One": 41,
+    "English League One": 41,
+    "EFL League One": 41,
+    "League 42": 42,
+    "League 2": 42,
+    "League Two": 42,
+    "English League Two": 42,
+    "EFL League Two": 42,
+    "Scottish Cup": 181,
+  };
+})();
+
 /** League names that count as "required" when leagueId is null (e.g. API omits id for League 41/42). */
 const REQUIRED_LEAGUE_NAMES = [
   "League 41",
@@ -86,4 +122,23 @@ export function isFixtureInRequiredLeagues(fixture: {
 
 export function isTeamStatsOnlyLeague(leagueId: number | null | undefined): boolean {
   return leagueId != null && LEAGUES_WITHOUT_PLAYER_STATS.includes(leagueId);
+}
+
+/**
+ * League id/key to use for warming and reading team/player stats.
+ * Scottish Cup (181) fixtures use Scottish Premiership (179) so Premiership teams get full stats.
+ * When leagueId is missing, derives it from fixture.league so cache keys match across services.
+ */
+export function getStatsLeagueForFixture(fixture: {
+  leagueId?: number | null;
+  league?: string | null;
+}): { leagueId: number | undefined; leagueKey: string } {
+  if (fixture.leagueId === SCOTTISH_CUP_LEAGUE_ID) {
+    return { leagueId: SCOTTISH_PREMIERSHIP_LEAGUE_ID, leagueKey: "Scottish Premiership" };
+  }
+  const leagueId =
+    fixture.leagueId ?? (fixture.league ? LEAGUE_NAME_TO_ID[fixture.league] : undefined);
+  const leagueKey =
+    fixture.league ?? (leagueId != null ? LEAGUE_DISPLAY_NAMES[leagueId] ?? "Unknown" : "Unknown");
+  return { leagueId, leagueKey };
 }

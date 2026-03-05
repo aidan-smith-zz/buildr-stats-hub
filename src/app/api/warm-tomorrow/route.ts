@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getTomorrowFixturesForWarming } from "@/lib/fixturesService";
 import { prisma } from "@/lib/prisma";
 import { nextDateKeys } from "@/lib/slugs";
-import { isTeamStatsOnlyLeague } from "@/lib/leagues";
+import * as leagues from "@/lib/leagues";
 
 const MIN_PLAYERS_PER_TEAM = 11;
 /** Default: treat team/player stats as stale after this many hours so we re-warm for tomorrow. Use staleHours=0 to disable. */
@@ -44,10 +44,10 @@ export async function GET(request: Request) {
     }
 
     const keys = fixtures.flatMap((f) => {
-      const league = f.league ?? "Unknown";
+      const { leagueKey } = leagues.getStatsLeagueForFixture({ leagueId: f.leagueId, league: f.league });
       return [
-        { teamId: f.homeTeam.id, season: API_SEASON, league },
-        { teamId: f.awayTeam.id, season: API_SEASON, league },
+        { teamId: f.homeTeam.id, season: API_SEASON, league: leagueKey },
+        { teamId: f.awayTeam.id, season: API_SEASON, league: leagueKey },
       ];
     });
     const [playerCountsAndMaxUpdated, teamStatsExisting] = await Promise.all([
@@ -119,11 +119,11 @@ export async function GET(request: Request) {
     const needsWarm = forceWarm
       ? fixtures
       : fixtures.filter((f) => {
-          const league = f.league ?? "Unknown";
-          const isTeamStatsOnly = isTeamStatsOnlyLeague(f.leagueId);
+          const { leagueKey } = leagues.getStatsLeagueForFixture({ leagueId: f.leagueId, league: f.league });
+          const isTeamStatsOnly = leagues.isTeamStatsOnlyLeague(f.leagueId);
 
-          const homeKey = `${f.homeTeam.id}:${API_SEASON}:${league}`;
-          const awayKey = `${f.awayTeam.id}:${API_SEASON}:${league}`;
+          const homeKey = `${f.homeTeam.id}:${API_SEASON}:${leagueKey}`;
+          const awayKey = `${f.awayTeam.id}:${API_SEASON}:${leagueKey}`;
           const homePlayer = playerCountMap.get(homeKey) ?? { count: 0, updatedAt: null };
           const awayPlayer = playerCountMap.get(awayKey) ?? { count: 0, updatedAt: null };
 

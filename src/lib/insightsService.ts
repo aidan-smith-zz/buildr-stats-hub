@@ -1,6 +1,6 @@
 import { API_SEASON } from "@/lib/footballApi";
 import { prisma } from "@/lib/prisma";
-import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { getStatsLeagueForFixture, REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 
 const db = prisma as typeof prisma & {
@@ -344,13 +344,14 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
   return insights.slice(0, 8);
 }
 
-/** Build map of teamId -> canonical league key for TeamFixtureCache (leagueId as string when present, else league name). */
+/** Build map of teamId -> canonical league key for TeamFixtureCache (matches statsService: leagueId as string when present, else league name). Scottish Cup uses 179. */
 function teamIdToLeagueFromFixtures(
   fixtures: { homeTeamId: number; awayTeamId: number; league: string | null; leagueId?: number | null }[]
 ): Map<number, string> {
   const map = new Map<number, string>();
   for (const f of fixtures) {
-    const cacheKey = f.leagueId != null ? String(f.leagueId) : (f.league ?? "Unknown");
+    const { leagueId, leagueKey } = getStatsLeagueForFixture(f);
+    const cacheKey = leagueId != null ? String(leagueId) : leagueKey;
     if (!map.has(f.homeTeamId)) map.set(f.homeTeamId, cacheKey);
     if (!map.has(f.awayTeamId)) map.set(f.awayTeamId, cacheKey);
   }

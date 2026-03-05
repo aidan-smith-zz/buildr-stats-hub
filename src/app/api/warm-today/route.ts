@@ -5,7 +5,11 @@ import {
   getTodayFixturesFromDbOnly,
   refreshUpcomingFixturesTable,
 } from "@/lib/fixturesService";
-import { isFixtureInRequiredLeagues, isTeamStatsOnlyLeague } from "@/lib/leagues";
+import {
+  getStatsLeagueForFixture,
+  isFixtureInRequiredLeagues,
+  isTeamStatsOnlyLeague,
+} from "@/lib/leagues";
 import { prisma } from "@/lib/prisma";
 import { todayDateKey } from "@/lib/slugs";
 
@@ -47,10 +51,10 @@ export async function GET(request: Request) {
     }
 
     const keys = filtered.flatMap((f) => {
-      const league = f.league ?? "Unknown";
+      const { leagueKey } = getStatsLeagueForFixture({ leagueId: f.leagueId, league: f.league });
       return [
-        { teamId: f.homeTeam.id, season: API_SEASON, league },
-        { teamId: f.awayTeam.id, season: API_SEASON, league },
+        { teamId: f.homeTeam.id, season: API_SEASON, league: leagueKey },
+        { teamId: f.awayTeam.id, season: API_SEASON, league: leagueKey },
       ];
     });
     const [playerCounts, teamStatsExisting] = await Promise.all([
@@ -110,18 +114,18 @@ export async function GET(request: Request) {
     const needsWarm = forceWarm
       ? filtered
       : filtered.filter((f) => {
-          const league = f.league ?? "Unknown";
+          const { leagueKey } = getStatsLeagueForFixture({ leagueId: f.leagueId, league: f.league });
           const isTeamStatsOnly = isTeamStatsOnlyLeague(f.leagueId);
 
-          const homePlayerCount = playerCountMap.get(`${f.homeTeam.id}:${API_SEASON}:${league}`) ?? 0;
-          const awayPlayerCount = playerCountMap.get(`${f.awayTeam.id}:${API_SEASON}:${league}`) ?? 0;
+          const homePlayerCount = playerCountMap.get(`${f.homeTeam.id}:${API_SEASON}:${leagueKey}`) ?? 0;
+          const awayPlayerCount = playerCountMap.get(`${f.awayTeam.id}:${API_SEASON}:${leagueKey}`) ?? 0;
           // For League One/Two (team-stats-only leagues) there is no player data, so skip the player-stats check.
           const needsPlayerStats = isTeamStatsOnly
             ? false
             : homePlayerCount < MIN_PLAYERS_PER_TEAM || awayPlayerCount < MIN_PLAYERS_PER_TEAM;
 
-          const homeHasTeamStats = teamStatsNonZeroKeys.has(`${f.homeTeam.id}:${API_SEASON}:${league}`);
-          const awayHasTeamStats = teamStatsNonZeroKeys.has(`${f.awayTeam.id}:${API_SEASON}:${league}`);
+          const homeHasTeamStats = teamStatsNonZeroKeys.has(`${f.homeTeam.id}:${API_SEASON}:${leagueKey}`);
+          const awayHasTeamStats = teamStatsNonZeroKeys.has(`${f.awayTeam.id}:${API_SEASON}:${leagueKey}`);
           const needsTeamStats = !homeHasTeamStats || !awayHasTeamStats;
 
           return needsPlayerStats || needsTeamStats;
