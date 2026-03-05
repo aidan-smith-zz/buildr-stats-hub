@@ -5,8 +5,22 @@ import { fetchStandings, API_SEASON, type StandingsResponseItem } from "@/lib/fo
 /** Max age of cached standings before we refresh from API (5 hours). */
 const STANDINGS_CACHE_MAX_AGE_MS = 5 * 60 * 60 * 1000;
 
-/** Prisma delegate for LeagueStandingsCache (present after running `npx prisma generate`). */
-const standingsCache = (prisma as { leagueStandingsCache?: typeof prisma.matchdayInsightsCache })
+/** Minimal type for LeagueStandingsCache delegate (Prisma client has this after `npx prisma generate`). */
+type LeagueStandingsCacheDelegate = {
+  findUnique: (args: {
+    where: { leagueId_season: { leagueId: number; season: string } };
+  }) => Promise<{
+    updatedAt: Date;
+    payload: unknown;
+  } | null>;
+  upsert: (args: {
+    where: { leagueId_season: { leagueId: number; season: string } };
+    create: { leagueId: number; season: string; payload: object; updatedAt: Date };
+    update: { payload: object; updatedAt: Date };
+  }) => Promise<unknown>;
+};
+
+const standingsCache = (prisma as unknown as { leagueStandingsCache?: LeagueStandingsCacheDelegate })
   .leagueStandingsCache;
 
 function getStandingsCache() {
