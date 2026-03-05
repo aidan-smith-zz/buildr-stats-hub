@@ -15,6 +15,9 @@ export const SCOTTISH_CUP_LEAGUE_ID = 181;
 /** Scottish Premiership: used for warming and reading stats when the fixture is Scottish Cup. */
 export const SCOTTISH_PREMIERSHIP_LEAGUE_ID = 179;
 
+/** League IDs that have a standings table (excludes cups: FA Cup 45, Scottish Cup 181). */
+export const STANDINGS_LEAGUE_IDS: readonly number[] = [39, 40, 2, 3, 179, 41, 42];
+
 /** Leagues that only have team stats (no player stats or lineups). */
 export const LEAGUES_WITHOUT_PLAYER_STATS: readonly number[] = [41, 42];
 
@@ -141,4 +144,31 @@ export function getStatsLeagueForFixture(fixture: {
   const leagueKey =
     fixture.league ?? (leagueId != null ? LEAGUE_DISPLAY_NAMES[leagueId] ?? "Unknown" : "Unknown");
   return { leagueId, leagueKey };
+}
+
+/** Slug for standings URL from league display name (e.g. "Premier League" -> "premier-league"). */
+function leagueDisplayNameToSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+}
+
+/** Map standings league id -> URL slug. */
+export const STANDINGS_LEAGUE_SLUG_BY_ID: Record<number, string> = (() => {
+  const out: Record<number, string> = {};
+  for (const id of STANDINGS_LEAGUE_IDS) {
+    const name = LEAGUE_DISPLAY_NAMES[id];
+    if (name) out[id] = leagueDisplayNameToSlug(name);
+  }
+  return out;
+})();
+
+/** Map URL slug -> league id for standings pages. Returns undefined if slug not found. */
+export function standingsSlugToLeagueId(slug: string): number | undefined {
+  const normalized = slug.toLowerCase().trim();
+  for (const [id, s] of Object.entries(STANDINGS_LEAGUE_SLUG_BY_ID)) {
+    if (s === normalized) return Number(id);
+  }
+  return undefined;
 }

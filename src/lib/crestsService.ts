@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { fetchTeamLogo } from "@/lib/footballApi";
-import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { fetchTeamLogo, fetchStandings } from "@/lib/footballApi";
+import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_IDS } from "@/lib/leagues";
 
 /**
  * Get all teams that appear in (1) today's fixtures and (2) upcoming fixtures (next 14 days),
@@ -78,4 +78,75 @@ export async function refreshTeamCrests(): Promise<{ updated: number; failed: nu
   }
 
   return { updated, failed, total: teamsWithApiId.length };
+}
+
+/** Prisma delegate for LeagueCrestCache (present after `npx prisma generate`). */
+const leagueCrestCache = (prisma as { leagueCrestCache?: typeof prisma.matchdayInsightsCache })
+  .leagueCrestCache;
+
+/**
+ * Fetch league crests from the standings API (one-off per league) and store in LeagueCrestCache.
+ * Only calls the API for leagues that don't already have a crest in the DB.
+ * No-op if Prisma client has no leagueCrestCache (run `npx prisma generate`).
+ */
+export async function refreshLeagueCrests(): Promise<{
+  updated: number;
+  skipped: number;
+  failed: number;
+  total: number;
+}> {
+  if (!leagueCrestCache) {
+    return { updated: 0, skipped: 0, failed: 0, total: STANDINGS_LEAGUE_IDS.length };
+  }
+
+  const leagueIds = [...STANDINGS_LEAGUE_IDS];
+  if (leagueIds.length === 0) return { updated: 0, skipped: 0, failed: 0, total: 0 };
+
+  const existing = await leagueCrestCache.findMany({
+    where: { leagueId: { in: leagueIds } },
+    select: { leagueId: true },
+  });
+  const existingSet = new Set(existing.map((r) => r.leagueId));
+  const toFetch = leagueIds.filter((id) => !existingSet.has(id));
+
+  let updated = 0;
+  let failed = 0;
+
+  for (const leagueId of toFetch) {
+    try {
+      const response = await fetchStandings(leagueId);
+      const first = response?.[0];
+      const league = first?.league as { logo?: string } | undefined;
+      const logoUrl =
+        typeof league?.logo === "string" && league.logo.length > 0 ? league.logo : null;
+      if (logoUrl) {
+        await leagueCrestCache.upsert({
+          where: { leagueId },
+          create: { leagueId, crestUrl: logoUrl },
+          update: { crestUrl: logoUrl },
+        });
+        updated++;
+      }
+    } catch (err) {
+      failed++;
+      console.error("[crestsService] Failed to fetch league crest", leagueId, err);
+    }
+  }
+
+  return {
+    updated,
+    skipped: existingSet.size,
+    failed,
+    total: leagueIds.length,
+  };
+}
+
+/** Get cached league crest URL for standings page. Returns null if not yet warmed or table missing. */
+export async function getLeagueCrestUrl(leagueId: number): Promise<string | null> {
+  if (!leagueCrestCache) return null;
+  const row = await leagueCrestCache.findUnique({
+    where: { leagueId },
+    select: { crestUrl: true },
+  });
+  return row?.crestUrl ?? null;
 }

@@ -264,6 +264,56 @@ export async function fetchTeamLogo(teamApiId: string | number): Promise<string 
   return typeof logo === "string" && logo.length > 0 ? logo : null;
 }
 
+/** API-Football standings response item: league info (standings may be on league or on item). */
+export type StandingsResponseItem = {
+  league: {
+    id: number;
+    name: string;
+    season: number;
+    country?: string;
+    logo?: string;
+    /** Some APIs nest standings inside league. */
+    standings?: Array<
+      | {
+          rank: number;
+          team: { id: number; name: string; logo?: string };
+          points: number;
+          goalsDiff: number;
+          group?: string;
+          all?: { played: number; win: number; draw: number; lose: number; goals?: { for: number; against: number } };
+        }
+      | unknown[]
+    >;
+  };
+  /** Top-level standings (alternative to league.standings). */
+  standings?: Array<{
+    rank: number;
+    team: { id: number; name: string; logo?: string };
+    points: number;
+    goalsDiff: number;
+    group?: string;
+    form?: string;
+    status?: string;
+    description?: string;
+    all?: { played: number; win: number; draw: number; lose: number; goals?: { for: number; against: number } };
+    home?: { played: number; win: number; draw: number; lose: number; goals?: { for: number; against: number } };
+    away?: { played: number; win: number; draw: number; lose: number; goals?: { for: number; against: number } };
+  }>;
+};
+
+/**
+ * Fetch league standings. One request per league/season; rate limit applies.
+ * Endpoint: /standings?league={leagueId}&season={season}
+ */
+export async function fetchStandings(
+  leagueId: number,
+  season: string = API_SEASON,
+): Promise<StandingsResponseItem[]> {
+  const path = "/standings";
+  const response = await request<StandingsResponseItem>(path, { league: leagueId, season });
+  return Array.isArray(response) ? response : [];
+}
+
 type ApiFootballFixture = {
   fixture: { id: number; date: string; status: { short: string } };
   league: { id: number; name: string; season: number; country?: string };

@@ -231,6 +231,26 @@ model MatchdayInsightsCache {
   updatedAt DateTime @updatedAt
 }
 
+/** One-off cache of league crest URLs from standings API. Populated by crests refresh. */
+model LeagueCrestCache {
+  leagueId   Int      @id
+  crestUrl   String
+  updatedAt  DateTime @updatedAt
+
+  @@map("LeagueCrestCache")
+}
+
+/** Cached league standings per league/season. Refreshed when older than 5 hours. */
+model LeagueStandingsCache {
+  leagueId   Int
+  season     String   // e.g. "2025"
+  payload    Json     // API-Football standings response
+  updatedAt  DateTime @updatedAt
+
+  @@id([leagueId, season])
+  @@map("LeagueStandingsCache")
+}
+
 /** Cached upcoming fixtures (next 14 days) for preview pages and sitemap. Populated by warm-today; cleared when out of date. */
 model UpcomingFixture {
   id               Int      @id @default(autoincrement())

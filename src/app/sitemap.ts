@@ -3,7 +3,7 @@ import {
   getOrRefreshTodayFixtures,
   getUpcomingFixturesFromDb,
 } from "@/lib/fixturesService";
-import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
@@ -90,6 +90,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   } catch (err) {
     console.error("[sitemap] Failed to fetch upcoming fixtures:", err);
+  }
+
+  // League standings pages (one per standings league).
+  for (const slug of Object.values(STANDINGS_LEAGUE_SLUG_BY_ID)) {
+    entries.push({
+      url: `${baseUrl}/leagues/${slug}/standings`,
+      lastModified: now,
+      changeFrequency: "daily",
+      priority: 0.6,
+    });
   }
 
   return entries;

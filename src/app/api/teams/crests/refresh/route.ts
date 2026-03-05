@@ -1,27 +1,24 @@
 import { NextResponse } from "next/server";
-import { refreshTeamCrests } from "@/lib/crestsService";
+import { refreshLeagueCrests } from "@/lib/crestsService";
 
 /**
  * POST /api/teams/crests/refresh
- * Fetches each team's crest from the API and stores it in the DB.
- * Only teams that appear in fixtures for your chosen tournaments (Premier League,
- * Championship, UCL, UEL, SPFL, FA Cup) are updated.
- * Hit this periodically (e.g. daily or after fixture refresh) to keep crests in sync.
+ * Refreshes league crests only (EPL, Championship, Scottish Premiership, etc.) — the small set
+ * of supported leagues with standings. Fetches from the standings API and stores in LeagueCrestCache.
+ * Skips leagues that already have a crest in the DB. Fast (handful of API calls).
  */
 export async function POST() {
   try {
-    const { updated, failed, total } = await refreshTeamCrests();
+    const result = await refreshLeagueCrests();
     return NextResponse.json({
       ok: true,
-      message: `Crests refreshed. ${updated}/${total ?? updated + failed} updated, ${failed} failed.`,
-      updated,
-      failed,
-      total: total ?? updated + failed,
+      message: `League crests: ${result.updated} updated, ${result.skipped} already cached, ${result.failed} failed (${result.total} leagues).`,
+      leagues: result,
     });
   } catch (err) {
     console.error("[api/teams/crests/refresh]", err);
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Failed to refresh crests" },
+      { ok: false, error: err instanceof Error ? err.message : "Failed to refresh league crests" },
       { status: 500 },
     );
   }
