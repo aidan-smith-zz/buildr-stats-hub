@@ -429,6 +429,22 @@ export function TodayFixturesList({
                 View form table →
               </span>
             </NavLinkWithOverlay>
+            <NavLinkWithOverlay
+              href="/leagues/all"
+              className="rounded-2xl border border-sky-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-sky-800/50 dark:bg-neutral-900 dark:hover:shadow-sky-900/20 dark:hover:border-sky-700/50 sm:col-span-2"
+              message="Loading…"
+              italic={false}
+            >
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                League tables &amp; standings
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+                Premier League, Championship, Scottish Premiership, League One, League Two, Champions League and Europa League. Current season points, goal difference and next fixtures.
+              </p>
+              <span className="mt-4 inline-block rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-500 dark:bg-sky-500 dark:hover:bg-sky-400">
+                View all league tables →
+              </span>
+            </NavLinkWithOverlay>
           </div>
         </section>
       </main>
