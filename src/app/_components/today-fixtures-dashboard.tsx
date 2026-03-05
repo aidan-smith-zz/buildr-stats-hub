@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { copyToClipboard } from "@/app/_components/share-url-button";
-import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
+import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { decodeHtmlEntities } from "@/lib/text";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import type { FixtureSummary, FixtureStatsResponse } from "@/lib/statsService";
@@ -577,22 +577,6 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                 </div>
               </div>
             )}
-            {selectedFixture &&
-              selectedFixture.leagueId != null &&
-              STANDINGS_LEAGUE_SLUG_BY_ID[selectedFixture.leagueId] && (
-                <nav
-                  className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-700"
-                  aria-label="League table"
-                >
-                  <NavLinkWithOverlay
-                    href={`/leagues/${STANDINGS_LEAGUE_SLUG_BY_ID[selectedFixture.leagueId]}/standings`}
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
-                    message="Loading league table…"
-                  >
-                    View {selectedFixture.league ?? "League"} league table →
-                  </NavLinkWithOverlay>
-                </nav>
-              )}
           </header>
         );
       })()}
