@@ -80,8 +80,24 @@ export async function refreshTeamCrests(): Promise<{ updated: number; failed: nu
   return { updated, failed, total: teamsWithApiId.length };
 }
 
-/** Prisma delegate for LeagueCrestCache (present after `npx prisma generate`). */
-const leagueCrestCache = (prisma as { leagueCrestCache?: typeof prisma.matchdayInsightsCache })
+/** Minimal type for LeagueCrestCache delegate (Prisma client has this after `npx prisma generate`). */
+type LeagueCrestCacheDelegate = {
+  findMany: (args: {
+    where: { leagueId: { in: number[] } };
+    select: { leagueId: true };
+  }) => Promise<{ leagueId: number }[]>;
+  findUnique: (args: {
+    where: { leagueId: number };
+    select: { crestUrl: true };
+  }) => Promise<{ crestUrl: string } | null>;
+  upsert: (args: {
+    where: { leagueId: number };
+    create: { leagueId: number; crestUrl: string };
+    update: { crestUrl: string };
+  }) => Promise<unknown>;
+};
+
+const leagueCrestCache = (prisma as unknown as { leagueCrestCache?: LeagueCrestCacheDelegate })
   .leagueCrestCache;
 
 /**
