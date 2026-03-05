@@ -15,7 +15,9 @@ type BurgerMenuProps = {
 };
 
 const linkClass =
-  "block px-4 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800";
+  "block px-4 py-2 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800";
+const sectionLabelClass =
+  "px-4 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500";
 
 export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
   const pathname = usePathname();
@@ -74,15 +76,17 @@ export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
 
       {open && (
         <nav
-          className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+          className="absolute right-0 top-full z-50 mt-1 min-w-[200px] rounded-xl border border-neutral-200 bg-white py-1.5 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
           role="menu"
           onClick={(e) => e.stopPropagation()}
         >
+          <p className={sectionLabelClass}>Today</p>
           <Link href="/" onClick={closeMenu} className={linkClass} role="menuitem">
             Home
           </Link>
+          <p className={sectionLabelClass}>Form table</p>
           <Link href={formHref} onClick={closeMenu} className={linkClass} role="menuitem">
-            Form
+            Today
           </Link>
           {tomorrowFormHref ? (
             <Link
@@ -91,25 +95,10 @@ export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
               className={linkClass}
               role="menuitem"
             >
-              Tomorrow&apos;s form
+              Tomorrow
             </Link>
           ) : null}
-          <Link
-            href={matchdayInsightsHref}
-            onClick={closeMenu}
-            className={linkClass}
-            role="menuitem"
-          >
-            Matchday insights
-          </Link>
-          <Link
-            href="/fixtures/upcoming"
-            onClick={closeMenu}
-            className={linkClass}
-            role="menuitem"
-          >
-            Upcoming fixtures
-          </Link>
+          <p className={sectionLabelClass}>Insights</p>
           <Link
             href={insightsHref}
             onClick={closeMenu}
@@ -118,8 +107,29 @@ export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
           >
             AI insights
           </Link>
+          <Link
+            href={matchdayInsightsHref}
+            onClick={closeMenu}
+            className={linkClass}
+            role="menuitem"
+          >
+            Matchday insights
+          </Link>
+
+          <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
+          <p className={sectionLabelClass}>Fixtures</p>
+          <Link
+            href="/fixtures/upcoming"
+            onClick={closeMenu}
+            className={linkClass}
+            role="menuitem"
+          >
+            Upcoming (14 days)
+          </Link>
+
+          <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
           <Link href="/about" onClick={closeMenu} className={linkClass} role="menuitem">
-            What is statsBuildr?
+            About statsBuildr
           </Link>
         </nav>
       )}

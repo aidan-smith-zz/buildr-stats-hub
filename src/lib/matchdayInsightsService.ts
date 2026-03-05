@@ -58,7 +58,8 @@ export type MatchdayInsightsData = {
   };
 };
 
-const MIN_MINUTES_FOR_PER90 = 90;
+/** Minimum minutes for a player to appear in per-90 leaderboards (more than 3 games = 4 full games). */
+const MIN_MINUTES_FOR_PLAYER_PER90 = 4 * 90;
 
 function fixtureHref(
   dateKey: string,
@@ -240,7 +241,7 @@ export async function getMatchdayInsightsData(
     for (const team of s.teams) {
       const teamName = team.teamShortName ?? team.teamName;
       for (const p of team.players) {
-        if (p.minutes < MIN_MINUTES_FOR_PER90) continue;
+        if (p.minutes < MIN_MINUTES_FOR_PLAYER_PER90) continue;
         const mins = p.minutes;
         const per90 = (x: number) => (x / mins) * 90;
         playerEntries.push({

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 
 export type BreadcrumbItem = {
   href: string;
@@ -36,12 +36,14 @@ export function Breadcrumbs({ items, className }: Props) {
                   {item.label}
                 </span>
               ) : (
-                <Link
+                <NavLinkWithOverlay
                   href={item.href}
                   className="hover:text-neutral-900 dark:hover:text-neutral-50"
+                  message="Loading…"
+                  italic={false}
                 >
                   {item.label}
-                </Link>
+                </NavLinkWithOverlay>
               )}
             </li>
           );

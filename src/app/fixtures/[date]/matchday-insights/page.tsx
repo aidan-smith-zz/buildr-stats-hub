@@ -142,7 +142,7 @@ export default async function MatchdayInsightsPage({
         )}
 
         <section className="mt-10 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <div className="text-sm text-neutral-600 dark:text-neutral-400">
             For full match previews, AI picks and team form, see{" "}
             <NavLinkWithOverlay
               href={fixturesHref}
@@ -165,7 +165,7 @@ export default async function MatchdayInsightsPage({
               the form table
             </NavLinkWithOverlay>
             .
-          </p>
+          </div>
         </section>
 
         <div className="mt-6 flex justify-end">
