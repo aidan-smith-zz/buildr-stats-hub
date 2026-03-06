@@ -6,7 +6,7 @@ import { getFixturesNeedingWarm } from "@/lib/warmTomorrowService";
  * Calls the warm-tomorrow logic directly (no HTTP fetch) to avoid Deployment Protection 401.
  * Takes first 5 fixtures and kicks off the batch chain.
  */
-export const maxDuration = 10;
+export const maxDuration = 60;
 
 function getBaseUrl(): string {
   if (process.env.VERCEL_URL) {
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const batchUrl = `${baseUrl}/api/warm-tomorrow/batch?part=home&fixtureIds=${fixtureIds}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 5000);
     try {
       await fetch(batchUrl, {
         cache: "no-store",
