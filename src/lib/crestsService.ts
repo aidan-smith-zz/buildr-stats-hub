@@ -8,7 +8,18 @@ import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_IDS } from "@/lib/leagues";
  * then fetch each team's crest from the API and store it in the DB.
  * Crests are stored on Team and kept for as long as the team is referenced (today or upcoming).
  */
-export async function refreshTeamCrests(): Promise<{ updated: number; failed: number; total: number }> {
+export async function refreshTeamCrests(options?: {
+  /** Limit how many teams to process per invocation (prevents serverless timeouts). */
+  maxTeams?: number;
+  /** When true, only fetch crests for teams missing a crestUrl. Default true. */
+  onlyMissing?: boolean;
+}): Promise<{
+  updated: number;
+  failed: number;
+  total: number;
+  processed: number;
+  remaining: number;
+}> {
   const leagueIds = [...REQUIRED_LEAGUE_IDS];
 
   const [fixtureTeams, upcomingRows] = await Promise.all([
@@ -39,7 +50,7 @@ export async function refreshTeamCrests(): Promise<{ updated: number; failed: nu
 
   let teams = await prisma.team.findMany({
     where: { OR: orConditions },
-    select: { id: true, apiId: true, name: true },
+    select: { id: true, apiId: true, name: true, crestUrl: true },
   });
 
   const existingApiIds = new Set(teams.map((t) => t.apiId).filter(Boolean));
@@ -60,10 +71,19 @@ export async function refreshTeamCrests(): Promise<{ updated: number; failed: nu
   }
 
   const teamsWithApiId = teams.filter((t): t is typeof t & { apiId: string } => t.apiId != null);
+  const onlyMissing = options?.onlyMissing ?? true;
+  const candidateTeams = onlyMissing
+    ? teamsWithApiId.filter((t) => !t.crestUrl || String(t.crestUrl).trim() === "")
+    : teamsWithApiId;
+  const maxTeams =
+    typeof options?.maxTeams === "number" && Number.isFinite(options.maxTeams) && options.maxTeams > 0
+      ? Math.floor(options.maxTeams)
+      : undefined;
+  const toProcess = maxTeams ? candidateTeams.slice(0, maxTeams) : candidateTeams;
   let updated = 0;
   let failed = 0;
 
-  for (const team of teamsWithApiId) {
+  for (const team of toProcess) {
     try {
       const logoUrl = await fetchTeamLogo(team.apiId);
       await prisma.team.update({
@@ -77,7 +97,13 @@ export async function refreshTeamCrests(): Promise<{ updated: number; failed: nu
     }
   }
 
-  return { updated, failed, total: teamsWithApiId.length };
+  return {
+    updated,
+    failed,
+    total: candidateTeams.length,
+    processed: toProcess.length,
+    remaining: Math.max(0, candidateTeams.length - toProcess.length),
+  };
 }
 
 /** Minimal type for LeagueCrestCache delegate (Prisma client has this after `npx prisma generate`). */
