@@ -45,7 +45,7 @@ export async function refreshTeamCrests(options?: {
     orConditions.push({ apiId: { in: upcomingApiIds } });
   }
   if (orConditions.length === 0) {
-    return { updated: 0, failed: 0, total: 0 };
+    return { updated: 0, failed: 0, total: 0, processed: 0, remaining: 0 };
   }
 
   let teams = await prisma.team.findMany({
