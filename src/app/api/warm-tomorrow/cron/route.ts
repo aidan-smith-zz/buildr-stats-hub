@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getFixturesNeedingWarm } from "@/lib/warmTomorrowService";
 
 /**
  * Lightweight cron trigger for warm-tomorrow. Runs at 5am UTC daily.
- * Fetches the list of fixtures needing warming, takes first 5, and kicks off the batch chain.
- * Does NOT await the batch - returns quickly to stay within free tier limits.
+ * Calls the warm-tomorrow logic directly (no HTTP fetch) to avoid Deployment Protection 401.
+ * Takes first 5 fixtures and kicks off the batch chain.
  */
 export const maxDuration = 10;
 
@@ -14,6 +15,15 @@ function getBaseUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }
 
+/** Headers to bypass Vercel Deployment Protection on internal fetches. */
+function getInternalFetchHeaders(): Record<string, string> {
+  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  if (bypass) {
+    return { "x-vercel-protection-bypass": bypass };
+  }
+  return {};
+}
+
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
@@ -21,23 +31,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const baseUrl = getBaseUrl();
-
   try {
-    const listRes = await fetch(`${baseUrl}/api/warm-tomorrow`, { cache: "no-store" });
-    if (!listRes.ok) {
-      console.error("[warm-tomorrow/cron] List failed:", listRes.status);
-      return NextResponse.json(
-        { ok: false, error: `List failed ${listRes.status}` },
-        { status: 500 }
-      );
-    }
-
-    const listData = (await listRes.json()) as {
-      ok: boolean;
-      fixtures?: { id: number; label: string }[];
-      message?: string;
-    };
+    const listData = await getFixturesNeedingWarm({});
 
     const fixtures = listData.fixtures ?? [];
     if (fixtures.length === 0) {
@@ -52,12 +47,17 @@ export async function GET(request: NextRequest) {
     const batch = fixtures.slice(0, batchSize);
     const fixtureIds = batch.map((f) => f.id).join(",");
 
+    const baseUrl = getBaseUrl();
     const batchUrl = `${baseUrl}/api/warm-tomorrow/batch?part=home&fixtureIds=${fixtureIds}`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     try {
-      await fetch(batchUrl, { cache: "no-store", signal: controller.signal });
+      await fetch(batchUrl, {
+        cache: "no-store",
+        signal: controller.signal,
+        headers: getInternalFetchHeaders(),
+      });
     } catch (e) {
       if ((e as Error).name === "AbortError") {
       } else {

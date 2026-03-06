@@ -9,7 +9,13 @@ The app runs a cron job at **5am UTC** daily to warm tomorrow's fixtures. This k
    - Add `CRON_SECRET` with a random string (e.g. from 1Password, 16+ chars)
    - Apply to Production (and Preview if you want to test)
 
-2. **Ensure `warm-today` has run** before the cron:
+2. **If you use Deployment Protection**, create a Protection Bypass for Automation:
+   - Project → Settings → Deployment Protection
+   - Under "Protection Bypass for Automation", create a bypass
+   - Vercel automatically injects `VERCEL_AUTOMATION_BYPASS_SECRET` – no manual env var needed
+   - The cron and batch use this to bypass protection on internal fetches
+
+3. **Ensure `warm-today` has run** before the cron:
    - The cron depends on `UpcomingFixture` being populated
    - Run `npm run warm-today` (without `--resume`) at least once to refresh the fixture list
    - Or add a separate cron for warm-today at 4am UTC if you want it fully automated

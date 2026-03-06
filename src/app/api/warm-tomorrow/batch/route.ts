@@ -24,6 +24,15 @@ function getBaseUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }
 
+/** Headers to bypass Vercel Deployment Protection when chaining to next batch. */
+function getInternalFetchHeaders(): Record<string, string> {
+  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  if (bypass) {
+    return { "x-vercel-protection-bypass": bypass };
+  }
+  return {};
+}
+
 function getNextPart(
   part: string,
   round: number,
@@ -85,7 +94,10 @@ export async function GET(request: NextRequest) {
       const baseUrl = getBaseUrl();
       const nextRound = nextPart === part ? round + 1 : 1;
       const batchUrl = `${baseUrl}/api/warm-tomorrow/batch?part=${nextPart}&fixtureIds=${ids.join(",")}&round=${nextRound}`;
-      fetch(batchUrl, { cache: "no-store" }).catch((e) => {
+      fetch(batchUrl, {
+        cache: "no-store",
+        headers: getInternalFetchHeaders(),
+      }).catch((e) => {
         console.error("[warm-tomorrow/batch] Chain error:", e);
       });
     }
