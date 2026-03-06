@@ -205,14 +205,14 @@ export default async function LeagueStandingsPage({ params }: Props) {
                       </h2>
                     </div>
                   ) : null}
-                  <div className="overflow-x-auto">
+                  <div className="isolate overflow-x-auto">
                     <table className="w-full min-w-[640px] border-collapse text-left text-sm">
                       <thead>
                         <tr className="border-b border-neutral-200 bg-neutral-50/80 dark:border-neutral-800 dark:bg-neutral-800/50">
-                          <th className="sticky left-0 z-20 w-8 min-w-[2rem] max-w-[2rem] bg-neutral-100 py-3 pl-2 pr-1 text-xs font-semibold uppercase tracking-wider text-neutral-500 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)] dark:bg-neutral-800 dark:text-neutral-400 dark:shadow-[2px_0_4px_-1px_rgba(0,0,0,0.3)]">
+                          <th className="sticky left-0 z-[1] w-8 min-w-[2rem] max-w-[2rem] bg-neutral-100 py-3 pl-2 pr-1 text-xs font-semibold uppercase tracking-wider text-neutral-500 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)] dark:bg-neutral-800 dark:text-neutral-400 dark:shadow-[2px_0_4px_-1px_rgba(0,0,0,0.3)]">
                             #
                           </th>
-                          <th className="sticky left-8 z-20 w-24 max-w-[6rem] border-r border-neutral-200 bg-neutral-100 py-3 pl-1.5 pr-2 text-xs font-semibold uppercase tracking-wider text-neutral-500 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)] dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:shadow-[2px_0_4px_-1px_rgba(0,0,0,0.3)]">
+                          <th className="sticky left-8 z-[1] w-24 max-w-[6rem] border-r border-neutral-200 bg-neutral-100 py-3 pl-1.5 pr-2 text-xs font-semibold uppercase tracking-wider text-neutral-500 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)] dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:shadow-[2px_0_4px_-1px_rgba(0,0,0,0.3)]">
                             Team
                           </th>
                           <th className="py-3 px-2 text-center text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
@@ -241,10 +241,10 @@ export default async function LeagueStandingsPage({ params }: Props) {
                             key={row.teamId}
                             className="group border-b border-neutral-100 transition-colors hover:bg-neutral-50/60 dark:border-neutral-800 dark:hover:bg-neutral-800/40"
                           >
-                            <td className="sticky left-0 z-10 w-8 min-w-[2rem] max-w-[2rem] bg-white py-2.5 pl-2 pr-1 font-medium text-neutral-600 transition-colors group-hover:bg-neutral-50/60 dark:bg-neutral-900 dark:text-neutral-400 dark:group-hover:bg-neutral-800/40">
+                            <td className="sticky left-0 z-[1] w-8 min-w-[2rem] max-w-[2rem] bg-white py-2.5 pl-2 pr-1 font-medium text-neutral-600 transition-colors group-hover:bg-neutral-50/60 dark:bg-neutral-900 dark:text-neutral-400 dark:group-hover:bg-neutral-800/40">
                               {row.rank}
                             </td>
-                            <td className="sticky left-8 z-10 w-24 max-w-[6rem] border-r border-neutral-200 bg-white py-2.5 pl-1.5 pr-2 transition-colors group-hover:bg-neutral-50/60 dark:border-neutral-700 dark:bg-neutral-900 dark:group-hover:bg-neutral-800/40">
+                            <td className="sticky left-8 z-[1] w-24 max-w-[6rem] border-r border-neutral-200 bg-white py-2.5 pl-1.5 pr-2 transition-colors group-hover:bg-neutral-50/60 dark:border-neutral-700 dark:bg-neutral-900 dark:group-hover:bg-neutral-800/40">
                               <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
                                 <CrestCell logo={row.logo} teamName={row.teamName} />
                                 <span className="min-w-0 truncate font-medium text-neutral-900 dark:text-neutral-50" title={row.teamName}>

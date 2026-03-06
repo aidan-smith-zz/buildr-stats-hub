@@ -61,7 +61,7 @@ export async function refreshTeamCrests(options?: {
         where: { apiId },
         update: {},
         create: { apiId, name: `Team ${apiId}` },
-        select: { id: true, apiId: true, name: true },
+        select: { id: true, apiId: true, name: true, crestUrl: true },
       });
       teams = [...teams, created];
       existingApiIds.add(apiId);
