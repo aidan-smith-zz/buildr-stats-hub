@@ -99,9 +99,10 @@ export default async function LeagueStandingsPage({ params }: Props) {
   ]);
   const leagueName = LEAGUE_DISPLAY_NAMES[leagueId] ?? "League";
 
+  const todayKey = todayDateKey();
   const breadcrumbItems = [
     { href: "/", label: "Home" },
-    { href: "/fixtures", label: "Fixtures" },
+    { href: `/fixtures/${todayKey}`, label: "Fixtures" },
     { href: `/leagues/${slug}/standings`, label: `${leagueName} standings` },
   ];
 
@@ -184,7 +185,7 @@ export default async function LeagueStandingsPage({ params }: Props) {
                 Cup, Scottish Cup) do not have a league table.
               </p>
               <NavLinkWithOverlay
-                href="/fixtures"
+                href={`/fixtures/${todayKey}`}
                 className="mt-4 inline-block text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400"
               >
                 View fixtures →
@@ -305,14 +306,14 @@ export default async function LeagueStandingsPage({ params }: Props) {
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">
                   For match previews, team form and player stats, see{" "}
                   <NavLinkWithOverlay
-                    href="/fixtures"
+                    href={`/fixtures/${todayKey}`}
                     className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
                   >
                     today&apos;s fixtures
                   </NavLinkWithOverlay>
                   {" "}and the{" "}
                   <NavLinkWithOverlay
-                    href={`/fixtures/${todayDateKey()}/form`}
+                    href={`/fixtures/${todayKey}/form`}
                     className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
                   >
                     form table
