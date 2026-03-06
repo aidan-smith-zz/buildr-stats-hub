@@ -4,7 +4,7 @@ import { getFixturesNeedingWarm } from "@/lib/warmTomorrowService";
 /**
  * Lightweight cron trigger for warm-tomorrow. Runs at 5am UTC daily.
  * Calls the warm-tomorrow logic directly (no HTTP fetch) to avoid Deployment Protection 401.
- * Takes first 5 fixtures and kicks off the batch chain.
+ * Takes first 10 fixtures and kicks off the batch chain.
  */
 export const maxDuration = 60;
 
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const batchSize = 5;
+    const batchSize = 10;
     const batch = fixtures.slice(0, batchSize);
     const fixtureIds = batch.map((f) => f.id).join(",");
 
