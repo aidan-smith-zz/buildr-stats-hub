@@ -55,9 +55,16 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const tomorrowKey = tomorrowDateKey();
-  const tomorrowFixtures = await getFixturesForDateFromDbOnly(tomorrowKey);
-  const tomorrowFormHref =
-    tomorrowFixtures.length > 0 ? `/fixtures/${tomorrowKey}/form` : undefined;
+  let tomorrowFormHref: string | undefined;
+  try {
+    const tomorrowFixtures = await getFixturesForDateFromDbOnly(tomorrowKey);
+    tomorrowFormHref =
+      tomorrowFixtures.length > 0 ? `/fixtures/${tomorrowKey}/form` : undefined;
+  } catch (err) {
+    // DB may be unreachable during build (e.g. pooler limits, prerender env).
+    // Fallback so build succeeds; runtime will retry on each request.
+    tomorrowFormHref = undefined;
+  }
 
   const webSiteJsonLd = {
     "@context": "https://schema.org",
