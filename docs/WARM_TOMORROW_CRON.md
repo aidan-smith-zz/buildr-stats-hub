@@ -1,6 +1,6 @@
 # Warm-Tomorrow Cron
 
-The app runs a cron job at **5am UTC** daily to warm tomorrow's fixtures. All fixtures needing warming are processed in batches of 10 (with a 2s stagger between batches to avoid API rate limits). This keeps player and team stats pre-loaded so the site is fast when users visit.
+The app runs a cron job at **5am UTC** daily to warm tomorrow's fixtures. All fixtures needing warming are processed in batches of 10. If there are more than 80 fixtures, the cron chains to itself (continuation) so every fixture gets warmed within the 60s per-invocation limit. This keeps player and team stats pre-loaded so the site is fast when users visit.
 
 ## Setup (one-time)
 

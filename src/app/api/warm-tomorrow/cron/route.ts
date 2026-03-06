@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getFixturesNeedingWarm } from "@/lib/warmTomorrowService";
 
 const BATCH_SIZE = 10;
+/** Max batches per invocation (~50s at 5s fetch + 2s stagger). Chains to continuation if more. */
+const BATCHES_PER_INVOCATION = 8;
 /** Delay between starting each batch (ms) to avoid API rate limits. */
 const BATCH_STAGGER_MS = 2000;
 const FETCH_TIMEOUT_MS = 5000;
@@ -9,7 +11,7 @@ const FETCH_TIMEOUT_MS = 5000;
 /**
  * Lightweight cron trigger for warm-tomorrow. Runs at 5am UTC daily.
  * Calls the warm-tomorrow logic directly (no HTTP fetch) to avoid Deployment Protection 401.
- * Kicks off multiple batches of 10 fixtures so all needing warming get processed.
+ * Processes all fixtures in batches of 10. Chains to continuation if >80 fixtures to stay under 60s.
  */
 export const maxDuration = 60;
 
@@ -64,6 +66,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const continuationParam = request.nextUrl.searchParams.get("continuation");
+  const startBatchIndex = Math.max(
+    0,
+    parseInt(continuationParam ?? "0", 10) || 0
+  );
+
   try {
     const listData = await getFixturesNeedingWarm({});
 
@@ -84,20 +92,42 @@ export async function GET(request: NextRequest) {
       batches.push(fixtures.slice(i, i + BATCH_SIZE).map((f) => f.id));
     }
 
-    for (let i = 0; i < batches.length; i++) {
-      await triggerBatch(baseUrl, batches[i], headers);
-      if (i < batches.length - 1) {
+    const endBatchIndex = Math.min(
+      startBatchIndex + BATCHES_PER_INVOCATION,
+      batches.length
+    );
+    const batchesThisRun = batches.slice(startBatchIndex, endBatchIndex);
+
+    for (let i = 0; i < batchesThisRun.length; i++) {
+      await triggerBatch(baseUrl, batchesThisRun[i], headers);
+      if (i < batchesThisRun.length - 1) {
         await sleep(BATCH_STAGGER_MS);
       }
     }
 
-    const allIds = fixtures.map((f) => f.id);
+    const hasMore = endBatchIndex < batches.length;
+    if (hasMore) {
+      const nextUrl = `${baseUrl}/api/warm-tomorrow/cron?continuation=${endBatchIndex}`;
+      const continuationHeaders: Record<string, string> = {
+        ...headers,
+        ...(cronSecret ? { Authorization: `Bearer ${cronSecret}` } : {}),
+      };
+      fetch(nextUrl, { cache: "no-store", headers: continuationHeaders }).catch(
+        (e) => console.error("[warm-tomorrow/cron] Continuation error:", e)
+      );
+    }
+
+    const totalFixtures = batchesThisRun.reduce((s, b) => s + b.length, 0);
     return NextResponse.json({
       ok: true,
       triggered: true,
-      message: `Started warming ${fixtures.length} fixture(s) in ${batches.length} batch(es).`,
-      fixtureIds: allIds,
-      batches: batches.length,
+      message: hasMore
+        ? `Started warming batch ${startBatchIndex + 1}-${endBatchIndex} of ${batches.length}. Chained continuation for rest.`
+        : `Started warming ${fixtures.length} fixture(s) in ${batches.length} batch(es).`,
+      fixtureIds: batchesThisRun.flat(),
+      batchesThisRun: batchesThisRun.length,
+      batchesTotal: batches.length,
+      continued: hasMore,
     });
   } catch (err) {
     console.error("[warm-tomorrow/cron] Fatal:", err);
