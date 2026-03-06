@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFixturesNeedingWarm } from "@/lib/warmTomorrowService";
 
+const BATCH_SIZE = 10;
+/** Delay between starting each batch (ms) to avoid API rate limits. */
+const BATCH_STAGGER_MS = 2000;
+const FETCH_TIMEOUT_MS = 5000;
+
 /**
  * Lightweight cron trigger for warm-tomorrow. Runs at 5am UTC daily.
  * Calls the warm-tomorrow logic directly (no HTTP fetch) to avoid Deployment Protection 401.
- * Takes first 10 fixtures and kicks off the batch chain.
+ * Kicks off multiple batches of 10 fixtures so all needing warming get processed.
  */
 export const maxDuration = 60;
 
@@ -22,6 +27,34 @@ function getInternalFetchHeaders(): Record<string, string> {
     return { "x-vercel-protection-bypass": bypass };
   }
   return {};
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function triggerBatch(
+  baseUrl: string,
+  fixtureIds: number[],
+  headers: Record<string, string>
+): Promise<void> {
+  const ids = fixtureIds.join(",");
+  const batchUrl = `${baseUrl}/api/warm-tomorrow/batch?part=home&fixtureIds=${ids}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    await fetch(batchUrl, {
+      cache: "no-store",
+      signal: controller.signal,
+      headers,
+    });
+  } catch (e) {
+    if ((e as Error).name !== "AbortError") {
+      console.error("[warm-tomorrow/cron] Batch trigger error:", e);
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -43,35 +76,28 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const batchSize = 10;
-    const batch = fixtures.slice(0, batchSize);
-    const fixtureIds = batch.map((f) => f.id).join(",");
-
     const baseUrl = getBaseUrl();
-    const batchUrl = `${baseUrl}/api/warm-tomorrow/batch?part=home&fixtureIds=${fixtureIds}`;
+    const headers = getInternalFetchHeaders();
+    const batches: number[][] = [];
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    try {
-      await fetch(batchUrl, {
-        cache: "no-store",
-        signal: controller.signal,
-        headers: getInternalFetchHeaders(),
-      });
-    } catch (e) {
-      if ((e as Error).name === "AbortError") {
-      } else {
-        console.error("[warm-tomorrow/cron] Batch trigger error:", e);
-      }
-    } finally {
-      clearTimeout(timeout);
+    for (let i = 0; i < fixtures.length; i += BATCH_SIZE) {
+      batches.push(fixtures.slice(i, i + BATCH_SIZE).map((f) => f.id));
     }
 
+    for (let i = 0; i < batches.length; i++) {
+      await triggerBatch(baseUrl, batches[i], headers);
+      if (i < batches.length - 1) {
+        await sleep(BATCH_STAGGER_MS);
+      }
+    }
+
+    const allIds = fixtures.map((f) => f.id);
     return NextResponse.json({
       ok: true,
       triggered: true,
-      message: `Started warming ${batch.length} fixture(s). ${fixtures.length - batch.length} remaining (run manually or wait for next cron).`,
-      fixtureIds: batch.map((f) => f.id),
+      message: `Started warming ${fixtures.length} fixture(s) in ${batches.length} batch(es).`,
+      fixtureIds: allIds,
+      batches: batches.length,
     });
   } catch (err) {
     console.error("[warm-tomorrow/cron] Fatal:", err);
