@@ -173,6 +173,27 @@ export async function getFixturesNeedingWarm(options?: {
           homeHasStaleTeamStats ||
           awayHasStaleTeamStats;
 
+        if (f.leagueId === leagues.SCOTTISH_CUP_LEAGUE_ID) {
+          const homeInPremiership = homePlayer.count > 0;
+          const awayInPremiership = awayPlayer.count > 0;
+          if (!homeInPremiership && !awayInPremiership) return false;
+          const homeNeeds =
+            (!isTeamStatsOnly &&
+              (homePlayer.count < MIN_PLAYERS_PER_TEAM ||
+                (staleCutoffMs != null && homePlayerStale))) ||
+            !homeHasFreshTeamStats ||
+            homeHasStaleTeamStats;
+          const awayNeeds =
+            (!isTeamStatsOnly &&
+              (awayPlayer.count < MIN_PLAYERS_PER_TEAM ||
+                (staleCutoffMs != null && awayPlayerStale))) ||
+            !awayHasFreshTeamStats ||
+            awayHasStaleTeamStats;
+          return (
+            (homeInPremiership && homeNeeds) || (awayInPremiership && awayNeeds)
+          );
+        }
+
         return needsPlayerStats || needsTeamStats;
       });
 
