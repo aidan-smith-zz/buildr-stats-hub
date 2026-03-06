@@ -17,7 +17,7 @@ Pick one and create a database:
 - **[Neon](https://neon.tech)** – Free tier. Create project → copy connection string.
 - **[Vercel Postgres](https://vercel.com/storage/postgres)** – Create from Vercel dashboard if you prefer.
 
-- **On Vercel:** use the **pooler** connection string (Supabase: port **6543**, "Transaction" pooler) and append `?pgbouncer=true` to `DATABASE_URL` to avoid "prepared statement" errors.
+- **On Vercel:** use the **pooler** connection string (Supabase: port **6543**, "Transaction" pooler). Append `?pgbouncer=true` to avoid "prepared statement" errors, and `&connection_limit=1` so each serverless instance uses one connection and you avoid "Unable to start a transaction" (P2028) under load (e.g. crawlers).
 - **Locally:** the direct connection (port 5432) is fine unless you hit connection limits.
 
 ---
@@ -57,7 +57,7 @@ npm run build
 
    | Name                   | Value                                      | Environments   |
    |------------------------|--------------------------------------------|----------------|
-   | `DATABASE_URL`         | Pooler URL, e.g. `postgresql://...@HOST:6543/postgres?pgbouncer=true` (Supabase: use port 6543) | Production, Preview |
+   | `DATABASE_URL`         | Pooler URL, e.g. `postgresql://...@HOST:6543/postgres?pgbouncer=true&connection_limit=1` (Supabase: port 6543) | Production, Preview |
    | `FOOTBALL_API_BASE_URL` | `https://v3.football.api-sports.io`      | Production, Preview |
    | `FOOTBALL_API_KEY`    | Your API-Football key                      | Production, Preview |
 
@@ -136,7 +136,7 @@ You can run a custom script in a one-off job (e.g. “Run Command” or a deploy
   All Prisma usage is in server code (API routes, server components, `server-only` modules). Do not import `prisma` or `PrismaClient` in client components.
 
 - **DB connection errors in production**  
-  - Use the **Supabase pooler** URL (port **6543**) as `DATABASE_URL` on Vercel, and append `?pgbouncer=true`.  
+  - Use the **Supabase pooler** URL (port **6543**) as `DATABASE_URL` on Vercel; append `?pgbouncer=true&connection_limit=1` to reduce "Unable to start a transaction" (P2028) under load.  
   - Check no extra spaces and that the password is URL-encoded in `DATABASE_URL`.  
   - If you hit connection limits, switch to a **connection pooler** URL (e.g. Supabase “Transaction” pooler or Neon pooler) and use that as `DATABASE_URL`.
 

@@ -44,13 +44,18 @@ export const metadata: Metadata = {
 function getFixtureErrorDisplay(err: unknown): { message: string; showConfigHints: boolean } {
   const raw = err instanceof Error ? err.message : String(err);
   const code = err instanceof Error && "code" in err ? String((err as NodeJS.ErrnoException).code) : "";
+  const prismaCode = err && typeof err === "object" && "code" in err ? String((err as { code?: string }).code) : "";
+  const isPoolTimeout = prismaCode === "P2028";
   const isInternal =
     code === "EPERM" ||
     code === "EACCES" ||
+    isPoolTimeout ||
     /chmod|query-engine|\.prisma|node_modules.*prisma|\/var\/task\//i.test(raw);
   if (isInternal) {
     return {
-      message: "Something went wrong loading fixtures. Please try again in a moment.",
+      message: isPoolTimeout
+        ? "The server is busy. Please try again in a moment."
+        : "Something went wrong loading fixtures. Please try again in a moment.",
       showConfigHints: false,
     };
   }
@@ -66,15 +71,36 @@ function getFixtureErrorDisplay(err: unknown): { message: string; showConfigHint
   };
 }
 
+/** Retry once on pool timeout (P2028) to handle transient load e.g. from crawlers. */
+async function withPoolRetry<T>(fn: () => Promise<T>, maxAttempts = 2): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const code = err && typeof err === "object" && "code" in err ? (err as { code?: string }).code : undefined;
+      if (code === "P2028" && attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 400 * attempt));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
 export default async function Home() {
   try {
     const now = new Date();
     const todayKey = todayDateKey();
     const tomorrowKey = tomorrowDateKey();
-    const [fixtures, tomorrowFixtures] = await Promise.all([
-      getOrRefreshTodayFixtures(now),
-      getFixturesForDateFromDbOnly(tomorrowKey),
-    ]);
+    const [fixtures, tomorrowFixtures] = await withPoolRetry(() =>
+      Promise.all([
+        getOrRefreshTodayFixtures(now),
+        getFixturesForDateFromDbOnly(tomorrowKey),
+      ]),
+    );
 
     const itemListElements =
       fixtures?.length > 0
@@ -162,7 +188,7 @@ export default async function Home() {
             ) : showConfigHints ? (
               <ul className="mt-4 list-inside list-disc text-left text-sm text-amber-800 dark:text-amber-300">
                 <li><strong>Local:</strong> In your <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">.env</code> file, set <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">DATABASE_URL</code>, <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">FOOTBALL_API_BASE_URL</code> and <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">FOOTBALL_API_KEY</code>. Use the direct Postgres URL (port 5432) or your pooler URL if you have one.</li>
-                <li><strong>Vercel:</strong> Set the same env vars in Project → Settings → Environment Variables. Use the Supabase pooler (port 6543) and append <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">?pgbouncer=true</code> to <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">DATABASE_URL</code>.</li>
+                <li><strong>Vercel:</strong> Set the same env vars in Project → Settings → Environment Variables. Use the Supabase pooler (port 6543) and append <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">?pgbouncer=true&amp;connection_limit=1</code> to <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">DATABASE_URL</code>.</li>
                 <li>URL-encode the password in <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">DATABASE_URL</code> if it contains special characters.</li>
               </ul>
             ) : (
