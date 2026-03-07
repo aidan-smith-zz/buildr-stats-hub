@@ -3,6 +3,7 @@ import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { getMatchdayInsightsData } from "@/lib/matchdayInsightsService";
+import { withPoolRetry } from "@/lib/poolRetry";
 import { MatchdayInsightsClient } from "./matchday-insights-client";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
@@ -24,7 +25,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { date: dateParam } = await params;
   const dateKey = normalizeDateKey(dateParam);
-  const data = await getMatchdayInsightsData(dateKey);
+  const data = await withPoolRetry(() => getMatchdayInsightsData(dateKey));
   const hasContent =
     data.top5ShotsOnTargetPer90.length > 0 || data.top5FixturesCombinedXg.length > 0;
   const displayDate = data.displayDate;
@@ -69,7 +70,7 @@ export default async function MatchdayInsightsPage({
   const { date: dateParam } = await params;
   const dateKey = normalizeDateKey(dateParam);
 
-  const data = await getMatchdayInsightsData(dateKey);
+  const data = await withPoolRetry(() => getMatchdayInsightsData(dateKey));
 
   const fixturesHref = `/fixtures/${dateKey}`;
   const breadcrumbItems = [

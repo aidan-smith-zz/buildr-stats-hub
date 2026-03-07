@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getFixturesForDateFromDbOnly, getOrRefreshTodayFixtures } from "@/lib/fixturesService";
+import { withPoolRetry } from "@/lib/poolRetry";
 import { leagueToSlug, matchSlug, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
@@ -44,13 +45,18 @@ export const metadata: Metadata = {
 function getFixtureErrorDisplay(err: unknown): { message: string; showConfigHints: boolean } {
   const raw = err instanceof Error ? err.message : String(err);
   const code = err instanceof Error && "code" in err ? String((err as NodeJS.ErrnoException).code) : "";
+  const prismaCode = err && typeof err === "object" && "code" in err ? String((err as { code?: string }).code) : "";
+  const isPoolTimeout = prismaCode === "P2024" || prismaCode === "P2028";
   const isInternal =
     code === "EPERM" ||
     code === "EACCES" ||
+    isPoolTimeout ||
     /chmod|query-engine|\.prisma|node_modules.*prisma|\/var\/task\//i.test(raw);
   if (isInternal) {
     return {
-      message: "Something went wrong loading fixtures. Please try again in a moment.",
+      message: isPoolTimeout
+        ? "The server is busy. Please try again in a moment."
+        : "Something went wrong loading fixtures. Please try again in a moment.",
       showConfigHints: false,
     };
   }
@@ -71,10 +77,12 @@ export default async function Home() {
     const now = new Date();
     const todayKey = todayDateKey();
     const tomorrowKey = tomorrowDateKey();
-    const [fixtures, tomorrowFixtures] = await Promise.all([
-      getOrRefreshTodayFixtures(now),
-      getFixturesForDateFromDbOnly(tomorrowKey),
-    ]);
+    const [fixtures, tomorrowFixtures] = await withPoolRetry(() =>
+      Promise.all([
+        getOrRefreshTodayFixtures(now),
+        getFixturesForDateFromDbOnly(tomorrowKey),
+      ]),
+    );
 
     const itemListElements =
       fixtures?.length > 0
