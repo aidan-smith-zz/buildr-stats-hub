@@ -843,10 +843,11 @@ export async function getFixtureStats(
     }
   }
 
-  // When we don't have a lineup and we're within the fetch window, fetch and store so the response includes lineup (blocking; page may be slower on first load).
+  // When we don't have a lineup and we're within the fetch window (e.g. 30 min before kickoff), fetch and store so the response includes lineup.
+  // Run even when effectiveDbOnly (warmed): otherwise warmed fixtures never get lineups as kickoff approaches.
   const hadLineup = lineupCount > 0;
-  if (!effectiveDbOnly && !hadLineup && !teamStatsOnly) {
-    if (DEBUG_FIXTURE) console.log("[fixture-debug] getFixtureStats API branch: ensureLineupIfWithinWindow");
+  if (!hadLineup && !teamStatsOnly) {
+    if (DEBUG_FIXTURE) console.log("[fixture-debug] getFixtureStats: ensureLineupIfWithinWindow (within window = fetch)");
     await ensureLineupIfWithinWindow(
       fixture.id,
       fixture.date,
