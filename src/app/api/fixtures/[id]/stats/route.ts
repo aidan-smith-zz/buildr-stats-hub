@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withPoolRetry } from "@/lib/poolRetry";
 import { getFixtureStats } from "@/lib/statsService";
 
 const DEBUG_FIXTURE = process.env.DEBUG_FIXTURE === "1" || process.env.DEBUG_FIXTURE === "true";
@@ -24,7 +25,9 @@ export async function GET(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Invalid fixture id" }, { status: 400 });
   }
 
-  const stats = await getFixtureStats(id);
+  const stats = await withPoolRetry(() =>
+    getFixtureStats(id, { sequential: true })
+  );
 
   if (!stats) {
     // Check if any fixtures exist to help debug

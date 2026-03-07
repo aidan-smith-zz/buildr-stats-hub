@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getFixturesForDateFromDbOnly, getOrRefreshTodayFixtures } from "@/lib/fixturesService";
+import { withPoolRetry } from "@/lib/poolRetry";
 import { fixtureDateKey, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
@@ -79,10 +80,12 @@ export default async function FixturesDatePage({
   if (dateKey === todayKey) {
     const now = new Date();
     const tomorrowKey = tomorrowDateKey();
-    const [fixtures, tomorrowFixtures] = await Promise.all([
-      getOrRefreshTodayFixtures(now),
-      getFixturesForDateFromDbOnly(tomorrowKey),
-    ]);
+    const [fixtures, tomorrowFixtures] = await withPoolRetry(() =>
+      Promise.all([
+        getOrRefreshTodayFixtures(now),
+        getFixturesForDateFromDbOnly(tomorrowKey),
+      ])
+    );
     const todayOnly = fixtures.filter((f) => fixtureDateKey(f.date) === todayKey);
     const tomorrowOnly = (tomorrowFixtures ?? []).filter((f) => fixtureDateKey(f.date) === tomorrowKey);
     const useLeagueGroupsForToday = todayOnly.length > 15;
@@ -101,7 +104,7 @@ export default async function FixturesDatePage({
   }
 
   // Other dates: show fixtures for that specific date only (no hero, no tomorrow tab).
-  const fixtures = await getFixturesForDateFromDbOnly(dateKey);
+  const fixtures = await withPoolRetry(() => getFixturesForDateFromDbOnly(dateKey));
   return (
     <TodayFixturesList
       fixtures={fixtures}

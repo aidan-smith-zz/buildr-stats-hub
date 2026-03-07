@@ -5,6 +5,7 @@ import {
   getFixturesForDateFromDbOnly,
   getOrRefreshTodayFixtures,
 } from "@/lib/fixturesService";
+import { withPoolRetry } from "@/lib/poolRetry";
 import { fetchLiveFixture } from "@/lib/footballApi";
 import { prisma } from "@/lib/prisma";
 import { getFixtureStats } from "@/lib/statsService";
@@ -91,7 +92,7 @@ export async function generateMetadata({
     await params;
 
   if (dateKey === todayDateKey()) {
-    const fixtures = await getOrRefreshTodayFixtures(new Date());
+    const fixtures = await withPoolRetry(() => getOrRefreshTodayFixtures(new Date()));
     const fixture = findTodayFixture(fixtures, leagueSlug, matchSlugParam);
     if (!fixture) {
       return { title: "Fixture not found", robots: { index: true, follow: true } };
@@ -127,7 +128,7 @@ export async function generateMetadata({
   }
 
   // Past or upcoming: prefer warmed fixture from DB
-  const warmedFixtures = await getFixturesForDateFromDbOnly(dateKey);
+  const warmedFixtures = await withPoolRetry(() => getFixturesForDateFromDbOnly(dateKey));
   const warmedFixture = findTodayFixture(warmedFixtures, leagueSlug, matchSlugParam);
   if (warmedFixture) {
     const home = warmedFixture.homeTeam.shortName ?? warmedFixture.homeTeam.name;
@@ -220,7 +221,7 @@ export default async function FixtureMatchPage({
 
   // Today: full flow (dashboard, redirect if not found)
   if (dateKey === todayDateKey()) {
-    const fixtures = await getOrRefreshTodayFixtures(new Date());
+    const fixtures = await withPoolRetry(() => getOrRefreshTodayFixtures(new Date()));
     const fixture = findTodayFixture(fixtures, leagueSlug, matchSlugParam);
     if (!fixture) {
       if (DEBUG_FIXTURE) console.log("[fixture-debug] branch=today fixture=not-found redirect");
@@ -366,20 +367,22 @@ export default async function FixtureMatchPage({
   }
 
   // Past or upcoming: if this fixture was warmed, show either result+lineups (past) or full dashboard (upcoming)
-  const warmedFixtures = await getFixturesForDateFromDbOnly(dateKey);
+  const warmedFixtures = await withPoolRetry(() => getFixturesForDateFromDbOnly(dateKey));
   const warmedFixture = findTodayFixture(warmedFixtures, leagueSlug, matchSlugParam);
   const isPast = dateKey < todayDateKey();
 
   if (warmedFixture && isPast) {
     if (DEBUG_FIXTURE) console.log("[fixture-debug] branch=past fixtureId=" + warmedFixture.id + " (result + lineups, server-side getFixtureStats dbOnly)");
     // Past fixture: final result + lineups. Check DB first; if no score cached, fetch from API once and store.
-    const [fixtureWithScore, stats] = await Promise.all([
-      prisma.fixture.findUnique({
-        where: { id: warmedFixture.id },
-        include: { liveScoreCache: true },
-      }),
-      getFixtureStats(warmedFixture.id, { dbOnly: true }),
-    ]);
+    const [fixtureWithScore, stats] = await withPoolRetry(() =>
+      Promise.all([
+        prisma.fixture.findUnique({
+          where: { id: warmedFixture.id },
+          include: { liveScoreCache: true },
+        }),
+        getFixtureStats(warmedFixture.id, { dbOnly: true, sequential: true }),
+      ])
+    );
     let score: PastFixtureScore | null =
       fixtureWithScore?.liveScoreCache != null
         ? {

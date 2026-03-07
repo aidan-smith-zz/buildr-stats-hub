@@ -4,7 +4,7 @@ const POOL_ERROR_CODES = new Set(["P2024", "P2028"]);
 /**
  * Retry a function on transient pool errors (P2024 connection timeout, P2028 transaction timeout).
  */
-export async function withPoolRetry<T>(fn: () => Promise<T>, maxAttempts = 2): Promise<T> {
+export async function withPoolRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
