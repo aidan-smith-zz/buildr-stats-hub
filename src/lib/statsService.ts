@@ -712,13 +712,8 @@ export async function getFixtureStats(
   });
 
   // Run independent DB checks (parallel when possible; sequential when connection_limit=1).
-  let counts: { teamId: number; _count: { id: number } }[];
-  let homeTeamStatsExisting: Awaited<ReturnType<typeof prisma.teamSeasonStats.findFirst>>;
-  let awayTeamStatsExisting: Awaited<ReturnType<typeof prisma.teamSeasonStats.findFirst>>;
-  let lineupCount: number;
-  let lineupByTeamInitial: Awaited<ReturnType<typeof getLineupForFixture>>;
-  if (sequential) {
-    counts = await prisma.playerSeasonStats.groupBy({
+  const groupByQuery = () =>
+    prisma.playerSeasonStats.groupBy({
       by: ["teamId"],
       where: {
         teamId: { in: teamIds },
@@ -727,6 +722,13 @@ export async function getFixtureStats(
       },
       _count: { id: true },
     });
+  let counts: Awaited<ReturnType<typeof groupByQuery>>;
+  let homeTeamStatsExisting: Awaited<ReturnType<typeof prisma.teamSeasonStats.findFirst>>;
+  let awayTeamStatsExisting: Awaited<ReturnType<typeof prisma.teamSeasonStats.findFirst>>;
+  let lineupCount: number;
+  let lineupByTeamInitial: Awaited<ReturnType<typeof getLineupForFixture>>;
+  if (sequential) {
+    counts = await groupByQuery();
     homeTeamStatsExisting = await prisma.teamSeasonStats.findFirst({ where: teamStatsWhere(fixture.homeTeamId) });
     awayTeamStatsExisting = await prisma.teamSeasonStats.findFirst({ where: teamStatsWhere(fixture.awayTeamId) });
     lineupCount = await prisma.fixtureLineup.count({ where: { fixtureId: fixture.id } });
@@ -734,15 +736,7 @@ export async function getFixtureStats(
   } else {
     [counts, homeTeamStatsExisting, awayTeamStatsExisting, lineupCount, lineupByTeamInitial] =
       await Promise.all([
-        prisma.playerSeasonStats.groupBy({
-          by: ["teamId"],
-          where: {
-            teamId: { in: teamIds },
-            season: API_SEASON,
-            ...leagueFilter,
-          },
-          _count: { id: true },
-        }),
+        groupByQuery(),
         prisma.teamSeasonStats.findFirst({ where: teamStatsWhere(fixture.homeTeamId) }),
         prisma.teamSeasonStats.findFirst({ where: teamStatsWhere(fixture.awayTeamId) }),
         prisma.fixtureLineup.count({ where: { fixtureId: fixture.id } }),
