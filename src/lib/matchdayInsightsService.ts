@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { getOrRefreshTodayFixtures } from "@/lib/fixturesService";
 import { getFixtureStats } from "@/lib/statsService";
@@ -74,8 +75,9 @@ function fixtureHref(
  * Load matchday insights for a date. Reads from MatchdayInsightsCache if present (computed once per day);
  * otherwise computes from DB (all fixtures + getFixtureStats with dbOnly), stores in cache, returns.
  * No API calls. Team stats use past-only data (same as fixture dashboard).
+ * Wrapped in React cache() so generateMetadata and page share one invocation per request.
  */
-export async function getMatchdayInsightsData(
+export const getMatchdayInsightsData = cache(async function getMatchdayInsightsData(
   dateKey: string,
 ): Promise<MatchdayInsightsData> {
   const cached = await prisma.matchdayInsightsCache.findUnique({
@@ -360,4 +362,4 @@ export async function getMatchdayInsightsData(
     });
   }
   return result;
-}
+});

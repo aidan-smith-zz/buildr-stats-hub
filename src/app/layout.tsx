@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { BurgerMenu } from "@/app/_components/burger-menu";
 import { GoogleAnalytics } from "@/app/_components/google-analytics";
 import { HomeLink } from "@/app/_components/home-link";
-import { getFixturesForDateFromDbOnly } from "@/lib/fixturesService";
 import { tomorrowDateKey } from "@/lib/slugs";
 import "./globals.css";
 
@@ -54,17 +53,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Derive tomorrow's form link from date only (no DB) to avoid a connection on every request.
   const tomorrowKey = tomorrowDateKey();
-  let tomorrowFormHref: string | undefined;
-  try {
-    const tomorrowFixtures = await getFixturesForDateFromDbOnly(tomorrowKey);
-    tomorrowFormHref =
-      tomorrowFixtures.length > 0 ? `/fixtures/${tomorrowKey}/form` : undefined;
-  } catch (err) {
-    // DB may be unreachable during build (e.g. pooler limits, prerender env).
-    // Fallback so build succeeds; runtime will retry on each request.
-    tomorrowFormHref = undefined;
-  }
+  const tomorrowFormHref = `/fixtures/${tomorrowKey}/form`;
 
   const webSiteJsonLd = {
     "@context": "https://schema.org",

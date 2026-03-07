@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { REQUIRED_LEAGUE_IDS, isFixtureInRequiredLeagues } from "@/lib/leagues";
 import { prisma } from "@/lib/prisma";
 import {
@@ -391,16 +392,23 @@ export async function getTodayFixturesFromDbOnly(now: Date = new Date()): Promis
 /**
  * Return fixtures for a given date (YYYY-MM-DD) from DB only. Used to show full stats for
  * warmed upcoming fixtures (e.g. tomorrow after warm-tomorrow). No API calls, no materialization.
+ * Cached 60s (stale-while-revalidate) to reduce DB load under traffic.
  */
 export async function getFixturesForDateFromDbOnly(dateKey: string): Promise<FixtureSummary[]> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return [];
-  const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
-  const rows = await prisma.fixture.findMany({
-    where: { date: { gte: dayStart, lte: spilloverEnd } },
-    orderBy: { date: "asc" },
-    include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
-  });
-  return rows.map(mapFixtureToSummary);
+  return unstable_cache(
+    async () => {
+      const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
+      const rows = await prisma.fixture.findMany({
+        where: { date: { gte: dayStart, lte: spilloverEnd } },
+        orderBy: { date: "asc" },
+        include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
+      });
+      return rows.map(mapFixtureToSummary);
+    },
+    ["fixtures-date", dateKey],
+    { revalidate: 60 }
+  )();
 }
 
 /**
@@ -478,8 +486,18 @@ export async function getTomorrowFixturesForWarming(tomorrowDateKey: string): Pr
 
 /**
  * Fetch today's fixtures from DB or refresh from API if stale/missing.
+ * Cached 60s (stale-while-revalidate) to reduce DB/API load under traffic.
  */
 export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise<FixtureSummary[]> {
+  const dateKey = getTodayDateKey(now);
+  return unstable_cache(
+    () => getOrRefreshTodayFixturesUncached(now),
+    ["today-fixtures", dateKey],
+    { revalidate: 60 }
+  )();
+}
+
+async function getOrRefreshTodayFixturesUncached(now: Date): Promise<FixtureSummary[]> {
   const dateKey = getTodayDateKey(now);
   const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
 

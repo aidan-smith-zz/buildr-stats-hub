@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import {
-  getOrRefreshTodayFixtures,
+  getFixturesForDateFromDbOnly,
   getUpcomingFixturesFromDb,
 } from "@/lib/fixturesService";
 import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
@@ -24,8 +24,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    const fixtures = await getOrRefreshTodayFixtures(now);
     const dateKey = todayDateKey();
+    const fixtures = await getFixturesForDateFromDbOnly(dateKey);
     const filtered = fixtures.filter(
       (f) =>
         f.leagueId != null &&
