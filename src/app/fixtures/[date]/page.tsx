@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getFixturesForDateFromDbOnly, getOrRefreshTodayFixtures } from "@/lib/fixturesService";
-import { todayDateKey, tomorrowDateKey } from "@/lib/slugs";
+import { fixtureDateKey, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
 export const dynamic = "force-dynamic";
@@ -83,6 +83,10 @@ export default async function FixturesDatePage({
       getOrRefreshTodayFixtures(now),
       getFixturesForDateFromDbOnly(tomorrowKey),
     ]);
+    const todayOnly = fixtures.filter((f) => fixtureDateKey(f.date) === todayKey);
+    const tomorrowOnly = (tomorrowFixtures ?? []).filter((f) => fixtureDateKey(f.date) === tomorrowKey);
+    const useLeagueGroupsForToday = todayOnly.length > 15;
+    const useLeagueGroupsForTomorrow = tomorrowOnly.length > 15;
     return (
       <TodayFixturesList
         fixtures={fixtures}
@@ -90,6 +94,8 @@ export default async function FixturesDatePage({
         todayKey={todayKey}
         tomorrowFixtures={tomorrowFixtures}
         tomorrowKey={tomorrowKey}
+        useLeagueGroupsForToday={useLeagueGroupsForToday}
+        useLeagueGroupsForTomorrow={useLeagueGroupsForTomorrow}
       />
     );
   }

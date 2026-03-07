@@ -24,6 +24,11 @@ export function todayDateKey(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: FIXTURES_TZ });
 }
 
+/** Date key (YYYY-MM-DD) in Europe/London for a given date. Use to match fixture date to todayKey. */
+export function fixtureDateKey(fixtureDate: Date | string): string {
+  return new Date(fixtureDate).toLocaleDateString("en-CA", { timeZone: FIXTURES_TZ });
+}
+
 /** Tomorrow's date as YYYY-MM-DD (Europe/London). */
 export function tomorrowDateKey(): string {
   const d = new Date();

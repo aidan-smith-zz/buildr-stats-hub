@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getFixturesForDateFromDbOnly, getOrRefreshTodayFixtures } from "@/lib/fixturesService";
 import { withPoolRetry } from "@/lib/poolRetry";
-import { leagueToSlug, matchSlug, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
+import { fixtureDateKey, leagueToSlug, matchSlug, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
 export const dynamic = "force-dynamic";
@@ -84,6 +84,11 @@ export default async function Home() {
       ]),
     );
 
+    const todayOnly = fixtures?.filter((f) => fixtureDateKey(f.date) === todayKey) ?? [];
+    const tomorrowOnly = tomorrowFixtures?.filter((f) => fixtureDateKey(f.date) === tomorrowKey) ?? [];
+    const useLeagueGroupsForToday = todayOnly.length > 15;
+    const useLeagueGroupsForTomorrow = tomorrowOnly.length > 15;
+
     const itemListElements =
       fixtures?.length > 0
         ? fixtures.map((f, index) => {
@@ -130,6 +135,8 @@ export default async function Home() {
           todayKey={todayKey}
           tomorrowFixtures={tomorrowFixtures}
           tomorrowKey={tomorrowKey}
+          useLeagueGroupsForToday={useLeagueGroupsForToday}
+          useLeagueGroupsForTomorrow={useLeagueGroupsForTomorrow}
         />
       </>
     );

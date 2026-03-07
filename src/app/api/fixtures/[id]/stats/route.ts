@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getFixtureStats } from "@/lib/statsService";
 
+const DEBUG_FIXTURE = process.env.DEBUG_FIXTURE === "1" || process.env.DEBUG_FIXTURE === "true";
+
 /** Hobby plan max 60s. Use chunked warm (GET /api/fixtures/[id]/warm?part=home|away) to prefill player stats. */
 export const maxDuration = 60;
 
@@ -13,6 +15,10 @@ type RouteParams = {
 export async function GET(_request: Request, { params }: RouteParams) {
   const { id: idParam } = await params;
   const id = Number(idParam);
+
+  if (DEBUG_FIXTURE) {
+    console.log("[fixture-debug] GET /api/fixtures/" + id + "/stats");
+  }
 
   if (!Number.isFinite(id) || id <= 0) {
     return NextResponse.json({ error: "Invalid fixture id" }, { status: 400 });

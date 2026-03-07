@@ -204,6 +204,8 @@ export async function generateMetadata({
   };
 }
 
+const DEBUG_FIXTURE = process.env.DEBUG_FIXTURE === "1" || process.env.DEBUG_FIXTURE === "true";
+
 export default async function FixtureMatchPage({
   params,
 }: {
@@ -212,13 +214,19 @@ export default async function FixtureMatchPage({
   const { date: dateKey, league: leagueSlug, match: matchSlugParam } =
     await params;
 
+  if (DEBUG_FIXTURE) {
+    console.log("[fixture-debug] page open", { dateKey, leagueSlug, match: matchSlugParam });
+  }
+
   // Today: full flow (dashboard, redirect if not found)
   if (dateKey === todayDateKey()) {
     const fixtures = await getOrRefreshTodayFixtures(new Date());
     const fixture = findTodayFixture(fixtures, leagueSlug, matchSlugParam);
     if (!fixture) {
+      if (DEBUG_FIXTURE) console.log("[fixture-debug] branch=today fixture=not-found redirect");
       redirect("/");
     }
+    if (DEBUG_FIXTURE) console.log("[fixture-debug] branch=today fixtureId=" + fixture.id + " (full dashboard, client will fetch /api/fixtures/" + fixture.id + "/stats)");
     const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
     const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
     const league = fixture.league ?? "Football";
@@ -363,6 +371,7 @@ export default async function FixtureMatchPage({
   const isPast = dateKey < todayDateKey();
 
   if (warmedFixture && isPast) {
+    if (DEBUG_FIXTURE) console.log("[fixture-debug] branch=past fixtureId=" + warmedFixture.id + " (result + lineups, server-side getFixtureStats dbOnly)");
     // Past fixture: final result + lineups. Check DB first; if no score cached, fetch from API once and store.
     const [fixtureWithScore, stats] = await Promise.all([
       prisma.fixture.findUnique({
@@ -448,6 +457,7 @@ export default async function FixtureMatchPage({
   }
 
   if (warmedFixture) {
+    if (DEBUG_FIXTURE) console.log("[fixture-debug] branch=upcoming fixtureId=" + warmedFixture.id + " (full dashboard, client will fetch /api/fixtures/" + warmedFixture.id + "/stats)");
     // Upcoming date: full stats from DB (e.g. warm-tomorrow)
     const fixtures = warmedFixtures;
     const fixture = warmedFixture;
@@ -580,6 +590,7 @@ export default async function FixtureMatchPage({
   }
 
   // No warmed data: generic preview (UpcomingFixture or API)
+  if (DEBUG_FIXTURE) console.log("[fixture-debug] branch=preview (no warmed fixture for date, will try getFixturePreview)");
   const fixture = await getFixturePreview(dateKey, leagueSlug, matchSlugParam);
 
   if (!fixture) {

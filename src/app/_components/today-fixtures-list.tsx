@@ -1,6 +1,6 @@
 import { FixtureRowLink, NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { TodayTomorrowTabs } from "@/app/_components/today-tomorrow-tabs";
-import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
+import { fixtureDateKey, leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
 import { LEAGUE_DISPLAY_NAMES, LEAGUE_GROUP_ORDER, LEAGUE_ORDER, REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 
@@ -49,9 +49,7 @@ function leagueGroupSortIndex(leagueId: number | null): number {
 
 /** True if the fixture's date (in Europe/London) falls on the given dateKey (YYYY-MM-DD). */
 function fixtureOnDateKey(fixture: FixtureSummary, dateKey: string): boolean {
-  const d = new Date(fixture.date);
-  const key = d.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
-  return key === dateKey;
+  return fixtureDateKey(fixture.date) === dateKey;
 }
 
 /** Filter to required leagues and sort by kick-off time (earliest first). */
@@ -146,6 +144,10 @@ type Props = {
   tomorrowFixtures?: FixtureSummary[];
   /** Tomorrow's date key (YYYY-MM-DD); required when tomorrowFixtures is set. */
   tomorrowKey?: string;
+  /** When true, today tab uses league grouping (section per league). From server to avoid hydration mismatch. */
+  useLeagueGroupsForToday?: boolean;
+  /** When true, tomorrow tab uses league grouping. From server to avoid hydration mismatch. */
+  useLeagueGroupsForTomorrow?: boolean;
 };
 
 function renderFixtureCard(fixture: FixtureSummary, todayKey: string) {
@@ -220,6 +222,8 @@ export function TodayFixturesList({
   todayKey: todayKeyProp,
   tomorrowFixtures,
   tomorrowKey,
+  useLeagueGroupsForToday,
+  useLeagueGroupsForTomorrow,
 }: Props) {
   const todayKey = todayKeyProp ?? todayDateKey();
   /** Today tab: only fixtures whose date (Europe/London) is today. */
@@ -227,6 +231,8 @@ export function TodayFixturesList({
   const sortedFixtures = fixturesByKickOff(todayOnly);
   const timeGroups = groupByKickOffTime(sortedFixtures);
   const leagueGroups = sortedFixtures.length > 15 ? groupByLeague(sortedFixtures) : null;
+  /** Use server-provided decision when available to avoid hydration mismatch; otherwise fall back to local. */
+  const useLeagueToday = useLeagueGroupsForToday ?? (sortedFixtures.length > 15);
   const displayDate = formatDisplayDate(todayKey);
 
   /** Show Tomorrow tab whenever we have a tomorrow key (e.g. on homepage); panel can be empty. */
@@ -241,6 +247,7 @@ export function TodayFixturesList({
   const tomorrowTimeGroups = sortedTomorrow.length > 0 ? groupByKickOffTime(sortedTomorrow) : [];
   const tomorrowLeagueGroups =
     sortedTomorrow.length > 15 ? groupByLeague(sortedTomorrow) : null;
+  const useLeagueTomorrow = useLeagueGroupsForTomorrow ?? (sortedTomorrow.length > 15);
   const tomorrowDisplayDate = showTomorrowTab && tomorrowKey ? formatDisplayDate(tomorrowKey) : "";
 
   return (
@@ -319,17 +326,24 @@ export function TodayFixturesList({
                           {leagueName}
                         </h3>
                         <ul className="space-y-2">
-                        {groupFixtures.map((f) => renderFixtureCard(f, tomorrowKey!))}
-                      </ul>
-                    </section>
-                  ))}
-                </div>
+                          {groupFixtures.map((f) => renderFixtureCard(f, tomorrowKey!))}
+                        </ul>
+                      </section>
+                    ))}
+                  </div>
               ) : (
                 tomorrowTimeGroups.map(({ timeKey, fixtures: groupFixtures }) => (
-                  <ul key={timeKey} className="space-y-2">
-                    {groupFixtures.map((f) => renderFixtureCard(f, tomorrowKey!))}
+                  <section key={timeKey} className="space-y-3">
+                    <h3 className="sr-only">
+                      {groupFixtures[0]
+                        ? formatKoTime(new Date(groupFixtures[0].date))
+                        : timeKey}
+                    </h3>
+                    <ul className="space-y-2">
+                      {groupFixtures.map((f) => renderFixtureCard(f, tomorrowKey!))}
                     </ul>
-                  ))
+                  </section>
+                ))
                 )}
               </section>
             }
@@ -346,7 +360,7 @@ export function TodayFixturesList({
                   </div>
                 ) : (
                   <div className="space-y-6">
-                  {leagueGroups ? (
+                  {useLeagueToday && leagueGroups ? (
                     <div className="space-y-8">
                       {leagueGroups.map(({ leagueId, leagueName, fixtures: groupFixtures }) => (
                         <section key={leagueId ?? leagueName} className="space-y-3">
@@ -361,9 +375,16 @@ export function TodayFixturesList({
                     </div>
                   ) : (
                     timeGroups.map(({ timeKey, fixtures: groupFixtures }) => (
-                      <ul key={timeKey} className="space-y-2">
-                        {groupFixtures.map((f) => renderFixtureCard(f, todayKey))}
-                      </ul>
+                      <section key={timeKey} className="space-y-3">
+                        <h3 className="sr-only">
+                          {groupFixtures[0]
+                            ? formatKoTime(new Date(groupFixtures[0].date))
+                            : timeKey}
+                        </h3>
+                        <ul className="space-y-2">
+                          {groupFixtures.map((f) => renderFixtureCard(f, todayKey))}
+                        </ul>
+                      </section>
                     ))
                   )}
                 </div>

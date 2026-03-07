@@ -671,12 +671,18 @@ export async function warmFixturePart(
 
 export type GetFixtureStatsOptions = { dbOnly?: boolean; /** When true, run DB queries one-by-one to avoid pool exhaustion (e.g. connection_limit=1). */ sequential?: boolean };
 
+const DEBUG_FIXTURE = process.env.DEBUG_FIXTURE === "1" || process.env.DEBUG_FIXTURE === "true";
+
 export async function getFixtureStats(
   fixtureId: number,
   options?: GetFixtureStatsOptions,
 ): Promise<FixtureStatsResponse | null> {
   const dbOnly = options?.dbOnly === true;
   const sequential = options?.sequential === true;
+
+  if (DEBUG_FIXTURE) {
+    console.log("[fixture-debug] getFixtureStats start", { fixtureId, dbOnly, sequential });
+  }
 
   const fixture = await prisma.fixture.findUnique({
     where: { id: fixtureId },
@@ -757,7 +763,27 @@ export async function getFixtureStats(
     lineupCount > 0 ||
     (homeTeamStatsExisting != null && awayTeamStatsExisting != null);
 
+  if (DEBUG_FIXTURE) {
+    const reason = dbOnly
+      ? "caller passed dbOnly"
+      : lineupCount > 0
+        ? "lineupCount=" + lineupCount
+        : homeTeamStatsExisting != null && awayTeamStatsExisting != null
+          ? "both team stats exist"
+          : "not warmed";
+    console.log("[fixture-debug] getFixtureStats effectiveDbOnly=" + effectiveDbOnly, {
+      lineupCount,
+      hasHomeTeamStats: homeTeamStatsExisting != null,
+      hasAwayTeamStats: awayTeamStatsExisting != null,
+      reason,
+    });
+    if (effectiveDbOnly) {
+      console.log("[fixture-debug] getFixtureStats using DB only (no API calls)");
+    }
+  }
+
   if (!effectiveDbOnly && teamsNeedingStats.length > 0) {
+    if (DEBUG_FIXTURE) console.log("[fixture-debug] getFixtureStats API branch: fetching player stats for teams", teamsNeedingStats);
     for (const teamId of teamsNeedingStats) {
       const team = teamId === fixture.homeTeamId ? fixture.homeTeam : fixture.awayTeam;
       if (team.apiId) {
@@ -781,6 +807,7 @@ export async function getFixtureStats(
 
   // Ensure team season stats (and TeamFixtureCache) for form table and match page. Run for all leagues including League 1/2 so form table can include them.
   if (!effectiveDbOnly && leagueIdForTeamStats != null) {
+    if (DEBUG_FIXTURE) console.log("[fixture-debug] getFixtureStats API branch: ensureTeamSeasonStats (corners/cards)");
     if (fixture.homeTeam.apiId && !homeTeamStatsExisting) {
       await ensureTeamSeasonStatsCornersAndCards(
         fixture.homeTeamId,
@@ -807,6 +834,7 @@ export async function getFixtureStats(
   // When we don't have a lineup and we're within the fetch window, fetch and store so the response includes lineup (blocking; page may be slower on first load).
   const hadLineup = lineupCount > 0;
   if (!effectiveDbOnly && !hadLineup && !teamStatsOnly) {
+    if (DEBUG_FIXTURE) console.log("[fixture-debug] getFixtureStats API branch: ensureLineupIfWithinWindow");
     await ensureLineupIfWithinWindow(
       fixture.id,
       fixture.date,
@@ -907,6 +935,7 @@ export async function getFixtureStats(
 
   // Backfill TeamFixtureCache when we have leagueId but last-5 is empty (e.g. first time or cache was never filled).
   if (!effectiveDbOnly && leagueIdForTeamStats != null && (last5Home.length === 0 || last5Away.length === 0)) {
+    if (DEBUG_FIXTURE) console.log("[fixture-debug] getFixtureStats API branch: backfill last-5 TeamFixtureCache", { last5Home: last5Home.length, last5Away: last5Away.length });
     if (last5Home.length === 0 && fixture.homeTeam.apiId) {
       await ensureTeamSeasonStatsCornersAndCards(
         fixture.homeTeamId,
