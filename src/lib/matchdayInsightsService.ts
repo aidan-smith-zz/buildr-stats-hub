@@ -142,9 +142,12 @@ export async function getMatchdayInsightsData(
 
   if (fixtureIds.length === 0) return empty;
 
-  const statsResults = await Promise.all(
-    fixtureIds.map((id) => getFixtureStats(id, { dbOnly: true })),
-  );
+  // Fetch stats sequentially to avoid exhausting the connection pool (one request = many fixtures).
+  const statsResults: Awaited<ReturnType<typeof getFixtureStats>>[] = [];
+  for (const id of fixtureIds) {
+    const s = await getFixtureStats(id, { dbOnly: true });
+    statsResults.push(s);
+  }
 
   const allStats = statsResults.filter(
     (s): s is NonNullable<typeof s> => s != null,
