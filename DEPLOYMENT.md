@@ -17,7 +17,7 @@ Pick one and create a database:
 - **[Neon](https://neon.tech)** – Free tier. Create project → copy connection string.
 - **[Vercel Postgres](https://vercel.com/storage/postgres)** – Create from Vercel dashboard if you prefer.
 
-- **On Vercel:** use the **pooler** connection string (Supabase: port **6543**, "Transaction" pooler). Append `?pgbouncer=true` to avoid "prepared statement" errors, and `&connection_limit=1` so each serverless instance uses one connection and you avoid "Unable to start a transaction" (P2028) under load (e.g. crawlers).
+- **On Vercel:** use the **pooler** connection string (Supabase: port **6543**, "Transaction" pooler). Append **`?pgbouncer=true`** only. Do **not** add `connection_limit=1` — this app runs concurrent DB queries per request; with a single connection those queries block and the site breaks.
 - **Locally:** the direct connection (port 5432) is fine unless you hit connection limits.
 
 ---
@@ -57,7 +57,7 @@ npm run build
 
    | Name                   | Value                                      | Environments   |
    |------------------------|--------------------------------------------|----------------|
-   | `DATABASE_URL`         | Pooler URL, e.g. `postgresql://...@HOST:6543/postgres?pgbouncer=true&connection_limit=1` (Supabase: port 6543) | Production, Preview |
+   | `DATABASE_URL`         | Pooler URL, e.g. `postgresql://...@HOST:6543/postgres?pgbouncer=true` (Supabase: port 6543). Do not add `connection_limit=1`. | Production, Preview |
    | `FOOTBALL_API_BASE_URL` | `https://v3.football.api-sports.io`      | Production, Preview |
    | `FOOTBALL_API_KEY`    | Your API-Football key                      | Production, Preview |
 
@@ -135,8 +135,11 @@ You can run a custom script in a one-off job (e.g. “Run Command” or a deploy
 - **“PrismaClient is unable to run in the browser”**  
   All Prisma usage is in server code (API routes, server components, `server-only` modules). Do not import `prisma` or `PrismaClient` in client components.
 
+- **Site breaks or build fails after adding `connection_limit=1`**  
+  This app runs **concurrent** DB queries per request (e.g. home page loads today + tomorrow in parallel; matchday insights runs many stats in parallel). With `connection_limit=1` only one query runs at a time per instance, so the rest block and time out. **Remove `connection_limit=1`** from `DATABASE_URL`; use only `?pgbouncer=true`. The app retries on transient pool timeouts (P2024/P2028).
+
 - **DB connection errors in production**  
-  - Use the **Supabase pooler** URL (port **6543**) as `DATABASE_URL` on Vercel; append `?pgbouncer=true&connection_limit=1` to reduce pool timeouts under load. If you see "connection limit: 5" or "Timed out fetching a new connection" (P2024) in logs, add or fix `&connection_limit=1` in `DATABASE_URL` and redeploy.  
+  - Use the **Supabase pooler** URL (port **6543**) as `DATABASE_URL` on Vercel; append **`?pgbouncer=true`** only (do not add `connection_limit=1`; see above).  
   - Check no extra spaces and that the password is URL-encoded in `DATABASE_URL`.  
   - If you hit connection limits, switch to a **connection pooler** URL (e.g. Supabase “Transaction” pooler or Neon pooler) and use that as `DATABASE_URL`.
 

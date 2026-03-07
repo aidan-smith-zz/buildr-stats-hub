@@ -170,7 +170,7 @@ export default async function Home() {
             ) : showConfigHints ? (
               <ul className="mt-4 list-inside list-disc text-left text-sm text-amber-800 dark:text-amber-300">
                 <li><strong>Local:</strong> In your <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">.env</code> file, set <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">DATABASE_URL</code>, <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">FOOTBALL_API_BASE_URL</code> and <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">FOOTBALL_API_KEY</code>. Use the direct Postgres URL (port 5432) or your pooler URL if you have one.</li>
-                <li><strong>Vercel:</strong> Set the same env vars in Project → Settings → Environment Variables. Use the Supabase pooler (port 6543) and append <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">?pgbouncer=true&amp;connection_limit=1</code> to <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">DATABASE_URL</code>.</li>
+                <li><strong>Vercel:</strong> Set the same env vars in Project → Settings → Environment Variables. Use the Supabase pooler (port 6543) and append <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">?pgbouncer=true</code> to <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">DATABASE_URL</code>. Do not add connection_limit=1.</li>
                 <li>URL-encode the password in <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">DATABASE_URL</code> if it contains special characters.</li>
               </ul>
             ) : (
