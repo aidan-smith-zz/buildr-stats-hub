@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import {
   getFixturePreview,
-  getFixturesForDateFromDbOnly,
-  getOrRefreshTodayFixtures,
+  getFixturesForDateRequestCached,
+  getOrRefreshTodayFixturesRequestCached,
 } from "@/lib/fixturesService";
+import { getPastFixtureLineupOnly } from "@/lib/lineupService";
 import { withPoolRetry } from "@/lib/poolRetry";
 import { fetchLiveFixture } from "@/lib/footballApi";
 import { prisma } from "@/lib/prisma";
-import { getFixtureStats } from "@/lib/statsService";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { RawFixture } from "@/lib/footballApi";
 import type { FixtureSummary } from "@/lib/statsService";
@@ -43,6 +43,8 @@ function findTodayFixture(
 }
 
 export const dynamicParams = true;
+/** Allow more time for DB/API under load (avoids FUNCTION_INVOCATION_TIMEOUT). */
+export const maxDuration = 60;
 
 function formatKickoff(rawDate: string): string {
   try {
@@ -92,7 +94,7 @@ export async function generateMetadata({
     await params;
 
   if (dateKey === todayDateKey()) {
-    const fixtures = await withPoolRetry(() => getOrRefreshTodayFixtures(new Date()));
+    const fixtures = await withPoolRetry(() => getOrRefreshTodayFixturesRequestCached(todayDateKey()));
     const fixture = findTodayFixture(fixtures, leagueSlug, matchSlugParam);
     if (!fixture) {
       return { title: "Fixture not found", robots: { index: true, follow: true } };
@@ -128,7 +130,7 @@ export async function generateMetadata({
   }
 
   // Past or upcoming: prefer warmed fixture from DB
-  const warmedFixtures = await withPoolRetry(() => getFixturesForDateFromDbOnly(dateKey));
+  const warmedFixtures = await withPoolRetry(() => getFixturesForDateRequestCached(dateKey));
   const warmedFixture = findTodayFixture(warmedFixtures, leagueSlug, matchSlugParam);
   if (warmedFixture) {
     const home = warmedFixture.homeTeam.shortName ?? warmedFixture.homeTeam.name;
@@ -221,7 +223,7 @@ export default async function FixtureMatchPage({
 
   // Today: full flow (dashboard, redirect if not found)
   if (dateKey === todayDateKey()) {
-    const fixtures = await withPoolRetry(() => getOrRefreshTodayFixtures(new Date()));
+    const fixtures = await withPoolRetry(() => getOrRefreshTodayFixturesRequestCached(todayDateKey()));
     const fixture = findTodayFixture(fixtures, leagueSlug, matchSlugParam);
     if (!fixture) {
       if (DEBUG_FIXTURE) console.log("[fixture-debug] branch=today fixture=not-found redirect");
@@ -367,22 +369,31 @@ export default async function FixtureMatchPage({
   }
 
   // Past or upcoming: if this fixture was warmed, show either result+lineups (past) or full dashboard (upcoming)
-  const warmedFixtures = await withPoolRetry(() => getFixturesForDateFromDbOnly(dateKey));
+  const warmedFixtures = await withPoolRetry(() => getFixturesForDateRequestCached(dateKey));
   const warmedFixture = findTodayFixture(warmedFixtures, leagueSlug, matchSlugParam);
   const isPast = dateKey < todayDateKey();
 
   if (warmedFixture && isPast) {
-    if (DEBUG_FIXTURE) console.log("[fixture-debug] branch=past fixtureId=" + warmedFixture.id + " (result + lineups, server-side getFixtureStats dbOnly)");
-    // Past fixture: final result + lineups. Check DB first; if no score cached, fetch from API once and store.
-    const [fixtureWithScore, stats] = await withPoolRetry(() =>
+    if (DEBUG_FIXTURE) console.log("[fixture-debug] branch=past fixtureId=" + warmedFixture.id + " (result + lineups, lightweight server path)");
+    // Past fixture: final result + lineups. Lightweight path: findUnique + lineup-only query (no full getFixtureStats).
+    const [fixtureWithScore, lineupOnly] = await withPoolRetry(() =>
       Promise.all([
         prisma.fixture.findUnique({
           where: { id: warmedFixture.id },
           include: { liveScoreCache: true },
         }),
-        getFixtureStats(warmedFixture.id, { dbOnly: true, sequential: true }),
+        getPastFixtureLineupOnly(
+          warmedFixture.id,
+          warmedFixture.homeTeam.id,
+          warmedFixture.awayTeam.id,
+          warmedFixture.homeTeam.name,
+          warmedFixture.homeTeam.shortName ?? null,
+          warmedFixture.awayTeam.name,
+          warmedFixture.awayTeam.shortName ?? null,
+        ),
       ])
     );
+    const stats = { fixture: warmedFixture, hasLineup: lineupOnly.hasLineup, teams: lineupOnly.teams };
     let score: PastFixtureScore | null =
       fixtureWithScore?.liveScoreCache != null
         ? {

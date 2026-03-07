@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { REQUIRED_LEAGUE_IDS, isFixtureInRequiredLeagues } from "@/lib/leagues";
 import { prisma } from "@/lib/prisma";
@@ -415,6 +416,18 @@ export async function getFixturesForDateFromDbOnly(dateKey: string): Promise<Fix
     { revalidate: 60 }
   )();
 }
+
+/**
+ * Request-scoped cache: within the same request (e.g. generateMetadata + page), only one execution per dateKey.
+ * Use in pages that call today fixtures or date fixtures from both metadata and body to avoid duplicate work.
+ */
+export const getOrRefreshTodayFixturesRequestCached = cache((dateKey: string) =>
+  getOrRefreshTodayFixtures(new Date(dateKey + "T12:00:00.000Z"))
+);
+
+export const getFixturesForDateRequestCached = cache((dateKey: string) =>
+  getFixturesForDateFromDbOnly(dateKey)
+);
 
 export type PastFixturesByDate = { dateKey: string; fixtures: FixtureSummary[] }[];
 

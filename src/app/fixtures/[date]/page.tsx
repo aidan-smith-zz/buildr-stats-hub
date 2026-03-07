@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
-import { getFixturesForDateFromDbOnly, getOrRefreshTodayFixtures } from "@/lib/fixturesService";
+import {
+  getFixturesForDateRequestCached,
+  getOrRefreshTodayFixturesRequestCached,
+} from "@/lib/fixturesService";
 import { withPoolRetry } from "@/lib/poolRetry";
 import { fixtureDateKey, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
 export const dynamic = "force-dynamic";
+/** Allow more time for DB/API under load (avoids FUNCTION_INVOCATION_TIMEOUT). */
+export const maxDuration = 60;
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
@@ -78,12 +83,11 @@ export default async function FixturesDatePage({
 
   // Today: behave like the homepage – show hero, today + tomorrow tabs.
   if (dateKey === todayKey) {
-    const now = new Date();
     const tomorrowKey = tomorrowDateKey();
     const [fixtures, tomorrowFixtures] = await withPoolRetry(() =>
       Promise.all([
-        getOrRefreshTodayFixtures(now),
-        getFixturesForDateFromDbOnly(tomorrowKey),
+        getOrRefreshTodayFixturesRequestCached(todayKey),
+        getFixturesForDateRequestCached(tomorrowKey),
       ])
     );
     const todayOnly = fixtures.filter((f) => fixtureDateKey(f.date) === todayKey);
@@ -104,7 +108,7 @@ export default async function FixturesDatePage({
   }
 
   // Other dates: show fixtures for that specific date only (no hero, no tomorrow tab).
-  const fixtures = await withPoolRetry(() => getFixturesForDateFromDbOnly(dateKey));
+  const fixtures = await withPoolRetry(() => getFixturesForDateRequestCached(dateKey));
   return (
     <TodayFixturesList
       fixtures={fixtures}

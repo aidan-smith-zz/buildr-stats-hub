@@ -273,3 +273,97 @@ export async function getLineupForFixture(
   }
   return byTeam;
 }
+
+/**
+ * Minimal lineup-only data for past fixture pages. One DB query (FixtureLineup + Player).
+ * Use instead of getFixtureStats when only result + lineups are needed to avoid timeout.
+ */
+export type PastFixtureLineupStats = {
+  hasLineup: boolean;
+  teams: {
+    teamId: number;
+    teamName: string;
+    teamShortName: string | null;
+    players: {
+      playerId: number;
+      name: string;
+      position: string | null;
+      shirtNumber: number | null;
+      appearances: number;
+      minutes: number;
+      goals: number;
+      assists: number;
+      fouls: number;
+      shots: number;
+      shotsOnTarget: number;
+      tackles: number;
+      yellowCards: number;
+      redCards: number;
+      lineupStatus: "starting" | "substitute" | null;
+    }[];
+  }[];
+};
+
+export async function getPastFixtureLineupOnly(
+  fixtureId: number,
+  homeTeamId: number,
+  awayTeamId: number,
+  homeTeamName: string,
+  homeTeamShortName: string | null,
+  awayTeamName: string,
+  awayTeamShortName: string | null,
+): Promise<PastFixtureLineupStats> {
+  const rows = await prisma.fixtureLineup.findMany({
+    where: { fixtureId },
+    include: { player: true },
+    orderBy: [{ teamId: "asc" }, { playerId: "asc" }],
+  });
+
+  const teamMeta: Array<{ teamId: number; teamName: string; teamShortName: string | null }> = [
+    { teamId: homeTeamId, teamName: homeTeamName, teamShortName: homeTeamShortName },
+    { teamId: awayTeamId, teamName: awayTeamName, teamShortName: awayTeamShortName },
+  ];
+
+  const byTeam = new Map<
+    number,
+    { teamId: number; teamName: string; teamShortName: string | null; players: PastFixtureLineupStats["teams"][number]["players"] }
+  >();
+  for (const meta of teamMeta) {
+    byTeam.set(meta.teamId, {
+      teamId: meta.teamId,
+      teamName: meta.teamName,
+      teamShortName: meta.teamShortName,
+      players: [],
+    });
+  }
+
+  const ZERO_STATS = {
+    appearances: 0,
+    minutes: 0,
+    goals: 0,
+    assists: 0,
+    fouls: 0,
+    shots: 0,
+    shotsOnTarget: 0,
+    tackles: 0,
+    yellowCards: 0,
+    redCards: 0,
+  };
+
+  for (const row of rows) {
+    const group = byTeam.get(row.teamId);
+    if (!group) continue;
+    group.players.push({
+      playerId: row.player.id,
+      name: row.player.name,
+      position: row.player.position ?? null,
+      shirtNumber: row.player.shirtNumber ?? null,
+      ...ZERO_STATS,
+      lineupStatus: row.lineupStatus as "starting" | "substitute",
+    });
+  }
+
+  const teams = [byTeam.get(homeTeamId)!, byTeam.get(awayTeamId)!];
+  const hasLineup = rows.length > 0;
+  return { hasLineup, teams };
+}
