@@ -142,10 +142,10 @@ export async function getMatchdayInsightsData(
 
   if (fixtureIds.length === 0) return empty;
 
-  // Fetch stats sequentially to avoid exhausting the connection pool (one request = many fixtures).
+  // Fetch stats sequentially and one query at a time per fixture (avoids pool exhaustion with connection_limit=1).
   const statsResults: Awaited<ReturnType<typeof getFixtureStats>>[] = [];
   for (const id of fixtureIds) {
-    const s = await getFixtureStats(id, { dbOnly: true });
+    const s = await getFixtureStats(id, { dbOnly: true, sequential: true });
     statsResults.push(s);
   }
 

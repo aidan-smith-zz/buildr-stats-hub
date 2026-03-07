@@ -669,13 +669,14 @@ export async function warmFixturePart(
   return { ok: true, teamId };
 }
 
-export type GetFixtureStatsOptions = { dbOnly?: boolean };
+export type GetFixtureStatsOptions = { dbOnly?: boolean; /** When true, run DB queries one-by-one to avoid pool exhaustion (e.g. connection_limit=1). */ sequential?: boolean };
 
 export async function getFixtureStats(
   fixtureId: number,
   options?: GetFixtureStatsOptions,
 ): Promise<FixtureStatsResponse | null> {
   const dbOnly = options?.dbOnly === true;
+  const sequential = options?.sequential === true;
 
   const fixture = await prisma.fixture.findUnique({
     where: { id: fixtureId },
@@ -710,23 +711,44 @@ export async function getFixtureStats(
       : { league: leagueKeyForTeamStats }),
   });
 
-  // Run all independent DB checks in parallel to cut round-trips (warm path is much faster).
-  const [counts, homeTeamStatsExisting, awayTeamStatsExisting, lineupCount, lineupByTeamInitial] =
-    await Promise.all([
-      prisma.playerSeasonStats.groupBy({
-        by: ["teamId"],
-        where: {
-          teamId: { in: teamIds },
-          season: API_SEASON,
-          ...leagueFilter,
-        },
-        _count: { id: true },
-      }),
-      prisma.teamSeasonStats.findFirst({ where: teamStatsWhere(fixture.homeTeamId) }),
-      prisma.teamSeasonStats.findFirst({ where: teamStatsWhere(fixture.awayTeamId) }),
-      prisma.fixtureLineup.count({ where: { fixtureId: fixture.id } }),
-      getLineupForFixture(fixture.id),
-    ]);
+  // Run independent DB checks (parallel when possible; sequential when connection_limit=1).
+  let counts: { teamId: number; _count: { id: number } }[];
+  let homeTeamStatsExisting: Awaited<ReturnType<typeof prisma.teamSeasonStats.findFirst>>;
+  let awayTeamStatsExisting: Awaited<ReturnType<typeof prisma.teamSeasonStats.findFirst>>;
+  let lineupCount: number;
+  let lineupByTeamInitial: Awaited<ReturnType<typeof getLineupForFixture>>;
+  if (sequential) {
+    counts = await prisma.playerSeasonStats.groupBy({
+      by: ["teamId"],
+      where: {
+        teamId: { in: teamIds },
+        season: API_SEASON,
+        ...leagueFilter,
+      },
+      _count: { id: true },
+    });
+    homeTeamStatsExisting = await prisma.teamSeasonStats.findFirst({ where: teamStatsWhere(fixture.homeTeamId) });
+    awayTeamStatsExisting = await prisma.teamSeasonStats.findFirst({ where: teamStatsWhere(fixture.awayTeamId) });
+    lineupCount = await prisma.fixtureLineup.count({ where: { fixtureId: fixture.id } });
+    lineupByTeamInitial = await getLineupForFixture(fixture.id);
+  } else {
+    [counts, homeTeamStatsExisting, awayTeamStatsExisting, lineupCount, lineupByTeamInitial] =
+      await Promise.all([
+        prisma.playerSeasonStats.groupBy({
+          by: ["teamId"],
+          where: {
+            teamId: { in: teamIds },
+            season: API_SEASON,
+            ...leagueFilter,
+          },
+          _count: { id: true },
+        }),
+        prisma.teamSeasonStats.findFirst({ where: teamStatsWhere(fixture.homeTeamId) }),
+        prisma.teamSeasonStats.findFirst({ where: teamStatsWhere(fixture.awayTeamId) }),
+        prisma.fixtureLineup.count({ where: { fixtureId: fixture.id } }),
+        getLineupForFixture(fixture.id),
+      ]);
+  }
 
   const MIN_PLAYERS_PER_TEAM = 11;
   const countByTeam = new Map(counts.map((c) => [c.teamId, c._count.id]));
@@ -856,15 +878,32 @@ export async function getFixtureStats(
   });
   const lineupQuery = hadLineup ? Promise.resolve(lineupByTeamInitial) : getLineupForFixture(fixture.id);
 
-  let [stats, teamSeasonRows, last5Home, last5Away, pastSeasonHome, pastSeasonAway, lineupByTeamRes] = await Promise.all([
-    playerStatsQuery,
-    teamSeasonRowsQuery,
-    last5HomeQuery,
-    last5AwayQuery,
-    pastSeasonHomeQuery,
-    pastSeasonAwayQuery,
-    lineupQuery,
-  ]);
+  let stats: Awaited<typeof playerStatsQuery>;
+  let teamSeasonRows: Awaited<typeof teamSeasonRowsQuery>;
+  let last5Home: Awaited<typeof last5HomeQuery>;
+  let last5Away: Awaited<typeof last5AwayQuery>;
+  let pastSeasonHome: Awaited<typeof pastSeasonHomeQuery>;
+  let pastSeasonAway: Awaited<typeof pastSeasonAwayQuery>;
+  let lineupByTeamRes: Awaited<typeof lineupQuery>;
+  if (sequential) {
+    stats = await playerStatsQuery;
+    teamSeasonRows = await teamSeasonRowsQuery;
+    last5Home = await last5HomeQuery;
+    last5Away = await last5AwayQuery;
+    pastSeasonHome = await pastSeasonHomeQuery;
+    pastSeasonAway = await pastSeasonAwayQuery;
+    lineupByTeamRes = await lineupQuery;
+  } else {
+    [stats, teamSeasonRows, last5Home, last5Away, pastSeasonHome, pastSeasonAway, lineupByTeamRes] = await Promise.all([
+      playerStatsQuery,
+      teamSeasonRowsQuery,
+      last5HomeQuery,
+      last5AwayQuery,
+      pastSeasonHomeQuery,
+      pastSeasonAwayQuery,
+      lineupQuery,
+    ]);
+  }
 
   // Backfill TeamFixtureCache when we have leagueId but last-5 is empty (e.g. first time or cache was never filled).
   if (!dbOnly && leagueIdForTeamStats != null && (last5Home.length === 0 || last5Away.length === 0)) {
