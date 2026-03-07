@@ -5,6 +5,9 @@ import {
   getFixturesForDateFromDbOnly,
   getOrRefreshTodayFixtures,
 } from "@/lib/fixturesService";
+import { fetchLiveFixture } from "@/lib/footballApi";
+import { prisma } from "@/lib/prisma";
+import { getFixtureStats } from "@/lib/statsService";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { RawFixture } from "@/lib/footballApi";
 import type { FixtureSummary } from "@/lib/statsService";
@@ -12,6 +15,7 @@ import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues"
 import { TodayFixturesDashboard } from "@/app/_components/today-fixtures-dashboard";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
+import { PastFixtureView, type PastFixtureScore } from "./past-fixture-view";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 const FIXTURES_TIMEZONE = "Europe/London";
@@ -71,6 +75,13 @@ function getYear(dateKey: string): string {
   return dateKey.slice(0, 4);
 }
 
+/** API-Football statusShort values that mean the match is finished. */
+const FINISHED_STATUS = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);
+
+function isMatchEnded(statusShort: string): boolean {
+  return FINISHED_STATUS.has(statusShort);
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -115,7 +126,7 @@ export async function generateMetadata({
     };
   }
 
-  // Upcoming: prefer warmed fixture from DB so meta matches the full-stats page when available
+  // Past or upcoming: prefer warmed fixture from DB
   const warmedFixtures = await getFixturesForDateFromDbOnly(dateKey);
   const warmedFixture = findTodayFixture(warmedFixtures, leagueSlug, matchSlugParam);
   if (warmedFixture) {
@@ -123,9 +134,14 @@ export async function generateMetadata({
     const away = warmedFixture.awayTeam.shortName ?? warmedFixture.awayTeam.name;
     const league = warmedFixture.league ?? "Football";
     const year = getYear(dateKey);
-    const title = `${home} vs ${away} Preview, Stats & AI insights | ${league} ${year}`;
-    const description = `${home} vs ${away} ${league} stats and lineups with xG, corners, cards, shots per 90 and bet builder stats, plus AI-powered football insights.`;
     const canonical = `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
+    const isPast = dateKey < todayDateKey();
+    const title = isPast
+      ? `${home} vs ${away} Result & lineups | ${league} ${year}`
+      : `${home} vs ${away} Preview, Stats & AI insights | ${league} ${year}`;
+    const description = isPast
+      ? `${home} vs ${away} ${league} final result and lineups.`
+      : `${home} vs ${away} ${league} stats and lineups with xG, corners, cards, shots per 90 and bet builder stats, plus AI-powered football insights.`;
     return {
       title,
       description,
@@ -341,10 +357,98 @@ export default async function FixtureMatchPage({
     );
   }
 
-  // Upcoming date: if this fixture was warmed (e.g. warm-tomorrow), show full stats from DB
+  // Past or upcoming: if this fixture was warmed, show either result+lineups (past) or full dashboard (upcoming)
   const warmedFixtures = await getFixturesForDateFromDbOnly(dateKey);
   const warmedFixture = findTodayFixture(warmedFixtures, leagueSlug, matchSlugParam);
+  const isPast = dateKey < todayDateKey();
+
+  if (warmedFixture && isPast) {
+    // Past fixture: final result + lineups. Check DB first; if no score cached, fetch from API once and store.
+    const [fixtureWithScore, stats] = await Promise.all([
+      prisma.fixture.findUnique({
+        where: { id: warmedFixture.id },
+        include: { liveScoreCache: true },
+      }),
+      getFixtureStats(warmedFixture.id, { dbOnly: true }),
+    ]);
+    let score: PastFixtureScore | null =
+      fixtureWithScore?.liveScoreCache != null
+        ? {
+            homeGoals: fixtureWithScore.liveScoreCache.homeGoals,
+            awayGoals: fixtureWithScore.liveScoreCache.awayGoals,
+            statusShort: fixtureWithScore.liveScoreCache.statusShort,
+          }
+        : null;
+    if (score == null && fixtureWithScore?.apiId) {
+      try {
+        const result = await fetchLiveFixture(fixtureWithScore.apiId);
+        if (result && isMatchEnded(result.statusShort)) {
+          const now = new Date();
+          await prisma.liveScoreCache.upsert({
+            where: { fixtureId: warmedFixture.id },
+            create: {
+              fixtureId: warmedFixture.id,
+              homeGoals: result.homeGoals,
+              awayGoals: result.awayGoals,
+              elapsedMinutes: result.elapsedMinutes,
+              statusShort: result.statusShort,
+              cachedAt: now,
+            },
+            update: {
+              homeGoals: result.homeGoals,
+              awayGoals: result.awayGoals,
+              elapsedMinutes: result.elapsedMinutes,
+              statusShort: result.statusShort,
+              cachedAt: now,
+            },
+          });
+          score = {
+            homeGoals: result.homeGoals,
+            awayGoals: result.awayGoals,
+            statusShort: result.statusShort,
+          };
+        }
+      } catch {
+        // Keep score null; UI will show – for result
+      }
+    }
+    const home = warmedFixture.homeTeam.shortName ?? warmedFixture.homeTeam.name;
+    const away = warmedFixture.awayTeam.shortName ?? warmedFixture.awayTeam.name;
+    const league = warmedFixture.league ?? "Football";
+    const displayDate = formatDisplayDate(dateKey);
+    const breadcrumbItems = [
+      { href: "/", label: "Home" },
+      { href: "/fixtures/past", label: "Past fixtures" },
+      { href: `/fixtures/${dateKey}`, label: displayDate },
+      { href: `/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`, label: `${home} vs ${away}` },
+    ];
+    return (
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+        <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+          <div>
+            <Breadcrumbs items={breadcrumbItems} className="mb-3" />
+            <header className="mb-5 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                {league} · {displayDate}
+              </p>
+              <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
+                {home}
+                <span className="mx-2 text-neutral-400 dark:text-neutral-500">vs</span>
+                {away}
+              </h1>
+              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                Final result and lineups for this match.
+              </p>
+            </header>
+            <PastFixtureView fixture={warmedFixture} score={score} stats={stats} />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (warmedFixture) {
+    // Upcoming date: full stats from DB (e.g. warm-tomorrow)
     const fixtures = warmedFixtures;
     const fixture = warmedFixture;
     const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;

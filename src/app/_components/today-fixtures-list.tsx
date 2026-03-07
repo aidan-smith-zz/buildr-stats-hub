@@ -47,6 +47,13 @@ function leagueGroupSortIndex(leagueId: number | null): number {
   return i === -1 ? LEAGUE_GROUP_ORDER.length : i;
 }
 
+/** True if the fixture's date (in Europe/London) falls on the given dateKey (YYYY-MM-DD). */
+function fixtureOnDateKey(fixture: FixtureSummary, dateKey: string): boolean {
+  const d = new Date(fixture.date);
+  const key = d.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+  return key === dateKey;
+}
+
 /** Filter to required leagues and sort by kick-off time (earliest first). */
 function fixturesByKickOff(fixtures: FixtureSummary[]): FixtureSummary[] {
   const filtered = fixtures.filter(
@@ -215,21 +222,26 @@ export function TodayFixturesList({
   tomorrowKey,
 }: Props) {
   const todayKey = todayKeyProp ?? todayDateKey();
-  const sortedFixtures = fixturesByKickOff(fixtures);
+  /** Today tab: only fixtures whose date (Europe/London) is today. */
+  const todayOnly = tomorrowKey != null ? fixtures.filter((f) => fixtureOnDateKey(f, todayKey)) : fixtures;
+  const sortedFixtures = fixturesByKickOff(todayOnly);
   const timeGroups = groupByKickOffTime(sortedFixtures);
   const leagueGroups = sortedFixtures.length > 15 ? groupByLeague(sortedFixtures) : null;
   const displayDate = formatDisplayDate(todayKey);
 
   /** Show Tomorrow tab whenever we have a tomorrow key (e.g. on homepage); panel can be empty. */
   const showTomorrowTab = tomorrowKey != null;
-  const hasTomorrowFixtures = (tomorrowFixtures?.length ?? 0) > 0;
-  const sortedTomorrow = showTomorrowTab && tomorrowFixtures?.length
-    ? fixturesByKickOff(tomorrowFixtures)
-    : [];
+  /** Tomorrow tab: only fixtures whose date (Europe/London) is tomorrow. */
+  const tomorrowOnly =
+    showTomorrowTab && tomorrowFixtures?.length
+      ? tomorrowFixtures.filter((f) => fixtureOnDateKey(f, tomorrowKey!))
+      : [];
+  const hasTomorrowFixtures = tomorrowOnly.length > 0;
+  const sortedTomorrow = fixturesByKickOff(tomorrowOnly);
   const tomorrowTimeGroups = sortedTomorrow.length > 0 ? groupByKickOffTime(sortedTomorrow) : [];
   const tomorrowLeagueGroups =
     sortedTomorrow.length > 15 ? groupByLeague(sortedTomorrow) : null;
-  const tomorrowDisplayDate = showTomorrowTab ? formatDisplayDate(tomorrowKey) : "";
+  const tomorrowDisplayDate = showTomorrowTab && tomorrowKey ? formatDisplayDate(tomorrowKey) : "";
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -261,12 +273,20 @@ export function TodayFixturesList({
                   <span className="inline-flex items-center rounded-full bg-gradient-to-r from-sky-500 via-emerald-400 to-violet-600 px-3 py-1 text-[11px] font-medium text-white shadow-sm sm:text-xs">
                     {displayDate}
                   </span>
-                  <NavLinkWithOverlay
-                    href="/fixtures/upcoming"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm transition hover:border-sky-400 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-emerald-400 sm:text-sm"
-                  >
-                    Upcoming fixtures (14 days) →
-                  </NavLinkWithOverlay>
+                  <div className="flex flex-col gap-2">
+                    <NavLinkWithOverlay
+                      href="/fixtures/upcoming"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm transition hover:border-sky-400 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-emerald-400 sm:text-sm"
+                    >
+                      Upcoming fixtures (14 days) →
+                    </NavLinkWithOverlay>
+                    <NavLinkWithOverlay
+                      href="/fixtures/past"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm transition hover:border-sky-400 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-emerald-400 sm:text-sm"
+                    >
+                      ← Past fixtures (14 days)
+                    </NavLinkWithOverlay>
+                  </div>
                 </div>
               </div>
               <p className="mt-4 max-w-2xl text-neutral-600 dark:text-neutral-400 sm:text-sm">

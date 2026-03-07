@@ -123,6 +123,10 @@ export default async function UpcomingPage() {
             <NavLinkWithOverlay href={`/fixtures/${todayKey}/form`} className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300">
               form table
             </NavLinkWithOverlay>
+            {" "}and{" "}
+            <NavLinkWithOverlay href="/fixtures/past" className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300">
+              past fixtures
+            </NavLinkWithOverlay>
             .
           </p>
         </section>

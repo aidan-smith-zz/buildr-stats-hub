@@ -41,3 +41,14 @@ export function nextDateKeys(days: number): string[] {
   }
   return keys;
 }
+
+/** Past N days (YYYY-MM-DD): yesterday, day before, ... in Europe/London. Most recent first (yesterday first). */
+export function pastDateKeys(days: number): string[] {
+  const keys: string[] = [];
+  for (let i = 1; i <= days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    keys.push(d.toLocaleDateString("en-CA", { timeZone: FIXTURES_TZ }));
+  }
+  return keys;
+}

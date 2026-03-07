@@ -31,9 +31,9 @@ So once warmed, this data stays and is reused.
 
 ## Prune behaviour (what gets deleted)
 
-`pruneDataOlderThanToday(now)` only:
+`pruneDataOlderThanToday(now)`:
 
-- Deletes **Fixture** rows whose date is **not** today (before today or after today’s spillover).
+- Deletes **Fixture** rows whose date is **before** the start of (today − 14 days). Fixtures from the last 14 days are kept so the **past fixtures** page and fixture dashboards remain available with full stats.
 - Deletes **ApiFetchLog** rows whose resource is **not** `fixtures:{todayDateKey}`.
 
 It does **not** delete:

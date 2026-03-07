@@ -8,7 +8,7 @@ import {
   getTeamExternalId,
   type RawFixture,
 } from "@/lib/footballApi";
-import { leagueToSlug, matchSlug, nextDateKeys, todayDateKey } from "@/lib/slugs";
+import { leagueToSlug, matchSlug, nextDateKeys, pastDateKeys, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
 import type { Fixture, Team } from "@prisma/client";
 
@@ -336,20 +336,25 @@ export async function refreshUpcomingFixturesTable(now: Date = new Date()): Prom
   }
 }
 
+/** Number of days to keep past fixtures (fixture dashboard remains available for this window). */
+const PAST_FIXTURES_RETENTION_DAYS = 14;
+
 /**
- * Remove fixtures and fetch logs that are not from today. Keeps the fixture list focused on today only.
- * Only deletes fixtures *before* today (past). Tomorrow's fixtures are kept so warm-tomorrow can warm them
- * without them being removed by a concurrent request that calls getOrRefreshTodayFixtures (which runs prune).
- * PlayerSeasonStats are NOT pruned here so that cached stats stay in the DB and fixture stats load fast
- * when returning to the site (otherwise every visit would wipe stats and trigger slow API refetches).
+ * Remove fixtures older than the retention window (14 days). Keeps recent fixtures so the "last 14 days"
+ * page and fixture dashboards remain available with full stats. Tomorrow's fixtures are kept so
+ * warm-tomorrow can warm them. ApiFetchLog: only today's is kept so we don't refetch past dates.
  */
 export async function pruneDataOlderThanToday(now: Date = new Date()): Promise<void> {
   const dateKey = getTodayDateKey(now);
   const { dayStart } = dayBoundsUtc(dateKey);
+  const pastKeys = pastDateKeys(PAST_FIXTURES_RETENTION_DAYS);
+  const cutoffDateKey = pastKeys[pastKeys.length - 1];
+  if (!cutoffDateKey) return;
+  const { dayStart: cutoffDayStart } = dayBoundsUtc(cutoffDateKey);
 
   await prisma.$transaction(async (tx) => {
     const fixturesResult = await tx.fixture.deleteMany({
-      where: { date: { lt: dayStart } },
+      where: { date: { lt: cutoffDayStart } },
     });
     const logsResult = await tx.apiFetchLog.deleteMany({
       where: { resource: { not: `fixtures:${dateKey}` } },
@@ -409,6 +414,29 @@ export async function getFixturesForDateFromDbOnly(dateKey: string): Promise<Fix
     ["fixtures-date", dateKey],
     { revalidate: 60 }
   )();
+}
+
+export type PastFixturesByDate = { dateKey: string; fixtures: FixtureSummary[] }[];
+
+/**
+ * Return fixtures from the last 14 days (from Fixture table). Used for the "past fixtures" page.
+ * Only includes dates that have at least one fixture. Most recent first (yesterday first).
+ */
+export async function getPast14DaysFixturesFromDb(): Promise<PastFixturesByDate> {
+  const pastKeys = pastDateKeys(PAST_FIXTURES_RETENTION_DAYS);
+  const byDate: PastFixturesByDate = [];
+  for (const dateKey of pastKeys) {
+    const fixtures = await getFixturesForDateFromDbOnly(dateKey);
+    const filtered = fixtures.filter(
+      (f) =>
+        f.leagueId != null &&
+        (REQUIRED_LEAGUE_IDS as readonly number[]).includes(f.leagueId),
+    );
+    if (filtered.length > 0) {
+      byDate.push({ dateKey, fixtures: filtered });
+    }
+  }
+  return byDate;
 }
 
 /**

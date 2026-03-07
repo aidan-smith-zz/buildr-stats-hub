@@ -130,6 +130,14 @@ export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
           >
             Upcoming (14 days)
           </Link>
+          <Link
+            href="/fixtures/past"
+            onClick={closeMenu}
+            className={linkClass}
+            role="menuitem"
+          >
+            Past (14 days)
+          </Link>
 
           <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
           <Link href="/about" onClick={closeMenu} className={linkClass} role="menuitem">
