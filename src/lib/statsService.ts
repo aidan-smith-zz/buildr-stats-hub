@@ -751,7 +751,13 @@ export async function getFixtureStats(
     ? []
     : teamIds.filter((tid) => (countByTeam.get(tid) ?? 0) < MIN_PLAYERS_PER_TEAM);
 
-  if (!dbOnly && teamsNeedingStats.length > 0) {
+  /** When true, skip all API calls (fixture already warmed, or caller passed dbOnly). Reduces load from crawlers and repeat visits. */
+  const effectiveDbOnly =
+    dbOnly ||
+    lineupCount > 0 ||
+    (homeTeamStatsExisting != null && awayTeamStatsExisting != null);
+
+  if (!effectiveDbOnly && teamsNeedingStats.length > 0) {
     for (const teamId of teamsNeedingStats) {
       const team = teamId === fixture.homeTeamId ? fixture.homeTeam : fixture.awayTeam;
       if (team.apiId) {
@@ -774,7 +780,7 @@ export async function getFixtureStats(
   }
 
   // Ensure team season stats (and TeamFixtureCache) for form table and match page. Run for all leagues including League 1/2 so form table can include them.
-  if (!dbOnly && leagueIdForTeamStats != null) {
+  if (!effectiveDbOnly && leagueIdForTeamStats != null) {
     if (fixture.homeTeam.apiId && !homeTeamStatsExisting) {
       await ensureTeamSeasonStatsCornersAndCards(
         fixture.homeTeamId,
@@ -800,7 +806,7 @@ export async function getFixtureStats(
 
   // When we don't have a lineup and we're within the fetch window, fetch and store so the response includes lineup (blocking; page may be slower on first load).
   const hadLineup = lineupCount > 0;
-  if (!dbOnly && !hadLineup && !teamStatsOnly) {
+  if (!effectiveDbOnly && !hadLineup && !teamStatsOnly) {
     await ensureLineupIfWithinWindow(
       fixture.id,
       fixture.date,
@@ -900,7 +906,7 @@ export async function getFixtureStats(
   }
 
   // Backfill TeamFixtureCache when we have leagueId but last-5 is empty (e.g. first time or cache was never filled).
-  if (!dbOnly && leagueIdForTeamStats != null && (last5Home.length === 0 || last5Away.length === 0)) {
+  if (!effectiveDbOnly && leagueIdForTeamStats != null && (last5Home.length === 0 || last5Away.length === 0)) {
     if (last5Home.length === 0 && fixture.homeTeam.apiId) {
       await ensureTeamSeasonStatsCornersAndCards(
         fixture.homeTeamId,
