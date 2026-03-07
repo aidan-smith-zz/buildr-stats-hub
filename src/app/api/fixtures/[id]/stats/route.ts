@@ -49,9 +49,9 @@ export async function GET(_request: Request, { params }: RouteParams) {
   }
 
   return NextResponse.json(stats, {
-    // Shorter max-age so team stats show soon after warm; stale-while-revalidate for speed.
+    // Team/player stats are static until next match; cache 2h fresh, serve stale up to 3h while revalidating.
     headers: {
-      "Cache-Control": "public, max-age=60, stale-while-revalidate=120",
+      "Cache-Control": "public, max-age=7200, stale-while-revalidate=10800",
     },
   });
 }

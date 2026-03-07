@@ -429,6 +429,15 @@ export const getFixturesForDateRequestCached = cache((dateKey: string) =>
   getFixturesForDateFromDbOnly(dateKey)
 );
 
+/**
+ * Request-scoped cache for resolving a single fixture by date + slugs.
+ * When both generateMetadata and the page need the preview (fixture not in warmed list), only one execution per request.
+ */
+export const getFixturePreviewRequestCached = cache(
+  (dateKey: string, leagueSlug: string, matchSlugParam: string) =>
+    getFixturePreview(dateKey, leagueSlug, matchSlugParam)
+);
+
 export type PastFixturesByDate = { dateKey: string; fixtures: FixtureSummary[] }[];
 
 /**

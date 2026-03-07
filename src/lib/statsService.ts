@@ -8,7 +8,11 @@ import {
   getPlayerExternalId,
   type RawPlayerSeasonStats,
 } from "@/lib/footballApi";
-import { getStatsLeagueForFixture, isTeamStatsOnlyLeague } from "@/lib/leagues";
+import {
+  getStatsLeagueForFixture,
+  isTeamStatsOnlyLeague,
+  SCOTTISH_CUP_LEAGUE_ID,
+} from "@/lib/leagues";
 import { ensureLineupIfWithinWindow, getLineupForFixture } from "@/lib/lineupService";
 
 /** Prisma client with TeamFixtureCache (avoids TS errors when generated client is out of date). */
@@ -758,19 +762,27 @@ export async function getFixtureStats(
     : teamIds.filter((tid) => (countByTeam.get(tid) ?? 0) < MIN_PLAYERS_PER_TEAM);
 
   /** When true, skip all API calls (fixture already warmed, or caller passed dbOnly). Reduces load from crawlers and repeat visits. */
+  const bothTeamsHaveStats = homeTeamStatsExisting != null && awayTeamStatsExisting != null;
+  /** Scottish Cup: we only warm the team(s) in our supported leagues (e.g. Aberdeen); the other (e.g. Dunfermline) is not. Treat as warmed when at least one side has stats so we serve from DB only. */
+  const scottishCupPartiallyWarmed =
+    fixtureWithLeagueId.leagueId === SCOTTISH_CUP_LEAGUE_ID &&
+    (homeTeamStatsExisting != null || awayTeamStatsExisting != null);
   const effectiveDbOnly =
     dbOnly ||
     lineupCount > 0 ||
-    (homeTeamStatsExisting != null && awayTeamStatsExisting != null);
+    bothTeamsHaveStats ||
+    scottishCupPartiallyWarmed;
 
   if (DEBUG_FIXTURE) {
     const reason = dbOnly
       ? "caller passed dbOnly"
       : lineupCount > 0
         ? "lineupCount=" + lineupCount
-        : homeTeamStatsExisting != null && awayTeamStatsExisting != null
+        : bothTeamsHaveStats
           ? "both team stats exist"
-          : "not warmed";
+          : scottishCupPartiallyWarmed
+            ? "Scottish Cup: one team warmed (serve from DB)"
+            : "not warmed";
     console.log("[fixture-debug] getFixtureStats effectiveDbOnly=" + effectiveDbOnly, {
       lineupCount,
       hasHomeTeamStats: homeTeamStatsExisting != null,

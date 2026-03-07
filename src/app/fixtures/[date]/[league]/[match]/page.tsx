@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import {
-  getFixturePreview,
+  getFixturePreviewRequestCached,
   getFixturesForDateRequestCached,
   getOrRefreshTodayFixturesRequestCached,
 } from "@/lib/fixturesService";
@@ -168,7 +168,7 @@ export async function generateMetadata({
     };
   }
 
-  const fixture = await getFixturePreview(dateKey, leagueSlug, matchSlugParam);
+  const fixture = await getFixturePreviewRequestCached(dateKey, leagueSlug, matchSlugParam);
   if (!fixture) {
     return {
       title: "Fixture not found",
@@ -605,7 +605,7 @@ export default async function FixtureMatchPage({
 
   // No warmed data: generic preview (UpcomingFixture or API)
   if (DEBUG_FIXTURE) console.log("[fixture-debug] branch=preview (no warmed fixture for date, will try getFixturePreview)");
-  const fixture = await getFixturePreview(dateKey, leagueSlug, matchSlugParam);
+  const fixture = await getFixturePreviewRequestCached(dateKey, leagueSlug, matchSlugParam);
 
   if (!fixture) {
     return (
