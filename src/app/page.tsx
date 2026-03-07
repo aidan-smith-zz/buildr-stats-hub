@@ -44,18 +44,13 @@ export const metadata: Metadata = {
 function getFixtureErrorDisplay(err: unknown): { message: string; showConfigHints: boolean } {
   const raw = err instanceof Error ? err.message : String(err);
   const code = err instanceof Error && "code" in err ? String((err as NodeJS.ErrnoException).code) : "";
-  const prismaCode = err && typeof err === "object" && "code" in err ? String((err as { code?: string }).code) : "";
-  const isPoolTimeout = prismaCode === "P2028";
   const isInternal =
     code === "EPERM" ||
     code === "EACCES" ||
-    isPoolTimeout ||
     /chmod|query-engine|\.prisma|node_modules.*prisma|\/var\/task\//i.test(raw);
   if (isInternal) {
     return {
-      message: isPoolTimeout
-        ? "The server is busy. Please try again in a moment."
-        : "Something went wrong loading fixtures. Please try again in a moment.",
+      message: "Something went wrong loading fixtures. Please try again in a moment.",
       showConfigHints: false,
     };
   }
@@ -71,36 +66,15 @@ function getFixtureErrorDisplay(err: unknown): { message: string; showConfigHint
   };
 }
 
-/** Retry once on pool timeout (P2028) to handle transient load e.g. from crawlers. */
-async function withPoolRetry<T>(fn: () => Promise<T>, maxAttempts = 2): Promise<T> {
-  let lastErr: unknown;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastErr = err;
-      const code = err && typeof err === "object" && "code" in err ? (err as { code?: string }).code : undefined;
-      if (code === "P2028" && attempt < maxAttempts) {
-        await new Promise((r) => setTimeout(r, 400 * attempt));
-        continue;
-      }
-      throw err;
-    }
-  }
-  throw lastErr;
-}
-
 export default async function Home() {
   try {
     const now = new Date();
     const todayKey = todayDateKey();
     const tomorrowKey = tomorrowDateKey();
-    const [fixtures, tomorrowFixtures] = await withPoolRetry(() =>
-      Promise.all([
-        getOrRefreshTodayFixtures(now),
-        getFixturesForDateFromDbOnly(tomorrowKey),
-      ]),
-    );
+    const [fixtures, tomorrowFixtures] = await Promise.all([
+      getOrRefreshTodayFixtures(now),
+      getFixturesForDateFromDbOnly(tomorrowKey),
+    ]);
 
     const itemListElements =
       fixtures?.length > 0

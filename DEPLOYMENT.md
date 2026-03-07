@@ -136,7 +136,7 @@ You can run a custom script in a one-off job (e.g. “Run Command” or a deploy
   All Prisma usage is in server code (API routes, server components, `server-only` modules). Do not import `prisma` or `PrismaClient` in client components.
 
 - **DB connection errors in production**  
-  - Use the **Supabase pooler** URL (port **6543**) as `DATABASE_URL` on Vercel; append `?pgbouncer=true&connection_limit=1` to reduce "Unable to start a transaction" (P2028) under load.  
+  - Use the **Supabase pooler** URL (port **6543**) as `DATABASE_URL` on Vercel; append `?pgbouncer=true&connection_limit=1` to reduce pool timeouts under load. If you see "connection limit: 5" or "Timed out fetching a new connection" (P2024) in logs, add or fix `&connection_limit=1` in `DATABASE_URL` and redeploy.  
   - Check no extra spaces and that the password is URL-encoded in `DATABASE_URL`.  
   - If you hit connection limits, switch to a **connection pooler** URL (e.g. Supabase “Transaction” pooler or Neon pooler) and use that as `DATABASE_URL`.
 
