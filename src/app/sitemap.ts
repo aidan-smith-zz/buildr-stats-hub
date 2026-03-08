@@ -61,8 +61,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // Next 14 days: fixture URLs from UpcomingFixture table (populated when warm-today runs without --resume).
+  // skipRefresh so sitemap never triggers 14-day API refresh (would timeout).
   try {
-    const upcomingByDate = await getUpcomingFixturesFromDb();
+    const upcomingByDate = await getUpcomingFixturesFromDb({ skipRefresh: true });
     for (const { dateKey: dayKey, fixtures: dayFixtures } of upcomingByDate) {
       entries.push({
         url: `${baseUrl}/fixtures/${dayKey}`,

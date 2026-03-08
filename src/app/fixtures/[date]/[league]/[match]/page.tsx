@@ -402,9 +402,13 @@ export default async function FixtureMatchPage({
             statusShort: fixtureWithScore.liveScoreCache.statusShort,
           }
         : null;
-    if (score == null && fixtureWithScore?.apiId) {
+    // For past fixtures: fetch final score from API when cache is missing or not finished (e.g. stale live score from during the match).
+    const apiId = fixtureWithScore?.apiId ?? null;
+    const needsFinalScore =
+      apiId != null && (!score || !isMatchEnded(score.statusShort));
+    if (needsFinalScore && apiId != null) {
       try {
-        const result = await fetchLiveFixture(fixtureWithScore.apiId);
+        const result = await fetchLiveFixture(apiId);
         if (result && isMatchEnded(result.statusShort)) {
           const now = new Date();
           await prisma.liveScoreCache.upsert({
@@ -432,7 +436,7 @@ export default async function FixtureMatchPage({
           };
         }
       } catch {
-        // Keep score null; UI will show – for result
+        // Keep existing score or null; UI will show what we have
       }
     }
     const home = warmedFixture.homeTeam.shortName ?? warmedFixture.homeTeam.name;

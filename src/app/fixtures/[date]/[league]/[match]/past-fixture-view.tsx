@@ -45,6 +45,27 @@ export type PastFixtureScore = {
   statusShort: string;
 };
 
+function statusLabel(short: string): string {
+  switch (short) {
+    case "FT":
+      return "Full time";
+    case "AET":
+      return "After extra time";
+    case "PEN":
+      return "Penalties";
+    case "ABD":
+      return "Abandoned";
+    case "AWD":
+      return "Awarded";
+    case "WO":
+      return "Walkover";
+    case "CAN":
+      return "Cancelled";
+    default:
+      return short;
+  }
+}
+
 type Props = {
   fixture: FixtureSummary;
   score: PastFixtureScore | null;
@@ -61,33 +82,48 @@ export function PastFixtureView({ fixture, score, stats }: Props) {
   return (
     <div className="space-y-6">
       {/* Final result */}
-      <header className="rounded-xl border border-neutral-200 bg-white px-4 py-6 dark:border-neutral-800 dark:bg-neutral-900 sm:px-6 sm:py-8">
-        <div className="flex flex-col items-center gap-4 sm:gap-6">
-          <div className="flex w-full flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-6">
+      <section
+        aria-label="Final score"
+        className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+      >
+        <div className="border-b border-neutral-100 bg-neutral-50/80 px-4 py-2 text-center dark:border-neutral-800 dark:bg-neutral-800/50">
+          <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+            Final score
+          </span>
+          {score?.statusShort && (
+            <span className="ml-2 text-xs font-medium text-neutral-600 dark:text-neutral-300">
+              · {statusLabel(score.statusShort)}
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-6 sm:gap-8 sm:px-8 sm:py-8">
+          <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
+            <span className="truncate text-right text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+              {homeName}
+            </span>
             <TeamCrestOrShirt crestUrl={homeCrest} alt={homeName} />
-            <div className="flex min-w-[6rem] items-center justify-center gap-2">
-              {score != null ? (
-                <span className="text-2xl font-bold tabular-nums text-neutral-900 dark:text-neutral-50 sm:text-3xl">
-                  {score.homeGoals} – {score.awayGoals}
-                </span>
-              ) : (
-                <span className="text-xl font-medium tabular-nums text-neutral-400 dark:text-neutral-500">–</span>
-              )}
-              {score?.statusShort && (
-                <span className="rounded bg-neutral-200 px-2 py-0.5 text-xs font-medium text-neutral-600 dark:bg-neutral-600 dark:text-neutral-200">
-                  {score.statusShort}
-                </span>
-              )}
-            </div>
-            <TeamCrestOrShirt crestUrl={awayCrest} alt={awayName} />
           </div>
-          <div className="flex w-full flex-col items-center gap-1 sm:flex-row sm:justify-center sm:gap-8">
-            <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{homeName}</span>
-            <span className="text-xs text-neutral-500 dark:text-neutral-400">vs</span>
-            <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{awayName}</span>
+          <div className="flex shrink-0 items-center justify-center">
+            {score != null ? (
+              <span className="text-center text-2xl font-bold tabular-nums text-neutral-900 dark:text-neutral-50 sm:min-w-[6rem] sm:text-4xl">
+                {score.homeGoals}
+                <span className="mx-1 text-neutral-300 dark:text-neutral-600 sm:mx-1.5">–</span>
+                {score.awayGoals}
+              </span>
+            ) : (
+              <span className="text-center text-xl font-medium tabular-nums text-neutral-400 dark:text-neutral-500 sm:min-w-[6rem] sm:text-2xl">
+                –
+              </span>
+            )}
+          </div>
+          <div className="flex min-w-0 items-center justify-start gap-2 sm:gap-3">
+            <TeamCrestOrShirt crestUrl={awayCrest} alt={awayName} />
+            <span className="truncate text-left text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+              {awayName}
+            </span>
           </div>
         </div>
-      </header>
+      </section>
 
       {/* Lineups (if we have them) */}
       {hasLineup && stats && (

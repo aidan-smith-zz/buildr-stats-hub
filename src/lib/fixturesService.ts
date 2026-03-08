@@ -182,10 +182,10 @@ export type UpcomingFixtureByDate = { dateKey: string; fixtures: UpcomingFixture
  *
  * If the UpcomingFixture table doesn't yet have rows covering the full 14‑day
  * horizon (for example, warm-today hasn't been run recently), this will first
- * refresh the table from the API and then re-read it. That way the Upcoming
- * page always tries to show a full 14‑day window.
+ * refresh the table from the API and then re-read it — unless skipRefresh is true.
+ * Use skipRefresh: true for callers that must not block (e.g. sitemap) to avoid timeouts.
  */
-export async function getUpcomingFixturesFromDb(): Promise<UpcomingFixtureByDate[]> {
+export async function getUpcomingFixturesFromDb(options?: { skipRefresh?: boolean }): Promise<UpcomingFixtureByDate[]> {
   const today = todayDateKey();
 
   let rows = await prisma.upcomingFixture.findMany({
@@ -194,10 +194,10 @@ export async function getUpcomingFixturesFromDb(): Promise<UpcomingFixtureByDate
   });
 
   // Ensure we have coverage up to ~14 days ahead. If our max dateKey is before
-  // the target end date, refresh the UpcomingFixture table once and re-query.
+  // the target end date, refresh the UpcomingFixture table once and re-query (unless skipRefresh).
   const targetEndKey = nextDateKeys(14).slice(-1)[0] ?? today;
   const maxExistingKey = rows.length > 0 ? rows[rows.length - 1]!.dateKey : null;
-  if (!maxExistingKey || maxExistingKey < targetEndKey) {
+  if (!options?.skipRefresh && (!maxExistingKey || maxExistingKey < targetEndKey)) {
     await refreshUpcomingFixturesTable(new Date());
     rows = await prisma.upcomingFixture.findMany({
       where: { dateKey: { gte: today } },
