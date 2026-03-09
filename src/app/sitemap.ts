@@ -3,10 +3,21 @@ import {
   getFixturesForDateFromDbOnly,
   getUpcomingFixturesFromDb,
 } from "@/lib/fixturesService";
-import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
+import {
+  LEAGUE_DISPLAY_NAMES,
+  REQUIRED_LEAGUE_IDS,
+  STANDINGS_LEAGUE_SLUG_BY_ID,
+} from "@/lib/leagues";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
+import { prisma } from "@/lib/prisma";
+import { API_SEASON } from "@/lib/footballApi";
+import { makeTeamSlug } from "@/lib/teamSlugs";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
+
+// Top leagues we create dedicated team pages for (must stay in sync with teamPageService).
+const TOP_TEAM_LEAGUE_IDS = [39, 40, 179, 2, 3] as const;
+const TOP_TEAM_LEAGUE_KEYS = TOP_TEAM_LEAGUE_IDS.map((id) => LEAGUE_DISPLAY_NAMES[id]);
 
 export const dynamic = "force-dynamic";
 /** Prevent sitemap from being cached so it reflects latest fixtures after warm-today. */
@@ -109,6 +120,44 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.6,
     });
+  }
+
+  // Team pages for top leagues only (teams with season stats in our tracked competitions).
+  try {
+    const seasonRows = await prisma.teamSeasonStats.findMany({
+      where: {
+        season: API_SEASON,
+        league: { in: TOP_TEAM_LEAGUE_KEYS },
+      },
+      select: { teamId: true },
+    });
+
+    const teamIds = Array.from(new Set(seasonRows.map((row) => row.teamId)));
+
+    if (teamIds.length > 0) {
+      const teams = await prisma.team.findMany({
+        where: { id: { in: teamIds } },
+        select: {
+          id: true,
+          name: true,
+          shortName: true,
+        },
+      });
+
+      for (const team of teams) {
+        const displayName = team.shortName ?? team.name;
+        const slug = makeTeamSlug(displayName);
+
+        entries.push({
+          url: `${baseUrl}/teams/${slug}`,
+          lastModified: now,
+          changeFrequency: "daily",
+          priority: 0.7,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[sitemap] Failed to fetch team pages:", err);
   }
 
   return entries;
