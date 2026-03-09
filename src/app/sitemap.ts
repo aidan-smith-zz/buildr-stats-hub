@@ -56,8 +56,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (filtered.length > 0) {
       const fixtureRows = await prisma.fixture.findMany({
         where: { id: { in: filtered.map((f) => f.id) } },
-        select: { id: true, updatedAt: true },
-        include: { liveScoreCache: { select: { cachedAt: true } } },
+        select: {
+          id: true,
+          updatedAt: true,
+          liveScoreCache: {
+            select: { cachedAt: true },
+          },
+        },
       });
       for (const row of fixtureRows) {
         const scoreCached = row.liveScoreCache?.cachedAt;
