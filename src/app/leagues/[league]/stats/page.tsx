@@ -85,6 +85,17 @@ export default async function LeagueStatsPage({ params }: Props) {
     { href: `/leagues/${slugById[leagueId]}/stats`, label: `${leagueName} stats` },
   ];
 
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.label,
+      item: `${BASE_URL}${item.href}`,
+    })),
+  };
+
   const itemListJsonLd =
     data.teams.length > 0
       ? {
@@ -101,14 +112,31 @@ export default async function LeagueStatsPage({ params }: Props) {
         }
       : null;
 
+  const seasonString = getCurrentSeasonString();
+  const webPageJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: `${leagueName} stats ${seasonString} | Goals, corners & cards per 90`,
+    description: `Team stats for the ${leagueName} ${seasonString} season: goals for and against per 90, corners per match and cards per match. Use these league stats for bet builder research.`,
+    url: `${BASE_URL}/leagues/${slugById[leagueId]}/stats`,
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       {itemListJsonLd ? (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
         />
       ) : null}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageJsonLd) }}
+      />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-4" />
 

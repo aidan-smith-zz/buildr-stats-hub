@@ -34,12 +34,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // Fetch lastmod data for standings and upcoming (used later).
-  const [standingsCacheRows, upcomingLastmodByDate] = await Promise.all([
+  // Fetch lastmod data for standings, stats hubs, and upcoming (used later).
+  const [standingsCacheRows, statsLastmodRows, upcomingLastmodByDate] = await Promise.all([
     prisma.leagueStandingsCache.findMany({ where: { season: API_SEASON }, select: { leagueId: true, updatedAt: true } }).catch(() => [] as { leagueId: number; updatedAt: Date }[]),
+    prisma.teamSeasonStats
+      .groupBy({
+        by: ["leagueId"],
+        where: { season: API_SEASON, leagueId: { not: null } },
+        _max: { updatedAt: true },
+      })
+      .catch(() => [] as { leagueId: number | null; _max: { updatedAt: Date | null } }[]),
     prisma.upcomingFixture.groupBy({ by: ["dateKey"], _max: { updatedAt: true } }).catch(() => []),
   ]);
   const leagueLastmodByLeagueId = new Map(standingsCacheRows.map((r) => [r.leagueId, r.updatedAt]));
+  const statsLastmodByLeagueId = new Map(
+    statsLastmodRows
+      .filter((r): r is { leagueId: number; _max: { updatedAt: Date | null } } => r.leagueId != null)
+      .map((r) => [r.leagueId, r._max.updatedAt ?? now])
+  );
   const upcomingLastmodMap = new Map(upcomingLastmodByDate.map((r) => [r.dateKey, r._max.updatedAt ?? now]));
 
   try {
@@ -142,12 +154,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   });
 
-  // League standings pages (one per standings league).
+  // League standings and stats hub pages (one per standings league).
   for (const [leagueId, slug] of Object.entries(STANDINGS_LEAGUE_SLUG_BY_ID)) {
-    const lastmod = leagueLastmodByLeagueId.get(Number(leagueId)) ?? now;
+    const id = Number(leagueId);
+    const lastmodStandings = leagueLastmodByLeagueId.get(id) ?? now;
     entries.push({
       url: `${baseUrl}/leagues/${slug}/standings`,
-      lastModified: lastmod,
+      lastModified: lastmodStandings,
+      changeFrequency: "daily",
+      priority: 0.6,
+    });
+    const lastmodStats = statsLastmodByLeagueId.get(id) ?? now;
+    entries.push({
+      url: `${baseUrl}/leagues/${slug}/stats`,
+      lastModified: lastmodStats,
       changeFrequency: "daily",
       priority: 0.6,
     });
