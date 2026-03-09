@@ -401,6 +401,17 @@ export default async function LeagueStandingsPage({ params }: Props) {
                   </NavLinkWithOverlay>
                   .
                 </p>
+                <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                  For league-wide per 90 stats (goals, corners and cards), see{" "}
+                  <NavLinkWithOverlay
+                    href={`/leagues/${slug}/stats`}
+                    className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+                    message="Loading league stats…"
+                  >
+                    {leagueName} stats hub
+                  </NavLinkWithOverlay>
+                  .
+                </p>
               </section>
 
               <section

@@ -416,6 +416,23 @@ async function ensureTeamSeasonStatsCornersAndCards(
   return { done: true };
 }
 
+export async function warmTeamSeasonStatsForTeam(
+  teamId: number,
+  teamApiId: string,
+  leagueKey: string,
+  leagueId: number,
+  options?: { maxApiCallsPerInvocation?: number; cacheLeagueKey?: string },
+): Promise<EnsureTeamSeasonStatsResult> {
+  return ensureTeamSeasonStatsCornersAndCards(
+    teamId,
+    teamApiId,
+    API_SEASON,
+    leagueKey,
+    leagueId,
+    options,
+  );
+}
+
 /** Skip refetching player stats for a team if we already updated within this many ms. */
 const PLAYER_STATS_REFRESH_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24h
 

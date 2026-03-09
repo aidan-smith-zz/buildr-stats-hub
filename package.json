@@ -16,6 +16,7 @@
     "clear-team-stats": "npx tsx scripts/clear-team-stats-cache.ts",
     "clear-team-stats-data": "npx tsx scripts/clear-team-stats-data.ts",
     "check-team-stats": "npx tsx scripts/check-team-stats.ts",
+    "warm-league-stats": "npx tsx scripts/warm-league-stats.ts",
     "db:migrate": "PRISMA_SKIP_UPDATE_CHECK=1 npx prisma migrate dev",
     "db:reset": "PRISMA_SKIP_UPDATE_CHECK=1 npx prisma migrate reset"
   },

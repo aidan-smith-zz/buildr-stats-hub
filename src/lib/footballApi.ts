@@ -1,5 +1,3 @@
-import "server-only";
-
 /**
  * API-Football returns paginated results for list endpoints (often ~20 per page).
  * These functions use requestPage() and fetch all pages so stored data is complete:

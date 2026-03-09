@@ -174,11 +174,9 @@ export default async function LeaguesAllPage() {
               const href = `/leagues/${slug}/standings`;
 
               return (
-                <NavLinkWithOverlay
+                <div
                   key={leagueId}
-                  href={href}
                   className="group flex flex-col rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm transition-all hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700 dark:hover:shadow-neutral-800/50 sm:p-6"
-                  message="Loading league table…"
                 >
                   <div className="flex items-center gap-3">
                     {crestUrl ? (
@@ -220,15 +218,26 @@ export default async function LeaguesAllPage() {
                       No upcoming fixture in the next 14 days
                     </p>
                   )}
-                  <div className="mt-4 flex flex-1 items-end">
-                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-100 px-3 py-2 text-sm font-medium text-neutral-700 transition-colors group-hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:group-hover:bg-neutral-700">
+                  <div className="mt-4 flex flex-1 items-end justify-between gap-2">
+                    <NavLinkWithOverlay
+                      href={href}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-100 px-3 py-2 text-sm font-medium text-neutral-700 transition-colors group-hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:group-hover:bg-neutral-700"
+                      message="Loading league table…"
+                    >
                       View table
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
-                    </span>
+                    </NavLinkWithOverlay>
+                    <NavLinkWithOverlay
+                      href={`/leagues/${slug}/stats`}
+                      className="text-xs font-medium text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                      message="Loading league stats…"
+                    >
+                      League stats
+                    </NavLinkWithOverlay>
                   </div>
-                </NavLinkWithOverlay>
+                </div>
               );
             })}
           </div>
