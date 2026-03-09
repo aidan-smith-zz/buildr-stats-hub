@@ -348,10 +348,35 @@ export default async function FixtureMatchPage({
                     {league ?? "Football"} · {displayDate}
                   </p>
                   <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-                    {home}
+                    {fixture.leagueId != null && [39, 40, 179].includes(fixture.leagueId) ? (
+                      <NavLinkWithOverlay
+                        href={`/teams/${(home ?? "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}-${fixture.homeTeam.id}`}
+                        className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                        message="Loading team stats…"
+                      >
+                        {home}
+                      </NavLinkWithOverlay>
+                    ) : (
+                      home
+                    )}
                     <span className="mx-2 text-neutral-400 dark:text-neutral-500">vs</span>
-                    {away}
+                    {fixture.leagueId != null && [39, 40, 179].includes(fixture.leagueId) ? (
+                      <NavLinkWithOverlay
+                        href={`/teams/${(away ?? "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}-${fixture.awayTeam.id}`}
+                        className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                        message="Loading team stats…"
+                      >
+                        {away}
+                      </NavLinkWithOverlay>
+                    ) : (
+                      away
+                    )}
                   </h1>
+                  {fixture.leagueId != null && [39, 40, 179].includes(fixture.leagueId) && (
+                    <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400 sm:hidden">
+                      Tap a team name to see their season stats and form.
+                    </p>
+                  )}
                 </div>
             <span className="hidden items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900 sm:inline-flex">
               {showLineupsCopy ? "Match stats & lineups" : "Match stats"}
@@ -582,10 +607,35 @@ export default async function FixtureMatchPage({
                 {league} · {displayDate}
               </p>
               <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-                {home}
+                {warmedFixture.leagueId != null && [39, 40, 179].includes(warmedFixture.leagueId) ? (
+                  <NavLinkWithOverlay
+                    href={`/teams/${(home ?? "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}-${warmedFixture.homeTeam.id}`}
+                    className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                    message="Loading team stats…"
+                  >
+                    {home}
+                  </NavLinkWithOverlay>
+                ) : (
+                  home
+                )}
                 <span className="mx-2 text-neutral-400 dark:text-neutral-500">vs</span>
-                {away}
+                {warmedFixture.leagueId != null && [39, 40, 179].includes(warmedFixture.leagueId) ? (
+                  <NavLinkWithOverlay
+                    href={`/teams/${(away ?? "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}-${warmedFixture.awayTeam.id}`}
+                    className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                    message="Loading team stats…"
+                  >
+                    {away}
+                  </NavLinkWithOverlay>
+                ) : (
+                  away
+                )}
               </h1>
+              {warmedFixture.leagueId != null && [39, 40, 179].includes(warmedFixture.leagueId) && (
+                <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400 sm:hidden">
+                  Tap a team name to see their season stats and form.
+                </p>
+              )}
               <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
                 {pastDescription}
               </p>
@@ -709,10 +759,35 @@ export default async function FixtureMatchPage({
                     {league ?? "Football"} · {displayDate}
                   </p>
                   <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-                    {home}
+                    {fixture.leagueId != null && [39, 40, 179].includes(fixture.leagueId) ? (
+                      <NavLinkWithOverlay
+                        href={`/teams/${(home ?? "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}-${fixture.homeTeam.id}`}
+                        className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                        message="Loading team stats…"
+                      >
+                        {home}
+                      </NavLinkWithOverlay>
+                    ) : (
+                      home
+                    )}
                     <span className="mx-2 text-neutral-400 dark:text-neutral-500">vs</span>
-                    {away}
+                    {fixture.leagueId != null && [39, 40, 179].includes(fixture.leagueId) ? (
+                      <NavLinkWithOverlay
+                        href={`/teams/${(away ?? "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}-${fixture.awayTeam.id}`}
+                        className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                        message="Loading team stats…"
+                      >
+                        {away}
+                      </NavLinkWithOverlay>
+                    ) : (
+                      away
+                    )}
                   </h1>
+                  {fixture.leagueId != null && [39, 40, 179].includes(fixture.leagueId) && (
+                    <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400 sm:hidden">
+                      Tap a team name to see their season stats and form.
+                    </p>
+                  )}
                 </div>
                 <span className="hidden items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900 sm:inline-flex">
                   {isTeamStatsOnlyLeague(fixture.leagueId ?? null) ? "Match stats" : "Match stats & lineups"}
