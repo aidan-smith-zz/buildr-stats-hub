@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import { getUpcomingFixturesFromDb } from "@/lib/fixturesService";
 import {
   LEAGUE_DISPLAY_NAMES,
@@ -87,11 +88,22 @@ export const metadata: Metadata = {
   },
 };
 
+const getLeaguesAllPageData = unstable_cache(
+  async () => {
+    // Use skipRefresh so this page never triggers a heavy 14-day API refresh.
+    // Warm scripts (warm-today / warm-tomorrow) keep UpcomingFixture populated.
+    const [byDate, ...crestUrls] = await Promise.all([
+      getUpcomingFixturesFromDb({ skipRefresh: true }),
+      ...STANDINGS_LEAGUE_IDS.map((id) => getLeagueCrestUrl(id)),
+    ]);
+    return { byDate, crestUrls };
+  },
+  ["leagues-all-page-data"],
+  { revalidate: 60 * 60 * 12 }, // 12 hours
+);
+
 export default async function LeaguesAllPage() {
-  const [byDate, ...crestUrls] = await Promise.all([
-    getUpcomingFixturesFromDb(),
-    ...STANDINGS_LEAGUE_IDS.map((id) => getLeagueCrestUrl(id)),
-  ]);
+  const { byDate, crestUrls } = await getLeaguesAllPageData();
   const nextByLeague = getNextFixturePerLeague(byDate);
 
   const leagues = [...STANDINGS_LEAGUE_IDS].sort((a, b) => {
