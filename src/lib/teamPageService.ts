@@ -3,8 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { API_SEASON } from "@/lib/footballApi";
 import { LEAGUE_DISPLAY_NAMES } from "@/lib/leagues";
 
-// Top leagues: English Premier League (39), Championship (40), Scottish Premiership (179)
-const TOP_LEAGUE_IDS = [39, 40, 179] as const;
+// Top leagues: English Premier League (39), Championship (40), Scottish Premiership (179), Champions League (2), Europa League (3)
+const TOP_LEAGUE_IDS = [39, 40, 179, 2, 3] as const;
 const TOP_LEAGUE_KEYS = TOP_LEAGUE_IDS.map((id) => LEAGUE_DISPLAY_NAMES[id]);
 
 type TeamSeasonRow = {

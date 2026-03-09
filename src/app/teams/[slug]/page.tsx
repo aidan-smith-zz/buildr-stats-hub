@@ -4,6 +4,8 @@ import { getTeamPageData, type TeamPageData } from "@/lib/teamPageService";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { LEAGUE_DISPLAY_NAMES, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
 import { getOrRefreshStandings, type StandingsData } from "@/lib/standingsService";
+import { prisma } from "@/lib/prisma";
+import { makeTeamSlug, normalizeTeamSlug } from "@/lib/teamSlugs";
 import { TeamPlayersTable } from "./TeamPlayersTable";
 
 type RouteParams = {
@@ -12,18 +14,33 @@ type RouteParams = {
   }>;
 };
 
-function extractTeamId(slug: string): number {
-  const match = slug.match(/-(\d+)$/);
-  if (!match) return NaN;
-  return Number(match[1]);
-}
+async function findTeamIdBySlug(rawSlug: string): Promise<number | null> {
+  const slug = normalizeTeamSlug(rawSlug);
+  if (!slug) return null;
 
-function teamSlug(name: string, id: number): string {
-  const base = name
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
-  return `${base}-${id}`;
+  const approxName = rawSlug.replace(/-/g, " ");
+  const candidates = await prisma.team.findMany({
+    where: {
+      OR: [
+        { name: { contains: approxName, mode: "insensitive" } },
+        { shortName: { contains: approxName, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, name: true, shortName: true },
+  });
+
+  if (!candidates.length) return null;
+
+  const matches = candidates.filter((team) => {
+    const nameSlug = makeTeamSlug(team.name);
+    const shortSlug = team.shortName ? makeTeamSlug(team.shortName) : null;
+    return nameSlug === slug || shortSlug === slug;
+  });
+
+  if (!matches.length) return null;
+
+  matches.sort((a, b) => a.name.localeCompare(b.name));
+  return matches[0].id;
 }
 
 function leagueSlugForName(name: string): string | null {
@@ -38,8 +55,8 @@ function leagueSlugForName(name: string): string | null {
 
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { slug } = await params;
-  const teamId = extractTeamId(slug);
-  if (!Number.isFinite(teamId) || teamId <= 0) {
+  const teamId = await findTeamIdBySlug(slug);
+  if (!teamId) {
     return {
       title: "Team not found",
       robots: { index: false, follow: false },
@@ -76,13 +93,13 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
 
 export default async function TeamPage({ params }: RouteParams) {
   const { slug } = await params;
-  const teamId = extractTeamId(slug);
-  if (!Number.isFinite(teamId) || teamId <= 0) notFound();
+  const teamId = await findTeamIdBySlug(slug);
+  if (!teamId) notFound();
 
   const data = await getTeamPageData(teamId);
   if (!data) notFound();
 
-  const canonicalSlug = teamSlug(data.shortName ?? data.name, data.teamId);
+  const canonicalSlug = makeTeamSlug(data.shortName ?? data.name);
 
   // Map league name back to leagueId for standings (only for known leagues).
   const leagueIdEntry = Object.entries(LEAGUE_DISPLAY_NAMES).find(

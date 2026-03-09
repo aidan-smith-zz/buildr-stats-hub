@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   STANDINGS_LEAGUE_SLUG_BY_ID,
@@ -11,6 +12,8 @@ import { getOrRefreshStandings } from "@/lib/standingsService";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
+import { prisma } from "@/lib/prisma";
+import { makeTeamSlug } from "@/lib/teamSlugs";
 
 export const dynamic = "force-dynamic";
 
@@ -121,6 +124,25 @@ export default async function LeagueStandingsPage({ params }: Props) {
           })),
         }
       : null;
+
+  const isTopLeagueForTeams = leagueId === 39 || leagueId === 40 || leagueId === 179 || leagueId === 2 || leagueId === 3;
+
+  let teamIdByApi: Map<number, number> | null = null;
+  if (isTopLeagueForTeams && standings?.tables?.length) {
+    const allRows = standings.tables.flatMap((t) => t.rows ?? []);
+    const apiIds = Array.from(new Set(allRows.map((row) => row.teamId).filter((id) => typeof id === "number")));
+    if (apiIds.length > 0) {
+      const teams = await prisma.team.findMany({
+        where: { apiId: { in: apiIds.map(String) } },
+        select: { id: true, apiId: true },
+      });
+      teamIdByApi = new Map(
+        teams
+          .filter((t) => t.apiId != null)
+          .map((t) => [Number(t.apiId), t.id]),
+      );
+    }
+  }
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -237,51 +259,74 @@ export default async function LeagueStandingsPage({ params }: Props) {
                         </tr>
                       </thead>
                       <tbody>
-                        {table.rows.map((row) => (
-                          <tr
-                            key={row.teamId}
-                            className="group border-b border-neutral-100 transition-colors hover:bg-neutral-50/60 dark:border-neutral-800 dark:hover:bg-neutral-800/40"
-                          >
-                            <td className="sticky left-0 z-[1] w-8 min-w-[2rem] max-w-[2rem] bg-white py-2.5 pl-2 pr-1 font-medium text-neutral-600 transition-colors group-hover:bg-neutral-50/60 dark:bg-neutral-900 dark:text-neutral-400 dark:group-hover:bg-neutral-800/40">
-                              {row.rank}
-                            </td>
-                            <td className="sticky left-8 z-[1] w-24 max-w-[6rem] border-r border-neutral-200 bg-white py-2.5 pl-1.5 pr-2 transition-colors group-hover:bg-neutral-50/60 dark:border-neutral-700 dark:bg-neutral-900 dark:group-hover:bg-neutral-800/40">
-                              <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                                <CrestCell logo={row.logo} teamName={row.teamName} />
-                                <span className="min-w-0 truncate font-medium text-neutral-900 dark:text-neutral-50" title={row.teamName}>
-                                  {row.teamName}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-2.5 px-2 text-center text-neutral-700 dark:text-neutral-300">
-                              {row.played}
-                            </td>
-                            <td className="py-2.5 px-2 text-center font-semibold text-neutral-900 dark:text-neutral-50">
-                              {row.points}
-                            </td>
-                            <td
-                              className={`py-2.5 px-2 text-center font-medium ${
-                                row.goalsDiff > 0
-                                  ? "text-emerald-600 dark:text-emerald-400"
-                                  : row.goalsDiff < 0
-                                    ? "text-red-600 dark:text-red-400"
-                                    : "text-neutral-500 dark:text-neutral-400"
-                              }`}
+                        {table.rows.map((row) => {
+                          const internalTeamId =
+                            isTopLeagueForTeams && teamIdByApi
+                              ? teamIdByApi.get(row.teamId)
+                              : undefined;
+                          const teamHref =
+                            internalTeamId != null
+                              ? `/teams/${makeTeamSlug(row.teamName)}`
+                              : null;
+                          return (
+                            <tr
+                              key={row.teamId}
+                              className="group border-b border-neutral-100 transition-colors hover:bg-neutral-50/60 dark:border-neutral-800 dark:hover:bg-neutral-800/40"
                             >
-                              {row.goalsDiff > 0 ? "+" : ""}
-                              {row.goalsDiff}
-                            </td>
-                            <td className="py-2.5 px-2 text-center text-neutral-700 dark:text-neutral-300">
-                              {row.win}
-                            </td>
-                            <td className="py-2.5 px-2 text-center text-neutral-700 dark:text-neutral-300">
-                              {row.lose}
-                            </td>
-                            <td className="py-2.5 pl-2 pr-4 text-center text-neutral-700 dark:text-neutral-300">
-                              {row.draw}
-                            </td>
-                          </tr>
-                        ))}
+                              <td className="sticky left-0 z-[1] w-8 min-w-[2rem] max-w-[2rem] bg-white py-2.5 pl-2 pr-1 font-medium text-neutral-600 transition-colors group-hover:bg-neutral-50/60 dark:bg-neutral-900 dark:text-neutral-400 dark:group-hover:bg-neutral-800/40">
+                                {row.rank}
+                              </td>
+                              <td className="sticky left-8 z-[1] w-24 max-w-[6rem] border-r border-neutral-200 bg-white py-2.5 pl-1.5 pr-2 transition-colors group-hover:bg-neutral-50/60 dark:border-neutral-700 dark:bg-neutral-900 dark:group-hover:bg-neutral-800/40">
+                                <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                                  <CrestCell logo={row.logo} teamName={row.teamName} />
+                                  {teamHref ? (
+                                    <Link
+                                      href={teamHref}
+                                      className="min-w-0 truncate font-medium text-neutral-900 underline-offset-2 hover:text-violet-600 hover:underline dark:text-neutral-50 dark:hover:text-violet-300"
+                                      title={row.teamName}
+                                    >
+                                      {row.teamName}
+                                    </Link>
+                                  ) : (
+                                    <span
+                                      className="min-w-0 truncate font-medium text-neutral-900 dark:text-neutral-50"
+                                      title={row.teamName}
+                                    >
+                                      {row.teamName}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-2 text-center text-neutral-700 dark:text-neutral-300">
+                                {row.played}
+                              </td>
+                              <td className="py-2.5 px-2 text-center font-semibold text-neutral-900 dark:text-neutral-50">
+                                {row.points}
+                              </td>
+                              <td
+                                className={`py-2.5 px-2 text-center font-medium ${
+                                  row.goalsDiff > 0
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : row.goalsDiff < 0
+                                      ? "text-red-600 dark:text-red-400"
+                                      : "text-neutral-500 dark:text-neutral-400"
+                                }`}
+                              >
+                                {row.goalsDiff > 0 ? "+" : ""}
+                                {row.goalsDiff}
+                              </td>
+                              <td className="py-2.5 px-2 text-center text-neutral-700 dark:text-neutral-300">
+                                {row.win}
+                              </td>
+                              <td className="py-2.5 px-2 text-center text-neutral-700 dark:text-neutral-300">
+                                {row.lose}
+                              </td>
+                              <td className="py-2.5 pl-2 pr-4 text-center text-neutral-700 dark:text-neutral-300">
+                                {row.draw}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
