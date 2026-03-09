@@ -927,8 +927,8 @@ export async function getFixtureStats(
   let pastSeasonAway: Awaited<typeof pastSeasonAwayQuery>;
   let lineupByTeamRes: Awaited<typeof lineupQuery>;
   if (sequential) {
-    stats = await playerStatsQuery;
-    teamSeasonRows = await teamSeasonRowsQuery;
+    // Slight parallelism even in sequential mode: heavy stats + team-season rows together, rest sequential.
+    [stats, teamSeasonRows] = await Promise.all([playerStatsQuery, teamSeasonRowsQuery]);
     last5Home = await last5HomeQuery;
     last5Away = await last5AwayQuery;
     pastSeasonHome = await pastSeasonHomeQuery;

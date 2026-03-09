@@ -443,6 +443,10 @@ export default async function FixtureMatchPage({
     const away = warmedFixture.awayTeam.shortName ?? warmedFixture.awayTeam.name;
     const league = warmedFixture.league ?? "Football";
     const displayDate = formatDisplayDate(dateKey);
+    const hasLineups = stats.hasLineup;
+    const pastDescription = hasLineups
+      ? `Full-time result, match stats and confirmed lineups for ${home} vs ${away} in the ${league} on ${displayDate}.`
+      : `Full-time result and key match stats for ${home} vs ${away} in the ${league} on ${displayDate}. Lineups are not available for this fixture.`;
     const breadcrumbItems = [
       { href: "/", label: "Home" },
       { href: "/fixtures/past", label: "Past fixtures" },
@@ -464,7 +468,7 @@ export default async function FixtureMatchPage({
                 {away}
               </h1>
               <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-                Final result and lineups for this match.
+                {pastDescription}
               </p>
             </header>
             <PastFixtureView fixture={warmedFixture} score={score} stats={stats} />
