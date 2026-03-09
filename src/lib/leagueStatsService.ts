@@ -59,7 +59,19 @@ async function loadLeagueStatsHubData(leagueId: number): Promise<LeagueStatsHubD
     };
   }
 
-  const teams: LeagueTeamStatsRow[] = rows
+  // Deduplicate by teamId (same team can have multiple rows when "league" string differs but leagueId matches, e.g. "Premier League" vs "English Premier League"). Keep the row with most minutes.
+  const byTeamId = new Map<number, (typeof rows)[0]>();
+  for (const row of rows) {
+    const existing = byTeamId.get(row.teamId);
+    const minutes = row.minutesPlayed ?? 0;
+    const existingMinutes = existing?.minutesPlayed ?? 0;
+    if (!existing || minutes > existingMinutes) {
+      byTeamId.set(row.teamId, row);
+    }
+  }
+  const dedupedRows = Array.from(byTeamId.values());
+
+  const teams: LeagueTeamStatsRow[] = dedupedRows
     .map((row) => {
       const minutes = row.minutesPlayed ?? 0;
       const matches = minutes > 0 ? minutes / 90 : 0;
