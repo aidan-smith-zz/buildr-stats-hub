@@ -57,11 +57,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const fixtureRows = await prisma.fixture.findMany({
         where: { id: { in: filtered.map((f) => f.id) } },
         select: { id: true, updatedAt: true },
-        include: { liveScoreCache: { select: { updatedAt: true } } },
+        include: { liveScoreCache: { select: { cachedAt: true } } },
       });
       for (const row of fixtureRows) {
-        const scoreUpdated = row.liveScoreCache?.updatedAt;
-        const lastmod = scoreUpdated && scoreUpdated > row.updatedAt ? scoreUpdated : row.updatedAt;
+        const scoreCached = row.liveScoreCache?.cachedAt;
+        const lastmod = scoreCached && scoreCached > row.updatedAt ? scoreCached : row.updatedAt;
         fixtureLastmodById.set(row.id, lastmod);
         if (lastmod > todayLastmod) todayLastmod = lastmod;
       }
