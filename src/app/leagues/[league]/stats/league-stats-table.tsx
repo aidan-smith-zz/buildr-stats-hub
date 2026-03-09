@@ -41,7 +41,9 @@ export function LeagueStatsTable({ teams, leagueName }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("goalsForPer90");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const handleSort = (key: SortKey) => {
+  const handleSort = (key: SortKey, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
@@ -51,7 +53,7 @@ export function LeagueStatsTable({ teams, leagueName }: Props) {
   };
 
   const sortedTeams = useMemo(() => {
-    const arr = [...teams];
+    const arr = teams.slice();
     arr.sort((a, b) => {
       let aVal: number | string;
       let bVal: number | string;
@@ -105,7 +107,7 @@ export function LeagueStatsTable({ teams, leagueName }: Props) {
             <th
               className={thClassLeft}
               scope="col"
-              onClick={() => handleSort("team")}
+              onClick={(e) => handleSort("team", e)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
@@ -122,7 +124,7 @@ export function LeagueStatsTable({ teams, leagueName }: Props) {
             <th
               className={thClass}
               scope="col"
-              onClick={() => handleSort("matches")}
+              onClick={(e) => handleSort("matches", e)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
@@ -139,7 +141,7 @@ export function LeagueStatsTable({ teams, leagueName }: Props) {
             <th
               className={thClass}
               scope="col"
-              onClick={() => handleSort("goalsForPer90")}
+              onClick={(e) => handleSort("goalsForPer90", e)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
@@ -156,7 +158,7 @@ export function LeagueStatsTable({ teams, leagueName }: Props) {
             <th
               className={thClass}
               scope="col"
-              onClick={() => handleSort("goalsAgainstPer90")}
+              onClick={(e) => handleSort("goalsAgainstPer90", e)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
@@ -173,7 +175,7 @@ export function LeagueStatsTable({ teams, leagueName }: Props) {
             <th
               className={thClass}
               scope="col"
-              onClick={() => handleSort("cornersPerMatch")}
+              onClick={(e) => handleSort("cornersPerMatch", e)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
@@ -190,7 +192,7 @@ export function LeagueStatsTable({ teams, leagueName }: Props) {
             <th
               className={thClass}
               scope="col"
-              onClick={() => handleSort("cardsPerMatch")}
+              onClick={(e) => handleSort("cardsPerMatch", e)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
@@ -207,9 +209,9 @@ export function LeagueStatsTable({ teams, leagueName }: Props) {
           </tr>
         </thead>
         <tbody>
-          {sortedTeams.map((row) => (
+          {sortedTeams.map((row, index) => (
             <tr
-              key={row.teamId}
+              key={index}
               className="border-b border-neutral-100 last:border-0 dark:border-neutral-800"
             >
               <td className="py-2 pl-2 pr-1">
