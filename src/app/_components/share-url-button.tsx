@@ -32,8 +32,14 @@ export function copyToClipboard(text: string): boolean {
 
 export function ShareUrlButton({
   className = "",
+  title: shareTitle,
+  text: shareText,
 }: {
   className?: string;
+  /** Optional title for native share (e.g. "Premier League stats | statsBuildr"). */
+  title?: string;
+  /** Optional description for native share. */
+  text?: string;
 }) {
   const [label, setLabel] = useState<Label>("Share");
 
@@ -43,8 +49,8 @@ export function ShareUrlButton({
       setLabel("Share");
       return;
     }
-    const title = "AI Insights | statsBuildr";
-    const text = "Check today's AI-powered fixture insights.";
+    const title = shareTitle ?? "statsBuildr";
+    const text = shareText ?? "Check out this page on statsBuildr.";
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({ title, url, text });

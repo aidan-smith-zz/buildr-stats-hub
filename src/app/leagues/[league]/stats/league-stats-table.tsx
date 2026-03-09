@@ -92,20 +92,21 @@ export function LeagueStatsTable({ teams, leagueName }: Props) {
   }, [teams, sortKey, sortDir]);
 
   const thClass =
-    "py-2 px-2 text-right cursor-pointer select-none hover:bg-neutral-100 dark:hover:bg-neutral-700/50 rounded transition-colors";
-  const thClassLeft = "py-2 pl-2 pr-1 text-left cursor-pointer select-none hover:bg-neutral-100 dark:hover:bg-neutral-700/50 rounded transition-colors";
+    "py-3 px-3 text-right cursor-pointer select-none hover:bg-neutral-100 dark:hover:bg-neutral-700/50 rounded transition-colors text-[11px] font-semibold uppercase tracking-wider";
+  const thTeamSticky =
+    "sticky left-0 z-10 min-w-[10rem] w-48 max-w-[12rem] border-r border-neutral-200 bg-neutral-100 py-3 pl-4 pr-2 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-600 shadow-[4px_0_12px_4px_rgba(0,0,0,0.08)] dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:shadow-[4px_0_12px_4px_rgba(0,0,0,0.4)] cursor-pointer select-none hover:bg-neutral-200 dark:hover:bg-neutral-700/50 rounded-l transition-colors";
 
   return (
-    <div className="overflow-x-auto">
+    <div className="isolate overflow-x-auto px-4 py-1 sm:px-5 sm:py-2">
       <table
-        className="w-full min-w-[640px] border-collapse text-left text-xs text-neutral-700 dark:text-neutral-300 sm:text-sm"
+        className="w-full min-w-[640px] border-collapse text-left text-sm text-neutral-700 dark:text-neutral-300"
         role="grid"
         aria-label={`${leagueName} team stats, sortable by column`}
       >
         <thead>
-          <tr className="border-b border-neutral-200 bg-neutral-50/80 text-[11px] uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-800/50 dark:text-neutral-400">
+          <tr className="border-b border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800/80 dark:text-neutral-400">
             <th
-              className={thClassLeft}
+              className={thTeamSticky}
               scope="col"
               onClick={(e) => handleSort("team", e)}
               onKeyDown={(e) => {
@@ -212,24 +213,52 @@ export function LeagueStatsTable({ teams, leagueName }: Props) {
           {sortedTeams.map((row, index) => (
             <tr
               key={index}
-              className="border-b border-neutral-100 last:border-0 dark:border-neutral-800"
+              className="group border-b border-neutral-100 transition-colors last:border-0 hover:bg-neutral-50/80 dark:border-neutral-800 dark:hover:bg-neutral-800/50"
             >
-              <td className="py-2 pl-2 pr-1">
-                <span className="font-semibold text-neutral-900 dark:text-neutral-50">
-                  {row.shortName ?? row.name}
-                </span>
+              <td className="sticky left-0 z-10 min-w-[10rem] w-48 max-w-[12rem] border-r border-neutral-200 bg-white py-3 pl-4 pr-2 transition-colors group-hover:bg-neutral-50/80 dark:border-neutral-700 dark:bg-neutral-900 dark:group-hover:bg-neutral-800/50 shadow-[4px_0_12px_4px_rgba(0,0,0,0.06)] dark:shadow-[4px_0_12px_4px_rgba(0,0,0,0.35)]">
+                <div className="flex min-w-0 items-center gap-3 overflow-hidden">
+                  {row.crestUrl ? (
+                    <div
+                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800"
+                      aria-hidden
+                    >
+                      <img
+                        src={row.crestUrl}
+                        alt=""
+                        width={32}
+                        height={32}
+                        className="h-8 w-8 object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <span
+                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-neutral-200 text-xs font-semibold text-neutral-600 dark:bg-neutral-700 dark:text-neutral-400"
+                      aria-hidden
+                    >
+                      {(row.shortName ?? row.name).slice(0, 1)}
+                    </span>
+                  )}
+                  <span
+                    className="min-w-0 truncate font-semibold text-neutral-900 dark:text-neutral-50"
+                    title={row.shortName ?? row.name}
+                  >
+                    {row.shortName ?? row.name}
+                  </span>
+                </div>
               </td>
-              <td className="py-2 px-2 text-right tabular-nums">{row.matches.toFixed(1)}</td>
-              <td className="py-2 px-2 text-right tabular-nums">
+              <td className="py-3 px-3 text-right tabular-nums font-medium">
+                {row.matches.toFixed(1)}
+              </td>
+              <td className="py-3 px-3 text-right tabular-nums font-medium">
                 {row.goalsForPer90.toFixed(2)}
               </td>
-              <td className="py-2 px-2 text-right tabular-nums">
+              <td className="py-3 px-3 text-right tabular-nums font-medium">
                 {row.goalsAgainstPer90.toFixed(2)}
               </td>
-              <td className="py-2 px-2 text-right tabular-nums">
+              <td className="py-3 px-3 text-right tabular-nums font-medium">
                 {row.cornersPerMatch.toFixed(2)}
               </td>
-              <td className="py-2 px-2 text-right tabular-nums">
+              <td className="py-3 px-3 text-right tabular-nums font-medium">
                 {row.cardsPerMatch.toFixed(2)}
               </td>
             </tr>
