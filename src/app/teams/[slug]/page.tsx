@@ -144,8 +144,44 @@ function TeamPageView({
     { href: `/teams/${slug}`, label: displayName },
   ].filter(Boolean) as { href: string; label: string }[];
 
+  const faqEntitiesTeam = [
+    {
+      "@type": "Question" as const,
+      name: `What stats can I see for ${displayName}?`,
+      acceptedAnswer: {
+        "@type": "Answer" as const,
+        text: `${displayName}'s page shows ${data.leagueName} ${data.season} stats: goals, conceded, corners and cards per 90, recent results and key player numbers. Use these for bet builder and form analysis.`,
+      },
+    },
+    {
+      "@type": "Question" as const,
+      name: "Where does this team's data come from?",
+      acceptedAnswer: {
+        "@type": "Answer" as const,
+        text: "Stats are based on matches we track in the supported competitions. Season and per-90 numbers update as new fixtures are played and warmed on statsBuildr.",
+      },
+    },
+    {
+      "@type": "Question" as const,
+      name: "How can I use this for bet builders?",
+      acceptedAnswer: {
+        "@type": "Answer" as const,
+        text: "Use the per-90 team and player stats together with the recent results and league table to spot trends for goals, corners, cards and shots markets before placing bet builder selections.",
+      },
+    },
+  ];
+  const faqJsonLdTeam = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqEntitiesTeam,
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLdTeam) }}
+      />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-3" />
         <header className="mb-6 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
@@ -310,6 +346,41 @@ function TeamPageView({
             </div>
           </section>
         ) : null}
+
+        <section
+          className="mt-8 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+          aria-label="Frequently asked questions"
+        >
+          <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+            Frequently asked questions about {displayName}
+          </h2>
+          <dl className="mt-3 space-y-4 text-sm">
+            <div>
+              <dt className="font-medium text-neutral-800 dark:text-neutral-200">
+                What stats can I see for {displayName}?
+              </dt>
+              <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
+                {displayName}&apos;s page shows {data.leagueName} {data.season} stats: goals, conceded, corners and cards per 90, recent results and key player numbers. Use these for bet builder and form analysis.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-neutral-800 dark:text-neutral-200">
+                Where does this team&apos;s data come from?
+              </dt>
+              <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
+                Stats are based on matches we track in the supported competitions. Season and per-90 numbers update as new fixtures are played and warmed on statsBuildr.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-neutral-800 dark:text-neutral-200">
+                How can I use this for bet builders?
+              </dt>
+              <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
+                Use the per-90 team and player stats together with the recent results and league table to spot trends for goals, corners, cards and shots markets before placing bet builder selections.
+              </dd>
+            </div>
+          </dl>
+        </section>
       </main>
     </div>
   );

@@ -125,6 +125,38 @@ export default async function LeagueStandingsPage({ params }: Props) {
         }
       : null;
 
+  const faqEntitiesStandings = [
+    {
+      "@type": "Question" as const,
+      name: `What is the current ${leagueName} league table?`,
+      acceptedAnswer: {
+        "@type": "Answer" as const,
+        text: `The ${leagueName} league table shows the current standings for the ${standings?.season ?? "current"} season: points, goal difference, wins, draws, losses and position for every team. Use it with today's fixtures and form for bet builder stats.`,
+      },
+    },
+    {
+      "@type": "Question" as const,
+      name: "How often is the league table updated?",
+      acceptedAnswer: {
+        "@type": "Answer" as const,
+        text: "Standings are refreshed regularly from official sources. For match previews, team form and player stats, see today's fixtures and the form table on statsBuildr.",
+      },
+    },
+    {
+      "@type": "Question" as const,
+      name: "Where can I see team stats and form?",
+      acceptedAnswer: {
+        "@type": "Answer" as const,
+        text: `From this ${leagueName} standings page you can use today's fixtures and the form table for bet builder analytics. Top-league team names in the table link to dedicated team stats pages.`,
+      },
+    },
+  ];
+  const faqJsonLdStandings = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqEntitiesStandings,
+  };
+
   const isTopLeagueForTeams = leagueId === 39 || leagueId === 40 || leagueId === 179 || leagueId === 2 || leagueId === 3;
 
   let teamIdByApi: Map<number, number> | null = null;
@@ -155,6 +187,10 @@ export default async function LeagueStandingsPage({ params }: Props) {
             dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
           />
         ) : null}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLdStandings) }}
+        />
 
         <main>
           <header className="mb-6 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80 sm:px-5 sm:py-4">
@@ -365,6 +401,41 @@ export default async function LeagueStandingsPage({ params }: Props) {
                   </NavLinkWithOverlay>
                   .
                 </p>
+              </section>
+
+              <section
+                className="mt-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+                aria-label="Frequently asked questions"
+              >
+                <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+                  Frequently asked questions about the {leagueName} table
+                </h2>
+                <dl className="mt-3 space-y-4 text-sm">
+                  <div>
+                    <dt className="font-medium text-neutral-800 dark:text-neutral-200">
+                      What is the current {leagueName} league table?
+                    </dt>
+                    <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
+                      The {leagueName} league table shows the current standings for the {standings?.season ?? "current"} season: points, goal difference, wins, draws, losses and position for every team. Use it with today&apos;s fixtures and form for bet builder stats.
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-neutral-800 dark:text-neutral-200">
+                      How often is the league table updated?
+                    </dt>
+                    <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
+                      Standings are refreshed regularly from official sources. For match previews, team form and player stats, see today&apos;s fixtures and the form table on statsBuildr.
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-neutral-800 dark:text-neutral-200">
+                      Where can I see team stats and form?
+                    </dt>
+                    <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
+                      From this {leagueName} standings page you can use today&apos;s fixtures and the form table for bet builder analytics. Top-league team names in the table link to dedicated team stats pages.
+                    </dd>
+                  </div>
+                </dl>
               </section>
             </article>
           )}

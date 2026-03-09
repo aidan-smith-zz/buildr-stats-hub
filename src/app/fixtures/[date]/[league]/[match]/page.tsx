@@ -740,6 +740,37 @@ export default async function FixtureMatchPage({
         item: `${BASE_URL}${item.href === "/" ? "" : item.href}`,
       })),
     };
+    const faqEntitiesUpcoming = [
+      {
+        "@type": "Question" as const,
+        name: `What time does ${home} vs ${away} kick off?`,
+        acceptedAnswer: {
+          "@type": "Answer" as const,
+          text: `The ${home} vs ${away} ${league} match kicks off at ${formatKickoff(kickoff)} on ${displayDate} (Europe/London time).`,
+        },
+      },
+      {
+        "@type": "Question" as const,
+        name: `What stats are available before kick-off for ${home} vs ${away}?`,
+        acceptedAnswer: {
+          "@type": "Answer" as const,
+          text: `This page shows season and recent form for both teams: goals, xG, corners, cards and per-90 player stats. Use them to build bet builder selections ahead of kick-off.`,
+        },
+      },
+      {
+        "@type": "Question" as const,
+        name: "Will this page update on match day?",
+        acceptedAnswer: {
+          "@type": "Answer" as const,
+          text: "On match day you'll see the full dashboard with live stats, confirmed lineups and in-play data. Refresh the page closer to kick-off for the latest.",
+        },
+      },
+    ];
+    const faqJsonLdUpcoming = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: faqEntitiesUpcoming,
+    };
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <script
@@ -749,6 +780,10 @@ export default async function FixtureMatchPage({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLdUpcoming) }}
         />
         <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <div>
@@ -848,6 +883,38 @@ export default async function FixtureMatchPage({
                 </NavLinkWithOverlay>
               </div>
             </section>
+
+            <section className="mt-10 border-t border-neutral-200 pt-8 text-sm text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
+              <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+                Frequently asked questions about this fixture
+              </h2>
+              <dl className="mt-3 space-y-4">
+                <div>
+                  <dt className="font-medium">
+                    What time does {home} vs {away} kick off?
+                  </dt>
+                  <dd className="mt-1 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                    The {home} vs {away} {league} match kicks off at {formatKickoff(kickoff)} on {displayDate} (Europe/London time).
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium">
+                    What stats are available before kick-off?
+                  </dt>
+                  <dd className="mt-1 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                    This page shows season and recent form for both teams: goals, xG, corners, cards and per-90 player stats. Use them to build bet builder selections ahead of kick-off.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium">
+                    Will this page update on match day?
+                  </dt>
+                  <dd className="mt-1 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                    On match day you&apos;ll see the full dashboard with live stats, confirmed lineups and in-play data. Refresh the page closer to kick-off for the latest.
+                  </dd>
+                </div>
+              </dl>
+            </section>
           </div>
         </main>
       </div>
@@ -914,15 +981,87 @@ export default async function FixtureMatchPage({
     sport: "Football",
   };
 
+  const displayDatePreview = formatDisplayDate(dateKey);
+  const faqEntitiesPreview = [
+    {
+      "@type": "Question" as const,
+      name: `When does ${home} vs ${away} kick off?`,
+      acceptedAnswer: {
+        "@type": "Answer" as const,
+        text: kickoffPreview
+          ? `The ${home} vs ${away} ${league} match is scheduled for ${displayDatePreview} (${formatKickoff(kickoffPreview)}, Europe/London). Check back closer to kick-off for full stats and lineups.`
+          : `The ${home} vs ${away} ${league} match is scheduled for ${displayDatePreview}. This page will show full stats and lineups once the fixture is loaded – check back closer to kick-off.`,
+      },
+    },
+    {
+      "@type": "Question" as const,
+      name: "What will I see on this page on match day?",
+      acceptedAnswer: {
+        "@type": "Answer" as const,
+        text: "On match day this page will show the full dashboard: team and player per-90 stats, last 5 form, confirmed lineups when available, and live match stats. Use today's fixtures to open the full view.",
+      },
+    },
+    {
+      "@type": "Question" as const,
+      name: "How can I use stats for bet builders?",
+      acceptedAnswer: {
+        "@type": "Answer" as const,
+        text: "Once the fixture is warmed, you'll see goals, xG, corners, cards and shots per 90 for both teams and key players. Use these with the form table and AI insights for smarter bet builder selections.",
+      },
+    },
+  ];
+  const faqJsonLdPreview = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqEntitiesPreview,
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(sportsEventJsonLdPreview) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLdPreview) }}
+      />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <div>
           <FixturePreviewContent fixture={fixture} dateKey={dateKey} leagueSlug={leagueSlug} matchSlugParam={matchSlugParam} />
+          <section className="mt-10 border-t border-neutral-200 pt-8 text-sm text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+              Frequently asked questions about this match
+            </h2>
+            <dl className="mt-3 space-y-4">
+              <div>
+                <dt className="font-medium">
+                  When does {home} vs {away} kick off?
+                </dt>
+                <dd className="mt-1 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                  {kickoffPreview
+                    ? `The ${home} vs ${away} ${league} match is scheduled for ${displayDatePreview} (${formatKickoff(kickoffPreview)}, Europe/London). Check back closer to kick-off for full stats and lineups.`
+                    : `The ${home} vs ${away} ${league} match is scheduled for ${displayDatePreview}. This page will show full stats and lineups once the fixture is loaded – check back closer to kick-off.`}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium">
+                  What will I see on this page on match day?
+                </dt>
+                <dd className="mt-1 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                  On match day this page will show the full dashboard: team and player per-90 stats, last 5 form, confirmed lineups when available, and live match stats. Use today&apos;s fixtures to open the full view.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium">
+                  How can I use stats for bet builders?
+                </dt>
+                <dd className="mt-1 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                  Once the fixture is warmed, you&apos;ll see goals, xG, corners, cards and shots per 90 for both teams and key players. Use these with the form table and AI insights for smarter bet builder selections.
+                </dd>
+              </div>
+            </dl>
+          </section>
         </div>
       </main>
     </div>

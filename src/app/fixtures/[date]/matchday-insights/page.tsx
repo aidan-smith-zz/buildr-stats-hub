@@ -90,11 +90,29 @@ export default async function MatchdayInsightsPage({
     })),
   };
 
+  const webPageJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: `Matchday insights & stat leaders for ${data.displayDate}`,
+    description: `Matchday insights and stat leaders for ${data.displayDate}: shots on target, fouls, yellow cards, team xG and corners per match across this matchday's fixtures.`,
+    url: `${BASE_URL}/fixtures/${dateKey}/matchday-insights`,
+    dateModified: new Date().toISOString().slice(0, 10),
+    publisher: {
+      "@type": "Organization",
+      name: "statsBuildr",
+      url: BASE_URL,
+    },
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageJsonLd) }}
       />
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-3" />

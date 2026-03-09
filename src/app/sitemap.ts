@@ -34,6 +34,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
+  // Fetch lastmod data for standings and upcoming (used later).
+  const [standingsCacheRows, upcomingLastmodByDate] = await Promise.all([
+    prisma.leagueStandingsCache.findMany({ where: { season: API_SEASON }, select: { leagueId: true, updatedAt: true } }).catch(() => [] as { leagueId: number; updatedAt: Date }[]),
+    prisma.upcomingFixture.groupBy({ by: ["dateKey"], _max: { updatedAt: true } }).catch(() => []),
+  ]);
+  const leagueLastmodByLeagueId = new Map(standingsCacheRows.map((r) => [r.leagueId, r.updatedAt]));
+  const upcomingLastmodMap = new Map(upcomingLastmodByDate.map((r) => [r.dateKey, r._max.updatedAt ?? now]));
+
   try {
     const dateKey = todayDateKey();
     const fixtures = await getFixturesForDateFromDbOnly(dateKey);
@@ -43,16 +51,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         (REQUIRED_LEAGUE_IDS as readonly number[]).includes(f.leagueId),
     );
 
+    let todayLastmod = now;
+    const fixtureLastmodById = new Map<number, Date>();
+    if (filtered.length > 0) {
+      const fixtureRows = await prisma.fixture.findMany({
+        where: { id: { in: filtered.map((f) => f.id) } },
+        select: { id: true, updatedAt: true },
+        include: { liveScoreCache: { select: { updatedAt: true } } },
+      });
+      for (const row of fixtureRows) {
+        const scoreUpdated = row.liveScoreCache?.updatedAt;
+        const lastmod = scoreUpdated && scoreUpdated > row.updatedAt ? scoreUpdated : row.updatedAt;
+        fixtureLastmodById.set(row.id, lastmod);
+        if (lastmod > todayLastmod) todayLastmod = lastmod;
+      }
+    }
+
     entries.push({
       url: `${baseUrl}/fixtures/${dateKey}`,
-      lastModified: now,
+      lastModified: todayLastmod,
       changeFrequency: "daily",
       priority: 0.9,
     });
     entries.push(
-      { url: `${baseUrl}/fixtures/${dateKey}/ai-insights`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
-      { url: `${baseUrl}/fixtures/${dateKey}/form`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
-      { url: `${baseUrl}/fixtures/${dateKey}/matchday-insights`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+      { url: `${baseUrl}/fixtures/${dateKey}/ai-insights`, lastModified: todayLastmod, changeFrequency: "daily", priority: 0.7 },
+      { url: `${baseUrl}/fixtures/${dateKey}/form`, lastModified: todayLastmod, changeFrequency: "daily", priority: 0.7 },
+      { url: `${baseUrl}/fixtures/${dateKey}/matchday-insights`, lastModified: todayLastmod, changeFrequency: "daily", priority: 0.7 },
     );
 
     for (const f of filtered) {
@@ -62,7 +86,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const match = matchSlug(home, away);
       entries.push({
         url: `${baseUrl}/fixtures/${dateKey}/${leagueSlug}/${match}`,
-        lastModified: now,
+        lastModified: fixtureLastmodById.get(f.id) ?? todayLastmod,
         changeFrequency: "daily",
         priority: 0.8,
       });
@@ -76,16 +100,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const upcomingByDate = await getUpcomingFixturesFromDb({ skipRefresh: true });
     for (const { dateKey: dayKey, fixtures: dayFixtures } of upcomingByDate) {
+      const dayLastmod = upcomingLastmodMap.get(dayKey) ?? now;
       entries.push({
         url: `${baseUrl}/fixtures/${dayKey}`,
-        lastModified: now,
+        lastModified: dayLastmod,
         changeFrequency: "daily",
         priority: 0.9,
       });
       entries.push(
-        { url: `${baseUrl}/fixtures/${dayKey}/ai-insights`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
-        { url: `${baseUrl}/fixtures/${dayKey}/form`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
-        { url: `${baseUrl}/fixtures/${dayKey}/matchday-insights`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+        { url: `${baseUrl}/fixtures/${dayKey}/ai-insights`, lastModified: dayLastmod, changeFrequency: "daily", priority: 0.7 },
+        { url: `${baseUrl}/fixtures/${dayKey}/form`, lastModified: dayLastmod, changeFrequency: "daily", priority: 0.7 },
+        { url: `${baseUrl}/fixtures/${dayKey}/matchday-insights`, lastModified: dayLastmod, changeFrequency: "daily", priority: 0.7 },
       );
       for (const f of dayFixtures) {
         const leagueSlug = leagueToSlug(f.league ?? null);
@@ -94,7 +119,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         const match = matchSlug(home, away);
         entries.push({
           url: `${baseUrl}/fixtures/${dayKey}/${leagueSlug}/${match}`,
-          lastModified: now,
+          lastModified: dayLastmod,
           changeFrequency: "daily",
           priority: 0.8,
         });
@@ -113,10 +138,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   });
 
   // League standings pages (one per standings league).
-  for (const slug of Object.values(STANDINGS_LEAGUE_SLUG_BY_ID)) {
+  for (const [leagueId, slug] of Object.entries(STANDINGS_LEAGUE_SLUG_BY_ID)) {
+    const lastmod = leagueLastmodByLeagueId.get(Number(leagueId)) ?? now;
     entries.push({
       url: `${baseUrl}/leagues/${slug}/standings`,
-      lastModified: now,
+      lastModified: lastmod,
       changeFrequency: "daily",
       priority: 0.6,
     });
@@ -129,10 +155,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         season: API_SEASON,
         league: { in: TOP_TEAM_LEAGUE_KEYS },
       },
-      select: { teamId: true },
+      select: { teamId: true, updatedAt: true },
     });
 
     const teamIds = Array.from(new Set(seasonRows.map((row) => row.teamId)));
+    const teamLastmodById = new Map<number, Date>();
+    for (const row of seasonRows) {
+      const existing = teamLastmodById.get(row.teamId);
+      if (!existing || row.updatedAt > existing) teamLastmodById.set(row.teamId, row.updatedAt);
+    }
 
     if (teamIds.length > 0) {
       const teams = await prisma.team.findMany({
@@ -147,10 +178,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       for (const team of teams) {
         const displayName = team.shortName ?? team.name;
         const slug = makeTeamSlug(displayName);
+        const lastmod = teamLastmodById.get(team.id) ?? now;
 
         entries.push({
           url: `${baseUrl}/teams/${slug}`,
-          lastModified: now,
+          lastModified: lastmod,
           changeFrequency: "daily",
           priority: 0.7,
         });
