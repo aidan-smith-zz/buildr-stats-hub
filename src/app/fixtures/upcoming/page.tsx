@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import { getFixturesForDateFromDbOnly, getUpcomingFixturesFromDb } from "@/lib/fixturesService";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
@@ -48,32 +49,42 @@ function toWarmedSnapshot(f: FixtureSummary): WarmedFixtureSnapshot {
   };
 }
 
-export default async function UpcomingPage() {
-  const byDate = await getUpcomingFixturesFromDb();
+const getUpcomingPageData = unstable_cache(
+  async () => {
+    const byDate = await getUpcomingFixturesFromDb();
 
-  // Build a lookup of "warmed" fixtures (i.e. present in the main Fixture table with stats)
-  // keyed by date + leagueSlug + matchSlug so we can show "View stats" and live badges.
-  const warmedByKey = new Map<string, FixtureSummary>();
-  await Promise.all(
-    byDate.map(async ({ dateKey }) => {
-      const warmed = await getFixturesForDateFromDbOnly(dateKey);
-      for (const fixture of warmed) {
-        const leagueSlug = leagueToSlug(fixture.league);
-        const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
-        const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
-        const m = matchSlug(home, away);
-        const key = `${dateKey}:${leagueSlug}:${m}`;
-        if (!warmedByKey.has(key)) {
-          warmedByKey.set(key, fixture);
+    // Build a lookup of "warmed" fixtures (i.e. present in the main Fixture table with stats)
+    // keyed by date + leagueSlug + matchSlug so we can show "View stats" and live badges.
+    const warmedByKey = new Map<string, FixtureSummary>();
+    await Promise.all(
+      byDate.map(async ({ dateKey }) => {
+        const warmed = await getFixturesForDateFromDbOnly(dateKey);
+        for (const fixture of warmed) {
+          const leagueSlug = leagueToSlug(fixture.league);
+          const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
+          const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
+          const m = matchSlug(home, away);
+          const key = `${dateKey}:${leagueSlug}:${m}`;
+          if (!warmedByKey.has(key)) {
+            warmedByKey.set(key, fixture);
+          }
         }
-      }
-    }),
-  );
+      }),
+    );
 
-  const warmedByKeySerialized: Record<string, WarmedFixtureSnapshot> = {};
-  for (const [k, v] of warmedByKey) {
-    warmedByKeySerialized[k] = toWarmedSnapshot(v);
-  }
+    const warmedByKeySerialized: Record<string, WarmedFixtureSnapshot> = {};
+    for (const [k, v] of warmedByKey) {
+      warmedByKeySerialized[k] = toWarmedSnapshot(v);
+    }
+
+    return { byDate, warmedByKeySerialized };
+  },
+  ["upcoming-page-data"],
+  { revalidate: 60 * 60 * 24 },
+);
+
+export default async function UpcomingPage() {
+  const { byDate, warmedByKeySerialized } = await getUpcomingPageData();
 
   const todayKey = todayDateKey();
 

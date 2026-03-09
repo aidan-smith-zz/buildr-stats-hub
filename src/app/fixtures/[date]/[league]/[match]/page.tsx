@@ -12,7 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { RawFixture } from "@/lib/footballApi";
 import type { FixtureSummary } from "@/lib/statsService";
-import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
+import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID, isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { TodayFixturesDashboard } from "@/app/_components/today-fixtures-dashboard";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
@@ -236,6 +236,7 @@ export default async function FixtureMatchPage({
     const kickoff = typeof fixture.date === "string" ? fixture.date : fixture.date?.toISOString?.() ?? new Date(dateKey + "T12:00:00.000Z").toISOString();
     const endDate = new Date(new Date(kickoff).getTime() + 2 * 60 * 60 * 1000).toISOString();
     const description = `${home} vs ${away} ${league} match with live stats, confirmed lineups and AI-powered bet builder insights on statsBuildr.`;
+    const showLineupsCopy = !isTeamStatsOnlyLeague(fixture.leagueId ?? null);
     const displayDate = formatDisplayDate(dateKey);
     const sportsEventJsonLd = {
       "@context": "https://schema.org",
@@ -290,6 +291,39 @@ export default async function FixtureMatchPage({
       })),
     };
 
+    const faqEntitiesToday = [
+      {
+        "@type": "Question",
+        name: `What time does ${home} vs ${away} kick off?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `The ${home} vs ${away} ${league} match kicks off at ${formatKickoff(kickoff)} on ${displayDate} (Europe/London time).`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `What stats can I see for ${home} vs ${away}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `This page shows team and player stats for ${home} vs ${away}, including xG, goals, shots, corners, cards and per-90 numbers, plus recent form over the last few matches.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: "How should I use these stats for my bet builder?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Use the per-90 player stats, last 5 form and team averages for goals, xG, corners and cards to spot realistic lines for shots, bookings and set-piece markets, instead of guessing from headline form alone.",
+        },
+      },
+    ];
+
+    const faqJsonLdToday = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: faqEntitiesToday,
+    };
+
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <script
@@ -299,6 +333,10 @@ export default async function FixtureMatchPage({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLdToday) }}
         />
         <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <div>
@@ -315,14 +353,27 @@ export default async function FixtureMatchPage({
                     {away}
                   </h1>
                 </div>
-                <span className="inline-flex items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900">
-                  Match stats &amp; lineups
-                </span>
+            <span className="hidden items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900 sm:inline-flex">
+              {showLineupsCopy ? "Match stats & lineups" : "Match stats"}
+            </span>
               </div>
-              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="mt-2 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
                 On {displayDate}, {home} face {away} in the {league}. This page shows match stats,
-                confirmed lineups, xG, corners, cards and player performance numbers to help you build smarter bet builder selections.
+                {showLineupsCopy && " confirmed lineups,"} xG, corners, cards and player performance numbers to help you build smarter bet builder selections.
               </p>
+          <ul className="mt-2 space-y-0.5 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                <li>
+                  • Compare full-time xG, goals, corners and cards for both teams in one place.
+                </li>
+                <li>
+                  • Use per 90 player stats and last 5 form to spot trends for your bet builder ideas.
+                </li>
+            {showLineupsCopy && (
+              <li className="hidden sm:list-item">
+                • Check live lineups to confirm who is starting before you place a bet.
+              </li>
+            )}
+              </ul>
               {Object.values(STANDINGS_LEAGUE_SLUG_BY_ID).includes(leagueSlug) && (
                 <nav
                   className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-700"
@@ -361,6 +412,38 @@ export default async function FixtureMatchPage({
                   See today&apos;s AI insights →
                 </NavLinkWithOverlay>
               </div>
+            </section>
+            <section className="mt-10 border-t border-neutral-200 pt-8 text-sm text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
+              <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+                Frequently asked questions about this match
+              </h2>
+              <dl className="mt-3 space-y-4">
+                <div>
+                  <dt className="font-medium">
+                    What time does {home} vs {away} kick off?
+                  </dt>
+                  <dd className="mt-1 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                    The match kicks off at {formatKickoff(kickoff)} on {displayDate} in the {league}.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium">
+                    What stats can I see for this fixture?
+                  </dt>
+                  <dd className="mt-1 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                    You can compare team and player stats for both sides, including xG, goals, shots, corners, cards and recent form to understand how the match might play out.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium">
+                    How can these stats help with a bet builder?
+                  </dt>
+                  <dd className="mt-1 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                    The per-90 numbers, last 5 form and team averages make it easier to pick realistic lines for shots,
+                    goals and cards, and to spot games that suit corners or bookings-based bet builders.
+                  </dd>
+                </div>
+              </dl>
             </section>
           </div>
         </main>
@@ -453,6 +536,42 @@ export default async function FixtureMatchPage({
       { href: `/fixtures/${dateKey}`, label: displayDate },
       { href: `/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`, label: `${home} vs ${away}` },
     ];
+    const faqEntitiesPast = [
+      {
+        "@type": "Question",
+        name: `What was the final score in ${home} vs ${away}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text:
+            score != null
+              ? `The final score was ${home} ${score.homeGoals}–${score.awayGoals} ${away}.`
+              : `The match between ${home} and ${away} has finished. The final score will appear here once it is confirmed.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `What stats can I see for the ${home} vs ${away} result?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `You can see season and recent form stats for both teams, including goals, xG, corners and cards, plus player-level numbers to understand how ${home} and ${away} have been performing around this fixture.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Will the stats on this page change after the match?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "The final score is fixed once confirmed, but season and form stats will keep evolving as both teams play more matches. The page uses the latest team and player data available in the database.",
+        },
+      },
+    ];
+
+    const faqJsonLdPast = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: faqEntitiesPast,
+    };
+
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
@@ -472,6 +591,43 @@ export default async function FixtureMatchPage({
               </p>
             </header>
             <PastFixtureView fixture={warmedFixture} score={score} stats={stats} />
+            <section className="mt-10 border-t border-neutral-200 pt-8 text-sm text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
+              <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+                Frequently asked questions about this result
+              </h2>
+              <dl className="mt-3 space-y-4">
+                <div>
+                  <dt className="font-medium">
+                    What was the final score in this match?
+                  </dt>
+                  <dd className="mt-1 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                    {score != null
+                      ? `The final score was ${home} ${score.homeGoals}–${score.awayGoals} ${away}.`
+                      : `The match has finished; the final score will appear here once it has been confirmed.`}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium">
+                    What stats can I see for this past fixture?
+                  </dt>
+                  <dd className="mt-1 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                    You can review team and player stats around the match, including season totals and last 5 form for goals, xG, corners and cards.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium">
+                    Do these stats update after the game?
+                  </dt>
+                  <dd className="mt-1 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                    The final score is fixed, but season and form stats will continue to update as both teams play more matches, so you always see the latest context.
+                  </dd>
+                </div>
+              </dl>
+            </section>
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLdPast) }}
+            />
           </div>
         </main>
       </div>
@@ -558,14 +714,25 @@ export default async function FixtureMatchPage({
                     {away}
                   </h1>
                 </div>
-                <span className="inline-flex items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900">
-                  Match stats &amp; lineups
+                <span className="hidden items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900 sm:inline-flex">
+                  {isTeamStatsOnlyLeague(fixture.leagueId ?? null) ? "Match stats" : "Match stats & lineups"}
                 </span>
               </div>
-              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+              <p className="mt-2 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
                 On {displayDate}, {home} face {away} in the {league}. This page shows match stats,
-                confirmed lineups, xG, corners, cards and player performance numbers to help you build smarter bet builder selections.
+                {!isTeamStatsOnlyLeague(fixture.leagueId ?? null) && " confirmed lineups,"} xG, corners, cards and player performance numbers to help you build smarter bet builder selections.
               </p>
+              <ul className="mt-2 space-y-0.5 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                <li>
+                  • See season and recent form for goals, xG, corners and cards for both teams.
+                </li>
+                <li>
+                  • Use per 90 player stats to highlight key attacking and card-prone players.
+                </li>
+                <li className="hidden sm:list-item">
+                  • Build more informed bet builders with data on shots, cards and set-piece threat.
+                </li>
+              </ul>
               {Object.values(STANDINGS_LEAGUE_SLUG_BY_ID).includes(leagueSlug) && (
                 <nav
                   className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-700"
