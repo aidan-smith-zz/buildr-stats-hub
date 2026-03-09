@@ -6,14 +6,6 @@ type Label = "Share" | "Copied!" | "Shared!";
 
 export function copyToClipboard(text: string): boolean {
   if (!text || typeof window === "undefined") return false;
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    try {
-      navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // fall through to execCommand fallback
-    }
-  }
   try {
     const el = document.createElement("textarea");
     el.value = text;
@@ -28,6 +20,20 @@ export function copyToClipboard(text: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** Async copy using Clipboard API when available (more reliable); falls back to execCommand. */
+export async function copyToClipboardAsync(text: string): Promise<boolean> {
+  if (!text || typeof window === "undefined") return false;
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to execCommand fallback
+    }
+  }
+  return copyToClipboard(text);
 }
 
 export function ShareUrlButton({
@@ -56,11 +62,11 @@ export function ShareUrlButton({
         await navigator.share({ title, url, text });
         setLabel("Shared!");
       } else {
-        const copied = copyToClipboard(url);
+        const copied = await copyToClipboardAsync(url);
         setLabel(copied ? "Copied!" : "Share");
       }
     } catch {
-      const copied = copyToClipboard(url);
+      const copied = await copyToClipboardAsync(url);
       setLabel(copied ? "Copied!" : "Share");
     }
     setTimeout(() => setLabel("Share"), 2000);
