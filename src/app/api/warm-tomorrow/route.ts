@@ -18,9 +18,14 @@ export async function GET(request: Request) {
     staleHoursParam !== null && staleHoursParam !== ""
       ? Math.max(0, parseInt(staleHoursParam, 10) || 0)
       : DEFAULT_STALE_HOURS;
+  const daysParam = url.searchParams.get("days");
+  const days =
+    daysParam !== null && daysParam !== ""
+      ? Math.max(1, parseInt(daysParam, 10) || 1)
+      : 1;
 
   try {
-    const result = await getFixturesNeedingWarm({ forceWarm, staleHours });
+    const result = await getFixturesNeedingWarm({ forceWarm, staleHours, days });
     return NextResponse.json(result);
   } catch (err) {
     console.error("[warm-tomorrow] Fatal:", err);

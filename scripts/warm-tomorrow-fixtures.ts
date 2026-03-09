@@ -11,9 +11,10 @@
  * That uses today's fixtures from the DB (no list refetch) and only warms fixtures that still need
  * player/team stats, so you only use API allowance for the remaining data.
  *
- * Usage: npm run warm-tomorrow              # Warm fixtures that need it (stats older than 24h are re-warmed)
- *        npm run warm-tomorrow -- --force   # Re-warm all of tomorrow's fixtures
- *        npm run warm-tomorrow -- --no-stale # Only warm if stats missing (ignore 24h staleness)
+ * Usage: npm run warm-tomorrow                # Warm fixtures that need it (stats older than 24h are re-warmed)
+ *        npm run warm-tomorrow -- --force     # Re-warm all of tomorrow's fixtures
+ *        npm run warm-tomorrow -- --no-stale  # Only warm if stats missing (ignore 24h staleness)
+ *        npm run warm-tomorrow -- --one       # Warm tomorrow's fixtures AND the following day's fixtures
  * Optional: BASE_URL=https://your-app.vercel.app npm run warm-tomorrow
  */
 
@@ -148,20 +149,30 @@ function hasNoStaleFlag(): boolean {
   return argv.includes("--no-stale");
 }
 
+function hasExtraDayFlag(): boolean {
+  const argv = process.argv.slice(2).map((a) => a.toLowerCase());
+  return argv.includes("--one");
+}
+
 async function main() {
   const force = hasForceFlag();
   const noStale = hasNoStaleFlag();
+  const extraDay = hasExtraDayFlag();
   if (force) {
     console.log("[warm-tomorrow] Force mode: re-warming all of tomorrow's fixtures.\n");
   }
   if (noStale) {
     console.log("[warm-tomorrow] No-stale mode: only warming when stats are missing (staleHours=0).\n");
   }
+  if (extraDay) {
+    console.log("[warm-tomorrow] Extending warm to tomorrow and the following day (--one).\n");
+  }
   console.log("[warm-tomorrow] Fetching tomorrow's fixture list (from UpcomingFixture) ...\n");
 
   const params = new URLSearchParams();
   if (force) params.set("forceWarm", "1");
   if (noStale) params.set("staleHours", "0");
+  if (extraDay) params.set("days", "2");
   const listUrl = `${BASE_URL}/api/warm-tomorrow${params.toString() ? "?" + params.toString() : ""}`;
   const listRes = await fetch(listUrl, { cache: "no-store" });
   if (!listRes.ok) {

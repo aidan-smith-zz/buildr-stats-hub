@@ -26,10 +26,13 @@ export type WarmTomorrowListResult = {
 
 /**
  * Get tomorrow's fixtures that need warming. Shared by GET /api/warm-tomorrow and the cron trigger.
+ *
+ * When `days > 1`, includes additional upcoming days (e.g. tomorrow + the following day).
  */
 export async function getFixturesNeedingWarm(options?: {
   forceWarm?: boolean;
   staleHours?: number;
+  days?: number;
 }): Promise<WarmTomorrowListResult> {
   const forceWarm = options?.forceWarm ?? false;
   const staleHours =
@@ -38,15 +41,22 @@ export async function getFixturesNeedingWarm(options?: {
       : DEFAULT_STALE_HOURS;
   const staleCutoffMs =
     staleHours > 0 ? Date.now() - staleHours * 60 * 60 * 1000 : null;
-  const tomorrowDateKey = nextDateKeys(1)[0];
+  const days = options?.days && options.days > 0 ? options.days : 1;
+  const dateKeys = nextDateKeys(days);
+  const tomorrowDateKey = dateKeys[0];
 
-  const fixtures = await getTomorrowFixturesForWarming(tomorrowDateKey);
+  const fixturesArrays = await Promise.all(
+    dateKeys.map((dateKey) => getTomorrowFixturesForWarming(dateKey)),
+  );
+  const fixtures = fixturesArrays.flat();
 
   if (fixtures.length === 0) {
     return {
       ok: true,
       message:
-        "No fixtures for tomorrow in required leagues (or UpcomingFixture empty for that date).",
+        days > 1
+          ? "No upcoming fixtures in required leagues for the selected dates (or UpcomingFixture empty for those dates)."
+          : "No fixtures for tomorrow in required leagues (or UpcomingFixture empty for that date).",
       total: 0,
       totalTomorrow: 0,
       dateKey: tomorrowDateKey,
