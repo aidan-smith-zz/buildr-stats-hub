@@ -51,7 +51,9 @@ function toWarmedSnapshot(f: FixtureSummary): WarmedFixtureSnapshot {
 
 const getUpcomingPageData = unstable_cache(
   async () => {
-    const byDate = await getUpcomingFixturesFromDb();
+    // Use skipRefresh so the upcoming page never triggers a heavy 14-day API refresh itself.
+    // Warm scripts and API endpoints are responsible for keeping UpcomingFixture up to date.
+    const byDate = await getUpcomingFixturesFromDb({ skipRefresh: true });
 
     // Build a lookup of "warmed" fixtures (i.e. present in the main Fixture table with stats)
     // keyed by date + leagueSlug + matchSlug so we can show "View stats" and live badges.
