@@ -146,6 +146,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] Failed to fetch upcoming fixtures:", err);
   }
 
+  // Static fixture hub pages.
+  entries.push(
+    { url: `${baseUrl}/fixtures/past`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${baseUrl}/fixtures/upcoming`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+  );
+
+  // About page.
+  entries.push({
+    url: `${baseUrl}/about`,
+    lastModified: now,
+    changeFrequency: "monthly",
+    priority: 0.4,
+  });
+
   // Leagues landing page.
   entries.push({
     url: `${baseUrl}/leagues/all`,
@@ -174,11 +188,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // Team pages for top leagues only (teams with season stats in our tracked competitions).
+  // Match teamPageService: include by league name or leagueId so we don't miss "EFL Championship" etc.
   try {
     const seasonRows = await prisma.teamSeasonStats.findMany({
       where: {
         season: API_SEASON,
-        league: { in: TOP_TEAM_LEAGUE_KEYS },
+        OR: [
+          { league: { in: TOP_TEAM_LEAGUE_KEYS } },
+          { leagueId: { in: TOP_TEAM_LEAGUE_IDS as unknown as number[] } },
+        ],
       },
       select: { teamId: true, updatedAt: true },
     });
