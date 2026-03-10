@@ -1,5 +1,6 @@
 import { API_SEASON } from "@/lib/footballApi";
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import {
   getOrRefreshTodayFixtures,
   getTodayFixturesFromDbOnly,
@@ -15,6 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { todayDateKey } from "@/lib/slugs";
 
 const MIN_PLAYERS_PER_TEAM = 11;
+const UPCOMING_PAGE_CACHE_TAG = "upcoming-page-data";
 
 /**
  * GET /api/warm-today
@@ -31,6 +33,8 @@ export async function GET(request: Request) {
   try {
     if (!skipRefresh) {
       await refreshUpcomingFixturesTable(now);
+      // Bust the upcoming page cache so the refreshed UpcomingFixture table shows up immediately.
+      revalidateTag(UPCOMING_PAGE_CACHE_TAG, { expire: 0 });
     }
     const fixtures = skipRefresh
       ? await getTodayFixturesFromDbOnly(now)

@@ -12,6 +12,8 @@ export const dynamic = "force-dynamic";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
+const UPCOMING_PAGE_CACHE_TAG = "upcoming-page-data";
+
 export const metadata: Metadata = {
   title: "Upcoming football fixtures | Next 14 days – match previews & bet builder stats",
   description:
@@ -49,46 +51,47 @@ function toWarmedSnapshot(f: FixtureSummary): WarmedFixtureSnapshot {
   };
 }
 
-const getUpcomingPageData = unstable_cache(
-  async () => {
-    // Use skipRefresh so the upcoming page never triggers a heavy 14-day API refresh itself.
-    // Warm scripts and API endpoints are responsible for keeping UpcomingFixture up to date.
-    const byDate = await getUpcomingFixturesFromDb({ skipRefresh: true });
-
-    // Build a lookup of "warmed" fixtures (i.e. present in the main Fixture table with stats)
-    // keyed by date + leagueSlug + matchSlug so we can show "View stats" and live badges.
-    const warmedByKey = new Map<string, FixtureSummary>();
-    await Promise.all(
-      byDate.map(async ({ dateKey }) => {
-        const warmed = await getFixturesForDateFromDbOnly(dateKey);
-        for (const fixture of warmed) {
-          const leagueSlug = leagueToSlug(fixture.league);
-          const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
-          const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
-          const m = matchSlug(home, away);
-          const key = `${dateKey}:${leagueSlug}:${m}`;
-          if (!warmedByKey.has(key)) {
-            warmedByKey.set(key, fixture);
-          }
-        }
-      }),
-    );
-
-    const warmedByKeySerialized: Record<string, WarmedFixtureSnapshot> = {};
-    for (const [k, v] of warmedByKey) {
-      warmedByKeySerialized[k] = toWarmedSnapshot(v);
-    }
-
-    return { byDate, warmedByKeySerialized };
-  },
-  ["upcoming-page-data"],
-  { revalidate: 60 * 60 * 24 },
-);
-
 export default async function UpcomingPage() {
-  const { byDate, warmedByKeySerialized } = await getUpcomingPageData();
-
   const todayKey = todayDateKey();
+
+  const getUpcomingPageData = unstable_cache(
+    async () => {
+      // Use skipRefresh so the upcoming page never triggers a heavy 14-day API refresh itself.
+      // Warm scripts and API endpoints are responsible for keeping UpcomingFixture up to date.
+      const byDate = await getUpcomingFixturesFromDb({ skipRefresh: true });
+
+      // Build a lookup of "warmed" fixtures (i.e. present in the main Fixture table with stats)
+      // keyed by date + leagueSlug + matchSlug so we can show "View stats" and live badges.
+      const warmedByKey = new Map<string, FixtureSummary>();
+      await Promise.all(
+        byDate.map(async ({ dateKey }) => {
+          const warmed = await getFixturesForDateFromDbOnly(dateKey);
+          for (const fixture of warmed) {
+            const leagueSlug = leagueToSlug(fixture.league);
+            const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
+            const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
+            const m = matchSlug(home, away);
+            const key = `${dateKey}:${leagueSlug}:${m}`;
+            if (!warmedByKey.has(key)) {
+              warmedByKey.set(key, fixture);
+            }
+          }
+        }),
+      );
+
+      const warmedByKeySerialized: Record<string, WarmedFixtureSnapshot> = {};
+      for (const [k, v] of warmedByKey) {
+        warmedByKeySerialized[k] = toWarmedSnapshot(v);
+      }
+
+      return { byDate, warmedByKeySerialized };
+    },
+    // No TTL: only warm endpoints should update this cache (via revalidateTag).
+    [UPCOMING_PAGE_CACHE_TAG],
+    { revalidate: false, tags: [UPCOMING_PAGE_CACHE_TAG] },
+  );
+
+  const { byDate, warmedByKeySerialized } = await getUpcomingPageData();
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
