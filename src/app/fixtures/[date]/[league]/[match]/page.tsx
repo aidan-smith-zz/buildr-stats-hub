@@ -967,6 +967,58 @@ export default async function FixtureMatchPage({
       "@type": "FAQPage",
       mainEntity: faqEntitiesUpcoming,
     };
+
+    // Last 5 and Home vs away (same as today branch — data is in DB for warmed fixtures).
+    const seasonRowsUpcoming = (await prisma.teamSeasonStats.findMany({
+      where: {
+        teamId: { in: [fixture.homeTeam.id, fixture.awayTeam.id] },
+        season: API_SEASON,
+      },
+    })) as any[];
+    const pickSeasonRowForTeamUpcoming = (teamId: number) => {
+      const rows = seasonRowsUpcoming.filter((r: { teamId: number }) => r.teamId === teamId);
+      if (rows.length === 0) return null;
+      return rows.reduce(
+        (best: any, row: any) =>
+          !best || (row.minutesPlayed ?? 0) > (best.minutesPlayed ?? 0) ? row : best,
+      ) as any;
+    };
+    const homeSeasonUpcoming = pickSeasonRowForTeamUpcoming(fixture.homeTeam.id);
+    const awaySeasonUpcoming = pickSeasonRowForTeamUpcoming(fixture.awayTeam.id);
+    const homeHomeGamesUpcoming = homeSeasonUpcoming?.homeGames ?? 0;
+    const awayAwayGamesUpcoming = awaySeasonUpcoming?.awayGames ?? 0;
+    const homeHomeGoalsPerMatchUpcoming =
+      homeHomeGamesUpcoming > 0 ? homeSeasonUpcoming!.homeGoalsFor / homeHomeGamesUpcoming : null;
+    const homeHomeCornersPerMatchUpcoming =
+      homeHomeGamesUpcoming > 0 ? homeSeasonUpcoming!.homeCorners / homeHomeGamesUpcoming : null;
+    const homeHomeCardsPerMatchUpcoming =
+      homeHomeGamesUpcoming > 0
+        ? (homeSeasonUpcoming!.homeYellowCards + homeSeasonUpcoming!.homeRedCards) / homeHomeGamesUpcoming
+        : null;
+    const awayAwayGoalsPerMatchUpcoming =
+      awayAwayGamesUpcoming > 0 ? awaySeasonUpcoming!.awayGoalsFor / awayAwayGamesUpcoming : null;
+    const awayAwayCornersPerMatchUpcoming =
+      awayAwayGamesUpcoming > 0 ? awaySeasonUpcoming!.awayCorners / awayAwayGamesUpcoming : null;
+    const awayAwayCardsPerMatchUpcoming =
+      awayAwayGamesUpcoming > 0
+        ? (awaySeasonUpcoming!.awayYellowCards + awaySeasonUpcoming!.awayRedCards) / awayAwayGamesUpcoming
+        : null;
+    const showHomeAwayProfileUpcoming =
+      homeSeasonUpcoming &&
+      awaySeasonUpcoming &&
+      homeHomeGamesUpcoming >= 3 &&
+      awayAwayGamesUpcoming >= 3 &&
+      (homeHomeGoalsPerMatchUpcoming !== null ||
+        homeHomeCornersPerMatchUpcoming !== null ||
+        homeHomeCardsPerMatchUpcoming !== null ||
+        awayAwayGoalsPerMatchUpcoming !== null ||
+        awayAwayCornersPerMatchUpcoming !== null ||
+        awayAwayCardsPerMatchUpcoming !== null);
+    const homeCrestUpcoming =
+      (fixture.homeTeam as { crestUrl?: string | null }).crestUrl ?? null;
+    const awayCrestUpcoming =
+      (fixture.awayTeam as { crestUrl?: string | null }).crestUrl ?? null;
+
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <script
@@ -1060,6 +1112,139 @@ export default async function FixtureMatchPage({
               initialSelectedId={String(fixture.id)}
               hideFixtureSelector
             />
+            <Last5MatchesTile
+              fixtureId={String(fixture.id)}
+              homeName={home ?? fixture.homeTeam.name}
+              awayName={away ?? fixture.awayTeam.name}
+              homeCrest={homeCrestUpcoming}
+              awayCrest={awayCrestUpcoming}
+            />
+            {showHomeAwayProfileUpcoming && (
+              <section className="mt-6 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/60 p-3 text-xs dark:border-neutral-700 dark:bg-neutral-900/70 sm:p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-[0.7rem] font-semibold uppercase tracking-wide text-neutral-700 dark:text-neutral-300 sm:text-xs">
+                      Home vs away profile
+                    </h2>
+                    <p className="text-[0.7rem] text-neutral-600 dark:text-neutral-400 sm:text-xs">
+                      Season averages for this competition only. {home} shows{" "}
+                      <span className="font-medium">home</span> matches; {away} shows{" "}
+                      <span className="font-medium">away</span> matches.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-2.5 sm:mt-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        {homeCrestUpcoming && (
+                          <img
+                            src={homeCrestUpcoming}
+                            alt=""
+                            width={20}
+                            height={20}
+                            className="h-5 w-5 flex-shrink-0 rounded-full border border-neutral-200 bg-white object-contain dark:border-neutral-700 dark:bg-neutral-900"
+                            aria-hidden
+                          />
+                        )}
+                        <p className="truncate text-[0.7rem] font-medium text-neutral-800 dark:text-neutral-100 sm:text-xs">
+                          {home} at home
+                        </p>
+                      </div>
+                      <p className="text-[0.7rem] text-neutral-500 dark:text-neutral-400 sm:text-[11px]">
+                        {homeHomeGamesUpcoming} home match{homeHomeGamesUpcoming === 1 ? "" : "es"} this season
+                      </p>
+                    </div>
+                    <dl className="flex flex-1 justify-end gap-4 sm:gap-6">
+                      <div className="text-right">
+                        <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                          Goals
+                        </dt>
+                        <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                          {homeHomeGoalsPerMatchUpcoming != null
+                            ? homeHomeGoalsPerMatchUpcoming.toFixed(2)
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                          Corners
+                        </dt>
+                        <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                          {homeHomeCornersPerMatchUpcoming != null
+                            ? homeHomeCornersPerMatchUpcoming.toFixed(2)
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                          Cards
+                        </dt>
+                        <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                          {homeHomeCardsPerMatchUpcoming != null
+                            ? homeHomeCardsPerMatchUpcoming.toFixed(2)
+                            : "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-t border-dotted border-neutral-200 pt-2.5 dark:border-neutral-700">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        {awayCrestUpcoming && (
+                          <img
+                            src={awayCrestUpcoming}
+                            alt=""
+                            width={20}
+                            height={20}
+                            className="h-5 w-5 flex-shrink-0 rounded-full border border-neutral-200 bg-white object-contain dark:border-neutral-700 dark:bg-neutral-900"
+                            aria-hidden
+                          />
+                        )}
+                        <p className="truncate text-[0.7rem] font-medium text-neutral-800 dark:text-neutral-100 sm:text-xs">
+                          {away} away from home
+                        </p>
+                      </div>
+                      <p className="text-[0.7rem] text-neutral-500 dark:text-neutral-400 sm:text-[11px]">
+                        {awayAwayGamesUpcoming} away match{awayAwayGamesUpcoming === 1 ? "" : "es"} this season
+                      </p>
+                    </div>
+                    <dl className="flex flex-1 justify-end gap-4 sm:gap-6">
+                      <div className="text-right">
+                        <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                          Goals
+                        </dt>
+                        <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                          {awayAwayGoalsPerMatchUpcoming != null
+                            ? awayAwayGoalsPerMatchUpcoming.toFixed(2)
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                          Corners
+                        </dt>
+                        <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                          {awayAwayCornersPerMatchUpcoming != null
+                            ? awayAwayCornersPerMatchUpcoming.toFixed(2)
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                          Cards
+                        </dt>
+                        <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                          {awayAwayCardsPerMatchUpcoming != null
+                            ? awayAwayCardsPerMatchUpcoming.toFixed(2)
+                            : "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                </div>
+              </section>
+            )}
             <section className="mt-12 border-t border-neutral-200 pt-10 dark:border-neutral-800">
               <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-6 dark:border-violet-800/50 dark:bg-violet-950/20">
                 <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
