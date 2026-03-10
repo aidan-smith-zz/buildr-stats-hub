@@ -10,6 +10,7 @@ import { getLeagueStatsHubData } from "@/lib/leagueStatsService";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
+import { makeTeamSlug } from "@/lib/teamSlugs";
 import { LeagueStatsTable } from "./league-stats-table";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
@@ -203,7 +204,13 @@ export default async function LeagueStatsPage({ params }: Props) {
             className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
             aria-label={`${leagueName} team stats`}
           >
-            <LeagueStatsTable teams={data.teams} leagueName={leagueName} />
+            <LeagueStatsTable
+              teams={data.teams.map((t) => ({
+                ...t,
+                teamHref: `/teams/${makeTeamSlug(t.shortName ?? t.name)}`,
+              }))}
+              leagueName={leagueName}
+            />
           </section>
         )}
 

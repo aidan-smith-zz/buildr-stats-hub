@@ -318,14 +318,14 @@ export default async function LeagueStandingsPage({ params }: Props) {
                                   {teamHref ? (
                                     <Link
                                       href={teamHref}
-                                      className="min-w-0 truncate font-medium text-neutral-900 underline-offset-2 hover:text-violet-600 hover:underline dark:text-neutral-50 dark:hover:text-violet-300"
-                                      title={row.teamName}
+                                      className="min-h-[44px] min-w-0 flex-1 truncate font-medium text-neutral-900 underline-offset-2 hover:text-violet-600 hover:underline dark:text-neutral-50 dark:hover:text-violet-300 flex items-center -my-2.5 py-2.5 touch-manipulation"
+                                      title={`${row.teamName} team stats`}
                                     >
                                       {row.teamName}
                                     </Link>
                                   ) : (
                                     <span
-                                      className="min-w-0 truncate font-medium text-neutral-900 dark:text-neutral-50"
+                                      className="min-w-0 flex-1 truncate font-medium text-neutral-900 dark:text-neutral-50"
                                       title={row.teamName}
                                     >
                                       {row.teamName}

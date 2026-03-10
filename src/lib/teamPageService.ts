@@ -121,12 +121,16 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
   });
   if (!team) return null;
 
-  // Find this team's season stats for the top leagues only.
+  // Find this team's season stats for the top leagues (by display name or leagueId so we
+  // include rows stored as "EFL Championship" etc. from fixture warm).
   const seasonRows = await prisma.teamSeasonStats.findMany({
     where: {
       teamId,
       season: API_SEASON,
-      league: { in: TOP_LEAGUE_KEYS },
+      OR: [
+        { league: { in: TOP_LEAGUE_KEYS } },
+        { leagueId: { in: TOP_LEAGUE_IDS as unknown as number[] } },
+      ],
     },
   });
 
@@ -249,6 +253,7 @@ export const getTeamPageData = unstable_cache(
   ["team-page-data"],
   {
     revalidate: 60 * 60 * 24, // 24 hours
+    tags: ["team-page"],
   },
 );
 

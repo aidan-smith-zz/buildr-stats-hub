@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 export type LeagueStatsTableRow = {
@@ -13,6 +14,8 @@ export type LeagueStatsTableRow = {
   goalsAgainstPer90: number;
   cornersPerMatch: number;
   cardsPerMatch: number;
+  /** Team page URL (e.g. /teams/liverpool). Set by parent so names are clickable. */
+  teamHref?: string | null;
 };
 
 type SortKey =
@@ -236,12 +239,22 @@ export function LeagueStatsTable({ teams, leagueName }: Props) {
                       </span>
                     </span>
                   )}
-                  <span
-                    className="min-w-0 truncate font-medium text-neutral-900 dark:text-neutral-50"
-                    title={row.shortName ?? row.name}
-                  >
-                    {row.shortName ?? row.name}
-                  </span>
+                  {row.teamHref ? (
+                    <Link
+                      href={row.teamHref}
+                      className="min-h-[44px] min-w-0 flex-1 truncate font-medium text-neutral-900 underline-offset-2 hover:text-violet-600 hover:underline dark:text-neutral-50 dark:hover:text-violet-300 flex items-center -my-2.5 py-2.5 touch-manipulation"
+                      title={`${row.shortName ?? row.name} team stats`}
+                    >
+                      {row.shortName ?? row.name}
+                    </Link>
+                  ) : (
+                    <span
+                      className="min-w-0 flex-1 truncate font-medium text-neutral-900 dark:text-neutral-50"
+                      title={row.shortName ?? row.name}
+                    >
+                      {row.shortName ?? row.name}
+                    </span>
+                  )}
                 </div>
               </td>
               <td className="py-2.5 px-2 text-center tabular-nums text-neutral-700 dark:text-neutral-300">

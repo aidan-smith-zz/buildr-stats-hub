@@ -83,14 +83,15 @@ async function warmLeague(leagueId: number): Promise<void> {
       const cacheKey = String(leagueId);
       const { updated } = await topUpIsHomeForTeam(team.id, team.apiId!, leagueId, {
         cacheLeagueKey: cacheKey,
+        leagueKeyForSeasonStats: leagueKey,
       });
       if (updated > 0) {
         console.log(
-          `[warm-league-stats]   ${team.name} — already has season stats; synced isHome (${updated} rows).`,
+          `[warm-league-stats]   ${team.name} — already has season stats; synced isHome (${updated} rows) + refreshed home/away for team page.`,
         );
       } else {
         console.log(
-          `[warm-league-stats]   ${team.name} — already has season stats, skipping.`,
+          `[warm-league-stats]   ${team.name} — already has season stats; cache up to date, refreshed home/away for team page.`,
         );
       }
       continue;

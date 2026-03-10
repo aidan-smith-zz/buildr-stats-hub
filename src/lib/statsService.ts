@@ -586,15 +586,17 @@ export async function warmTeamSeasonStatsForTeam(
 
 /**
  * Top-up only: fetch fixture list (1 API call) and set isHome on existing TeamFixtureCache rows.
- * Used when a team already has season stats so we skip full warm but still backfill isHome on cache.
+ * When leagueKeyForSeasonStats is provided, also backfills TeamSeasonStats home/away from cache
+ * so team pages show home vs away (already-warmed teams had 0/0 before this).
  */
 export async function topUpIsHomeForTeam(
   teamId: number,
   teamApiId: string,
   leagueId: number,
-  options?: { cacheLeagueKey?: string },
+  options?: { cacheLeagueKey?: string; leagueKeyForSeasonStats?: string },
 ): Promise<{ updated: number }> {
   const cacheKey = options?.cacheLeagueKey ?? String(leagueId);
+  const leagueKeyForSeasonStats = options?.leagueKeyForSeasonStats;
   const { fixtures } = await fetchTeamFixturesWithGoals(teamApiId, API_SEASON, leagueId);
   const isHomeByApiId = new Map(fixtures.map((f) => [String(f.apiFixtureId), f.isHome]));
 
@@ -620,6 +622,103 @@ export async function topUpIsHomeForTeam(
     });
     updated += 1;
   }
+
+  // Backfill TeamSeasonStats home/away from cache so team page shows home vs away profile.
+  if (leagueKeyForSeasonStats) {
+    const cacheRows = await db.teamFixtureCache.findMany({
+      where: { teamId, season: API_SEASON, league: cacheKey },
+      select: {
+        apiFixtureId: true,
+        goalsFor: true,
+        goalsAgainst: true,
+        corners: true,
+        yellowCards: true,
+        redCards: true,
+        xg: true,
+        isHome: true,
+      },
+    });
+    const isHomeMap = new Map(cacheRows.map((r) => [r.apiFixtureId, r.isHome]));
+    let homeGames = 0;
+    let awayGames = 0;
+    let homeGoalsFor = 0;
+    let homeGoalsAgainst = 0;
+    let homeCorners = 0;
+    let homeYellowCards = 0;
+    let homeRedCards = 0;
+    let homeXgSum = 0;
+    let homeXgCount = 0;
+    let awayGoalsFor = 0;
+    let awayGoalsAgainst = 0;
+    let awayCorners = 0;
+    let awayYellowCards = 0;
+    let awayRedCards = 0;
+    let awayXgSum = 0;
+    let awayXgCount = 0;
+    for (const r of cacheRows) {
+      const isHome = isHomeMap.get(r.apiFixtureId) ?? false;
+      if (isHome) {
+        homeGames += 1;
+        homeGoalsFor += r.goalsFor;
+        homeGoalsAgainst += r.goalsAgainst;
+        homeCorners += r.corners;
+        homeYellowCards += r.yellowCards;
+        homeRedCards += r.redCards;
+        if (r.xg != null) {
+          homeXgSum += r.xg;
+          homeXgCount++;
+        }
+      } else {
+        awayGames += 1;
+        awayGoalsFor += r.goalsFor;
+        awayGoalsAgainst += r.goalsAgainst;
+        awayCorners += r.corners;
+        awayYellowCards += r.yellowCards;
+        awayRedCards += r.redCards;
+        if (r.xg != null) {
+          awayXgSum += r.xg;
+          awayXgCount++;
+        }
+      }
+    }
+    // Find by leagueId so we update the row the team page uses even when league string
+    // differs (e.g. "EFL Championship" from fixture warm vs "Championship" from warm-league-stats).
+    let rowsToUpdate = await prisma.teamSeasonStats.findMany({
+      where: { teamId, season: API_SEASON, leagueId },
+      select: { id: true },
+    });
+    if (rowsToUpdate.length === 0 && leagueKeyForSeasonStats) {
+      const byLeague = await prisma.teamSeasonStats.findUnique({
+        where: {
+          teamId_season_league: { teamId, season: API_SEASON, league: leagueKeyForSeasonStats },
+        },
+        select: { id: true },
+      });
+      if (byLeague) rowsToUpdate = [byLeague];
+    }
+    for (const row of rowsToUpdate) {
+      await prisma.teamSeasonStats.update({
+        where: { id: row.id },
+        data: {
+          homeGames,
+          awayGames,
+          homeGoalsFor,
+          homeGoalsAgainst,
+          homeCorners,
+          homeYellowCards,
+          homeRedCards,
+          homeXgFor: homeXgCount > 0 ? homeXgSum : null,
+          awayGoalsFor,
+          awayGoalsAgainst,
+          awayCorners,
+          awayYellowCards,
+          awayRedCards,
+          awayXgFor: awayXgCount > 0 ? awayXgSum : null,
+        },
+      });
+    }
+  }
+
   return { updated };
 }
 
