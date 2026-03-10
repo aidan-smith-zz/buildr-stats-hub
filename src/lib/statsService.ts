@@ -455,6 +455,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
       const finalGoalsFor = scoreConfirmed ? goalsFor : (stat?.goals != null ? stat.goals : 0);
       const finalGoalsAgainst = scoreConfirmed ? goalsAgainst : 0;
 
+      const isHome = meta?.isHome ?? false;
       await db.teamFixtureCache.upsert({
         where: {
           teamId_season_league_apiFixtureId: {
@@ -470,6 +471,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
           league: cacheKey,
           apiFixtureId,
           fixtureDate: meta.date,
+          isHome,
           goalsFor: finalGoalsFor,
           goalsAgainst: finalGoalsAgainst,
           xg,
@@ -479,6 +481,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
         },
         update: {
           fixtureDate: meta.date,
+          isHome,
           goalsFor: finalGoalsFor,
           goalsAgainst: finalGoalsAgainst,
           xg,
@@ -579,6 +582,45 @@ export async function warmTeamSeasonStatsForTeam(
     leagueId,
     options,
   );
+}
+
+/**
+ * Top-up only: fetch fixture list (1 API call) and set isHome on existing TeamFixtureCache rows.
+ * Used when a team already has season stats so we skip full warm but still backfill isHome on cache.
+ */
+export async function topUpIsHomeForTeam(
+  teamId: number,
+  teamApiId: string,
+  leagueId: number,
+  options?: { cacheLeagueKey?: string },
+): Promise<{ updated: number }> {
+  const cacheKey = options?.cacheLeagueKey ?? String(leagueId);
+  const { fixtures } = await fetchTeamFixturesWithGoals(teamApiId, API_SEASON, leagueId);
+  const isHomeByApiId = new Map(fixtures.map((f) => [String(f.apiFixtureId), f.isHome]));
+
+  const rows = await db.teamFixtureCache.findMany({
+    where: { teamId, season: API_SEASON, league: cacheKey },
+    select: { apiFixtureId: true, isHome: true },
+  });
+
+  let updated = 0;
+  for (const row of rows) {
+    const want = isHomeByApiId.get(row.apiFixtureId);
+    if (want === undefined || row.isHome === want) continue;
+    await db.teamFixtureCache.update({
+      where: {
+        teamId_season_league_apiFixtureId: {
+          teamId,
+          season: API_SEASON,
+          league: cacheKey,
+          apiFixtureId: row.apiFixtureId,
+        },
+      },
+      data: { isHome: want },
+    });
+    updated += 1;
+  }
+  return { updated };
 }
 
 /** Skip refetching player stats for a team if we already updated within this many ms. */

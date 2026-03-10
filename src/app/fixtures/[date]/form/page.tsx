@@ -42,8 +42,8 @@ export async function generateMetadata({
   const { date: dateParam } = await params;
   const dateKey = normalizeDateKey(dateParam);
   const displayDate = formatDisplayDate(dateKey);
-  const title = `Form table for ${displayDate} | Last 5, last 10 & season form | Football stats`;
-  const description = `Team form table for ${displayDate}: last 5, last 10 and season averages. Goals, corners, cards, xG per match. Sortable form for bet builder stats and teams in action.`;
+  const title = `Form table for ${displayDate} | Last 5, last 10 & season form | Home & away stats | Football stats`;
+  const description = `Team form table for ${displayDate}: last 5, last 10 and season averages per 90 minutes with home and away splits. Goals, corners, cards, xG. Sortable form for bet builder stats and teams in action.`;
   const canonical = `${BASE_URL}/fixtures/${dateKey}/form`;
   return {
     title,
@@ -135,15 +135,15 @@ export default async function FormPage({
                 </p>
               </div>
               <span className="inline-flex items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900">
-                Goals · Corners · Cards · xG
+                Goals · Corners · Cards · xG (per 90)
               </span>
             </div>
             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
               {dateContext === "today"
-                ? "Last 5, last 10 and season form for all teams in action today — goals, corners, cards and xG per match. Sortable table for bet builder stats."
+                ? "Last 5, last 10 and season form for all teams in action today — goals, corners, cards and xG per 90 minutes, with home and away splits. Sortable table for bet builder stats."
                 : dateContext === "tomorrow"
-                  ? "Last 5, last 10 and season form for all teams in action tomorrow — goals, corners, cards and xG per match. Sortable table for bet builder stats."
-                  : `Last 5, last 10 and season form for all teams in action on ${displayDate} — goals, corners, cards and xG per match. Sortable table for bet builder stats.`}
+                  ? "Last 5, last 10 and season form for all teams in action tomorrow — goals, corners, cards and xG per 90 minutes, with home and away splits. Sortable table for bet builder stats."
+                  : `Last 5, last 10 and season form for all teams in action on ${displayDate} — goals, corners, cards and xG per 90 minutes, with home and away splits. Sortable table for bet builder stats.`}
             </p>
           </header>
         </div>
@@ -177,7 +177,7 @@ export default async function FormPage({
             {hasData ? (
               <section className="mb-10">
                 <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
-                  Use the form table below to compare goals, corners, cards and xG across last 5, last 10 and full season for bet builder stats.
+                  Use the form table below to compare goals, corners, cards and xG (per 90) across last 5, last 10 and full season. Home and away columns show averages in home matches vs away matches for bet builder stats.
                 </p>
                 <FormTableClient last5={last5} last10={last10} season={season} />
               </section>

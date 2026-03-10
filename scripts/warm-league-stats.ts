@@ -19,7 +19,7 @@ import { prisma } from "@/lib/prisma";
 import { API_SEASON } from "@/lib/footballApi";
 import { STANDINGS_LEAGUE_IDS, LEAGUE_DISPLAY_NAMES } from "@/lib/leagues";
 import { getOrRefreshStandings } from "@/lib/standingsService";
-import { warmTeamSeasonStatsForTeam } from "@/lib/statsService";
+import { topUpIsHomeForTeam, warmTeamSeasonStatsForTeam } from "@/lib/statsService";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -78,9 +78,21 @@ async function warmLeague(leagueId: number): Promise<void> {
         existing.redCards > 0);
 
     if (hasData) {
-      console.log(
-        `[warm-league-stats]   ${team.name} — already has season stats, skipping.`,
-      );
+      // Top-up only: sync isHome from fixture list (1 API call). We can't use "isHome === false"
+      // to detect "needs backfill" because away games legitimately have isHome false.
+      const cacheKey = String(leagueId);
+      const { updated } = await topUpIsHomeForTeam(team.id, team.apiId!, leagueId, {
+        cacheLeagueKey: cacheKey,
+      });
+      if (updated > 0) {
+        console.log(
+          `[warm-league-stats]   ${team.name} — already has season stats; synced isHome (${updated} rows).`,
+        );
+      } else {
+        console.log(
+          `[warm-league-stats]   ${team.name} — already has season stats, skipping.`,
+        );
+      }
       continue;
     }
 

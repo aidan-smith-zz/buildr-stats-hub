@@ -242,6 +242,119 @@ function TeamPageView({
           )}
         </header>
 
+        {data.homeAwayProfile ? (
+          <section className="mt-6 mb-6 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/60 p-3 text-xs dark:border-neutral-700 dark:bg-neutral-900/70 sm:p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-[0.7rem] font-semibold uppercase tracking-wide text-neutral-700 dark:text-neutral-300 sm:text-xs">
+                  Home vs away profile
+                </h2>
+                <p className="text-[0.7rem] text-neutral-600 dark:text-neutral-400 sm:text-xs">
+                  {data.leagueName} {data.season}: average per match at home and away.
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 space-y-2.5 sm:mt-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    {data.crestUrl ? (
+                      <img
+                        src={data.crestUrl}
+                        alt=""
+                        width={20}
+                        height={20}
+                        className="h-5 w-5 flex-shrink-0 rounded-full border border-neutral-200 bg-white object-contain dark:border-neutral-700 dark:bg-neutral-900"
+                        aria-hidden
+                      />
+                    ) : null}
+                    <p className="truncate text-[0.7rem] font-medium text-neutral-800 dark:text-neutral-100 sm:text-xs">
+                      {displayName} at home
+                    </p>
+                  </div>
+                  <p className="text-[0.7rem] text-neutral-500 dark:text-neutral-400 sm:text-[11px]">
+                    {data.homeAwayProfile.homeGames} home match{data.homeAwayProfile.homeGames === 1 ? "" : "es"} this season
+                  </p>
+                </div>
+                <dl className="flex flex-1 justify-end gap-4 sm:gap-6">
+                  <div className="text-right">
+                    <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                      Goals
+                    </dt>
+                    <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                      {data.homeAwayProfile.homeGoalsPerMatch.toFixed(2)}
+                    </dd>
+                  </div>
+                  <div className="text-right">
+                    <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                      Corners
+                    </dt>
+                    <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                      {data.homeAwayProfile.homeCornersPerMatch.toFixed(2)}
+                    </dd>
+                  </div>
+                  <div className="text-right">
+                    <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                      Cards
+                    </dt>
+                    <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                      {data.homeAwayProfile.homeCardsPerMatch.toFixed(2)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+              <div className="flex items-center justify-between gap-3 border-t border-dotted border-neutral-200 pt-2.5 dark:border-neutral-700">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    {data.crestUrl ? (
+                      <img
+                        src={data.crestUrl}
+                        alt=""
+                        width={20}
+                        height={20}
+                        className="h-5 w-5 flex-shrink-0 rounded-full border border-neutral-200 bg-white object-contain dark:border-neutral-700 dark:bg-neutral-900"
+                        aria-hidden
+                      />
+                    ) : null}
+                    <p className="truncate text-[0.7rem] font-medium text-neutral-800 dark:text-neutral-100 sm:text-xs">
+                      {displayName} away from home
+                    </p>
+                  </div>
+                  <p className="text-[0.7rem] text-neutral-500 dark:text-neutral-400 sm:text-[11px]">
+                    {data.homeAwayProfile.awayGames} away match{data.homeAwayProfile.awayGames === 1 ? "" : "es"} this season
+                  </p>
+                </div>
+                <dl className="flex flex-1 justify-end gap-4 sm:gap-6">
+                  <div className="text-right">
+                    <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                      Goals
+                    </dt>
+                    <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                      {data.homeAwayProfile.awayGoalsPerMatch.toFixed(2)}
+                    </dd>
+                  </div>
+                  <div className="text-right">
+                    <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                      Corners
+                    </dt>
+                    <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                      {data.homeAwayProfile.awayCornersPerMatch.toFixed(2)}
+                    </dd>
+                  </div>
+                  <div className="text-right">
+                    <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                      Cards
+                    </dt>
+                    <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                      {data.homeAwayProfile.awayCardsPerMatch.toFixed(2)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">

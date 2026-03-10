@@ -1,12 +1,12 @@
 import { API_SEASON } from "@/lib/footballApi";
 import { prisma } from "@/lib/prisma";
-import { getStatsLeagueForFixture, REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { getStatsLeagueForFixture, LEAGUE_DISPLAY_NAMES, REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 
 const db = prisma as typeof prisma & {
   teamFixtureCache: {
-    findMany: (args: { where?: object; orderBy?: object }) => Promise<
-      { teamId: number; league: string; fixtureDate: Date; goalsFor: number; goalsAgainst: number; corners: number; yellowCards: number; redCards: number }[]
+    findMany: (args: { where?: object; orderBy?: object; select?: object }) => Promise<
+      { teamId: number; league: string; fixtureDate: Date; apiFixtureId: string; goalsFor: number; goalsAgainst: number; corners: number; yellowCards: number; redCards: number }[]
     >;
   };
 };
@@ -23,6 +23,17 @@ export type Last5TeamSummary = {
   avgCorners: number;
   avgCards: number;
   href?: string;
+  /** Home/away splits when available (form table). */
+  homeGames?: number;
+  awayGames?: number;
+  homeAvgGoalsFor?: number;
+  homeAvgGoalsAgainst?: number;
+  homeAvgCorners?: number;
+  homeAvgCards?: number;
+  awayAvgGoalsFor?: number;
+  awayAvgGoalsAgainst?: number;
+  awayAvgCorners?: number;
+  awayAvgCards?: number;
 };
 
 /** Fixture row for Form Edge: used with Last5TeamSummary to compute edge = homeRating - awayRating. */
@@ -344,18 +355,79 @@ export async function generateInsights(dateKey: string): Promise<Insight[]> {
   return insights.slice(0, 8);
 }
 
-/** Build map of teamId -> canonical league key for TeamFixtureCache (matches statsService: leagueId as string when present, else league name). Scottish Cup uses 179. */
+/**
+ * Canonical cache key for TeamFixtureCache. Warm-league-stats always writes with league = String(leagueId).
+ * We must use the same so Last 5 finds the cached rows.
+ */
+function toCanonicalCacheKey(leagueId: number | undefined, leagueKey: string): string {
+  if (leagueId != null) return String(leagueId);
+  const id = Object.entries(LEAGUE_DISPLAY_NAMES).find(([, name]) => name === leagueKey)?.[0];
+  return id != null ? id : leagueKey;
+}
+
+/** Build map of teamId -> canonical league key for TeamFixtureCache (matches statsService: leagueId as string). */
 function teamIdToLeagueFromFixtures(
   fixtures: { homeTeamId: number; awayTeamId: number; league: string | null; leagueId?: number | null }[]
 ): Map<number, string> {
   const map = new Map<number, string>();
   for (const f of fixtures) {
     const { leagueId, leagueKey } = getStatsLeagueForFixture(f);
-    const cacheKey = leagueId != null ? String(leagueId) : leagueKey;
+    const cacheKey = toCanonicalCacheKey(leagueId, leagueKey);
     if (!map.has(f.homeTeamId)) map.set(f.homeTeamId, cacheKey);
     if (!map.has(f.awayTeamId)) map.set(f.awayTeamId, cacheKey);
   }
   return map;
+}
+
+/** Resolve apiFixtureId -> home/away from Fixture table (fallback when cache has no isHome yet). */
+async function getHomeAwayByApiFixtureId(apiFixtureIds: string[]): Promise<Map<string, { homeTeamId: number; awayTeamId: number }>> {
+  if (apiFixtureIds.length === 0) return new Map();
+  const fixtures = await prisma.fixture.findMany({
+    where: { apiId: { in: apiFixtureIds } },
+    select: { apiId: true, homeTeamId: true, awayTeamId: true },
+  });
+  const map = new Map<string, { homeTeamId: number; awayTeamId: number }>();
+  for (const f of fixtures) {
+    if (f.apiId) map.set(f.apiId, { homeTeamId: f.homeTeamId, awayTeamId: f.awayTeamId });
+  }
+  return map;
+}
+
+/** Aggregate cache rows into home/away. Uses isHome on each row when set; falls back to Fixture lookup for old cache rows. */
+function aggregateHomeAwayFromCacheRows(
+  rows: CacheRow[],
+  teamId: number,
+  homeAwayByApiId?: Map<string, { homeTeamId: number; awayTeamId: number }>
+): { home: { n: number; gf: number; ga: number; corners: number; cards: number }; away: { n: number; gf: number; ga: number; corners: number; cards: number } } {
+  const home = { n: 0, gf: 0, ga: 0, corners: 0, cards: 0 };
+  const away = { n: 0, gf: 0, ga: 0, corners: 0, cards: 0 };
+  const useColumn = rows.some((r) => r.isHome);
+  for (const r of rows) {
+    const cards = r.yellowCards + r.redCards;
+    let isHome: boolean;
+    if (useColumn) {
+      isHome = r.isHome;
+    } else if (homeAwayByApiId) {
+      const h = homeAwayByApiId.get(r.apiFixtureId);
+      isHome = !!(h && h.homeTeamId === teamId);
+    } else {
+      isHome = false;
+    }
+    if (isHome) {
+      home.n += 1;
+      home.gf += r.goalsFor;
+      home.ga += r.goalsAgainst;
+      home.corners += r.corners;
+      home.cards += cards;
+    } else {
+      away.n += 1;
+      away.gf += r.goalsFor;
+      away.ga += r.goalsAgainst;
+      away.corners += r.corners;
+      away.cards += cards;
+    }
+  }
+  return { home, away };
 }
 
 /** Load last-5 stats for today's teams for the AI page "Last 5 form" section. */
@@ -376,6 +448,12 @@ export async function getLast5StatsForDate(dateKey: string): Promise<Last5TeamSu
 
   const [teamCacheByTeam] = await Promise.all([loadLast5ByTeam(teamIds, teamIdToLeague)]);
 
+  const hasAnyIsHome = Array.from(teamCacheByTeam.values()).some((rows) => rows.some((r) => r.isHome));
+  const homeAwayFallback =
+    !hasAnyIsHome && teamCacheByTeam.size > 0
+      ? await getHomeAwayByApiFixtureId(Array.from(new Set(Array.from(teamCacheByTeam.values()).flatMap((rows) => rows.map((r) => r.apiFixtureId)))))
+      : undefined;
+
   const teamIdToFixture = new Map<number, (typeof fixtures)[0]>();
   for (const f of fixtures) {
     teamIdToFixture.set(f.homeTeamId, f);
@@ -391,7 +469,8 @@ export async function getLast5StatsForDate(dateKey: string): Promise<Last5TeamSu
     const fixture = teamIdToFixture.get(teamId);
     const href = fixture ? fixtureToHref(fixture, dateKey) : undefined;
     const n = rows.length;
-    out.push({
+    const { home: homeAgg, away: awayAgg } = aggregateHomeAwayFromCacheRows(rows, teamId, homeAwayFallback);
+    const base = {
       teamId,
       teamName: name,
       gamesPlayed: n,
@@ -400,7 +479,24 @@ export async function getLast5StatsForDate(dateKey: string): Promise<Last5TeamSu
       avgCorners: rows.reduce((s, r) => s + r.corners, 0) / n,
       avgCards: rows.reduce((s, r) => s + r.yellowCards + r.redCards, 0) / n,
       href,
-    });
+    };
+    if (homeAgg.n > 0 || awayAgg.n > 0) {
+      out.push({
+        ...base,
+        homeGames: homeAgg.n,
+        awayGames: awayAgg.n,
+        homeAvgGoalsFor: homeAgg.n > 0 ? homeAgg.gf / homeAgg.n : undefined,
+        homeAvgGoalsAgainst: homeAgg.n > 0 ? homeAgg.ga / homeAgg.n : undefined,
+        homeAvgCorners: homeAgg.n > 0 ? homeAgg.corners / homeAgg.n : undefined,
+        homeAvgCards: homeAgg.n > 0 ? homeAgg.cards / homeAgg.n : undefined,
+        awayAvgGoalsFor: awayAgg.n > 0 ? awayAgg.gf / awayAgg.n : undefined,
+        awayAvgGoalsAgainst: awayAgg.n > 0 ? awayAgg.ga / awayAgg.n : undefined,
+        awayAvgCorners: awayAgg.n > 0 ? awayAgg.corners / awayAgg.n : undefined,
+        awayAvgCards: awayAgg.n > 0 ? awayAgg.cards / awayAgg.n : undefined,
+      });
+    } else {
+      out.push(base);
+    }
   }
 
   out.sort((a, b) => a.teamName.localeCompare(b.teamName));
@@ -418,6 +514,11 @@ export async function getLastNStatsForDate(dateKey: string, n: number): Promise<
   const teamIds = Array.from(new Set(fixtures.flatMap((f) => [f.homeTeamId, f.awayTeamId])));
   const teamIdToLeague = teamIdToLeagueFromFixtures(fixtures);
   const teamCacheByTeam = await loadLastNByTeam(teamIds, n, teamIdToLeague);
+  const hasAnyIsHome = Array.from(teamCacheByTeam.values()).some((rows) => rows.some((r) => r.isHome));
+  const homeAwayFallback =
+    !hasAnyIsHome && teamCacheByTeam.size > 0
+      ? await getHomeAwayByApiFixtureId(Array.from(new Set(Array.from(teamCacheByTeam.values()).flatMap((rows) => rows.map((r) => r.apiFixtureId)))))
+      : undefined;
   const teamIdToFixture = new Map<number, (typeof fixtures)[0]>();
   for (const f of fixtures) {
     teamIdToFixture.set(f.homeTeamId, f);
@@ -431,7 +532,8 @@ export async function getLastNStatsForDate(dateKey: string, n: number): Promise<
     const fixture = teamIdToFixture.get(teamId);
     const href = fixture ? fixtureToHref(fixture, dateKey) : undefined;
     const gamesPlayed = rows.length;
-    out.push({
+    const { home: homeAgg, away: awayAgg } = aggregateHomeAwayFromCacheRows(rows, teamId, homeAwayFallback);
+    const base = {
       teamId,
       teamName: name,
       gamesPlayed,
@@ -440,7 +542,24 @@ export async function getLastNStatsForDate(dateKey: string, n: number): Promise<
       avgCorners: rows.reduce((s, r) => s + r.corners, 0) / gamesPlayed,
       avgCards: rows.reduce((s, r) => s + r.yellowCards + r.redCards, 0) / gamesPlayed,
       href,
-    });
+    };
+    if (homeAgg.n > 0 || awayAgg.n > 0) {
+      out.push({
+        ...base,
+        homeGames: homeAgg.n,
+        awayGames: awayAgg.n,
+        homeAvgGoalsFor: homeAgg.n > 0 ? homeAgg.gf / homeAgg.n : undefined,
+        homeAvgGoalsAgainst: homeAgg.n > 0 ? homeAgg.ga / homeAgg.n : undefined,
+        homeAvgCorners: homeAgg.n > 0 ? homeAgg.corners / homeAgg.n : undefined,
+        homeAvgCards: homeAgg.n > 0 ? homeAgg.cards / homeAgg.n : undefined,
+        awayAvgGoalsFor: awayAgg.n > 0 ? awayAgg.gf / awayAgg.n : undefined,
+        awayAvgGoalsAgainst: awayAgg.n > 0 ? awayAgg.ga / awayAgg.n : undefined,
+        awayAvgCorners: awayAgg.n > 0 ? awayAgg.corners / awayAgg.n : undefined,
+        awayAvgCards: awayAgg.n > 0 ? awayAgg.cards / awayAgg.n : undefined,
+      });
+    } else {
+      out.push(base);
+    }
   }
   out.sort((a, b) => a.teamName.localeCompare(b.teamName));
   return out;
@@ -470,7 +589,7 @@ export async function getFormEdgeFixtures(dateKey: string): Promise<FormEdgeFixt
   }));
 }
 
-/** Season averages for today's teams. Uses TeamFixtureCache (past fixtures only) so values match fixture dashboard. No API calls. */
+/** Season averages for today's teams. Uses TeamFixtureCache (past fixtures only) so values match fixture dashboard. No API calls. Home/away from TeamSeasonStats when available. */
 export async function getSeasonStatsForDate(dateKey: string): Promise<Last5TeamSummary[]> {
   const { dayStart, spilloverEnd } = dayBoundsForDate(dateKey);
   const fixtures = await prisma.fixture.findMany({
@@ -493,17 +612,23 @@ export async function getSeasonStatsForDate(dateKey: string): Promise<Last5TeamS
   const leagueEntries = Array.from(teamIdToLeague.entries());
   if (leagueEntries.length === 0) return [];
 
-  const cacheRows = await prisma.teamFixtureCache.findMany({
-    where: {
-      OR: leagueEntries.map(([teamId, league]) => ({
-        teamId,
-        league,
-        season: API_SEASON,
-        fixtureDate: { lt: now },
-      })),
-    },
-    select: { teamId: true, goalsFor: true, goalsAgainst: true, corners: true, yellowCards: true, redCards: true },
-  });
+  const [cacheRows, seasonRows] = await Promise.all([
+    prisma.teamFixtureCache.findMany({
+      where: {
+        OR: leagueEntries.map(([teamId, league]) => ({
+          teamId,
+          league,
+          season: API_SEASON,
+          fixtureDate: { lt: now },
+        })),
+      },
+      select: { teamId: true, goalsFor: true, goalsAgainst: true, corners: true, yellowCards: true, redCards: true },
+    }),
+    prisma.teamSeasonStats.findMany({
+      where: { teamId: { in: teamIds }, season: API_SEASON },
+      select: { teamId: true, league: true, homeGames: true, awayGames: true, homeGoalsFor: true, homeGoalsAgainst: true, homeCorners: true, homeYellowCards: true, homeRedCards: true, awayGoalsFor: true, awayGoalsAgainst: true, awayCorners: true, awayYellowCards: true, awayRedCards: true },
+    }),
+  ]);
 
   const byTeam = new Map<
     number,
@@ -521,12 +646,24 @@ export async function getSeasonStatsForDate(dateKey: string): Promise<Last5TeamS
     byTeam.set(row.teamId, { matches, goalsFor, goalsAgainst, corners, cards });
   }
 
+  const seasonByTeam = new Map<number, (typeof seasonRows)[0]>();
+  for (const row of seasonRows) {
+    const leagueKey = teamIdToLeague.get(row.teamId);
+    const leagueName =
+      leagueKey != null
+        ? (/^\d+$/.test(leagueKey) ? LEAGUE_DISPLAY_NAMES[Number(leagueKey)] : leagueKey)
+        : null;
+    if (leagueName === row.league && (row.homeGames > 0 || row.awayGames > 0)) {
+      seasonByTeam.set(row.teamId, row);
+    }
+  }
+
   const out: Last5TeamSummary[] = [];
   for (const [teamId, v] of byTeam.entries()) {
     if (v.matches < 1) continue;
     const fixture = teamIdToFixture.get(teamId);
     const href = fixture ? fixtureToHref(fixture, dateKey) : undefined;
-    out.push({
+    const base = {
       teamId,
       teamName: teamIdToName.get(teamId) ?? "Unknown",
       gamesPlayed: Math.round(v.matches),
@@ -535,7 +672,27 @@ export async function getSeasonStatsForDate(dateKey: string): Promise<Last5TeamS
       avgCorners: v.corners / v.matches,
       avgCards: v.cards / v.matches,
       href,
-    });
+    };
+    const seasonRow = seasonByTeam.get(teamId);
+    if (seasonRow && (seasonRow.homeGames > 0 || seasonRow.awayGames > 0)) {
+      const h = seasonRow.homeGames;
+      const a = seasonRow.awayGames;
+      out.push({
+        ...base,
+        homeGames: h,
+        awayGames: a,
+        homeAvgGoalsFor: h > 0 ? seasonRow.homeGoalsFor / h : undefined,
+        homeAvgGoalsAgainst: h > 0 ? seasonRow.homeGoalsAgainst / h : undefined,
+        homeAvgCorners: h > 0 ? seasonRow.homeCorners / h : undefined,
+        homeAvgCards: h > 0 ? (seasonRow.homeYellowCards + seasonRow.homeRedCards) / h : undefined,
+        awayAvgGoalsFor: a > 0 ? seasonRow.awayGoalsFor / a : undefined,
+        awayAvgGoalsAgainst: a > 0 ? seasonRow.awayGoalsAgainst / a : undefined,
+        awayAvgCorners: a > 0 ? seasonRow.awayCorners / a : undefined,
+        awayAvgCards: a > 0 ? (seasonRow.awayYellowCards + seasonRow.awayRedCards) / a : undefined,
+      });
+    } else {
+      out.push(base);
+    }
   }
   out.sort((a, b) => a.teamName.localeCompare(b.teamName));
   return out;
@@ -623,7 +780,7 @@ export async function getFormForTeams(
   return { last5, last10, season };
 }
 
-type CacheRow = { goalsFor: number; goalsAgainst: number; corners: number; yellowCards: number; redCards: number };
+type CacheRow = { goalsFor: number; goalsAgainst: number; corners: number; yellowCards: number; redCards: number; apiFixtureId: string; isHome: boolean };
 
 /** Load last N cache rows per team. If teamIdToLeague is provided, only includes rows for that team's league (same competition form). */
 function loadLastNByTeam(
@@ -639,17 +796,18 @@ function loadLastNByTeam(
       : { teamId: { in: teamIds }, season: API_SEASON };
   const where = { ...baseWhere, fixtureDate: { lte: now } };
 
-  return db.teamFixtureCache
+  return prisma.teamFixtureCache
     .findMany({
       where,
       orderBy: { fixtureDate: "desc" },
+      select: { teamId: true, apiFixtureId: true, isHome: true, goalsFor: true, goalsAgainst: true, corners: true, yellowCards: true, redCards: true },
     })
     .then((cache) => {
       const byTeam = new Map<number, CacheRow[]>();
       for (const row of cache) {
         if (!byTeam.has(row.teamId)) byTeam.set(row.teamId, []);
         const arr = byTeam.get(row.teamId)!;
-        if (arr.length < n) arr.push({ goalsFor: row.goalsFor, goalsAgainst: row.goalsAgainst, corners: row.corners, yellowCards: row.yellowCards, redCards: row.redCards });
+        if (arr.length < n) arr.push({ goalsFor: row.goalsFor, goalsAgainst: row.goalsAgainst, corners: row.corners, yellowCards: row.yellowCards, redCards: row.redCards, apiFixtureId: row.apiFixtureId, isHome: row.isHome });
       }
       return byTeam;
     });

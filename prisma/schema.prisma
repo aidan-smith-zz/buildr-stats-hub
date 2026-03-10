@@ -46,6 +46,7 @@ model TeamFixtureCache {
   league        String
   apiFixtureId  String   // API-Football fixture id
   fixtureDate   DateTime
+  isHome        Boolean  @default(false) // true if this team was the home side (for home/away form split)
   goalsFor      Int      @default(0)
   goalsAgainst  Int      @default(0)
   xg            Float?

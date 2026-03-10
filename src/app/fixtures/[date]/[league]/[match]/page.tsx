@@ -434,8 +434,8 @@ export default async function FixtureMatchPage({
                     )}
                   </h1>
                   {fixture.leagueId != null && [39, 40, 179, 2, 3].includes(fixture.leagueId) && (
-                    <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400 sm:hidden">
-                      Tap a team name to see their season stats and form.
+                    <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                      Tap or click a team name to see their season stats and form.
                     </p>
                   )}
                 </div>
@@ -829,8 +829,8 @@ export default async function FixtureMatchPage({
                 )}
               </h1>
               {warmedFixture.leagueId != null && [39, 40, 179, 2, 3].includes(warmedFixture.leagueId) && (
-                <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400 sm:hidden">
-                  Tap a team name to see their season stats and form.
+                <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Tap or click a team name to see their season stats and form.
                 </p>
               )}
               <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
@@ -1016,8 +1016,8 @@ export default async function FixtureMatchPage({
                     )}
                   </h1>
               {fixture.leagueId != null && [39, 40, 179, 2, 3].includes(fixture.leagueId) && (
-                    <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400 sm:hidden">
-                      Tap a team name to see their season stats and form.
+                    <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                      Tap or click a team name to see their season stats and form.
                     </p>
                   )}
                 </div>

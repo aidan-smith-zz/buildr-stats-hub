@@ -17,6 +17,27 @@ type TeamSeasonRow = {
   corners: number;
   yellowCards: number;
   redCards: number;
+  homeGames: number;
+  awayGames: number;
+  homeGoalsFor: number;
+  homeCorners: number;
+  homeYellowCards: number;
+  homeRedCards: number;
+  awayGoalsFor: number;
+  awayCorners: number;
+  awayYellowCards: number;
+  awayRedCards: number;
+};
+
+export type TeamPageHomeAwayProfile = {
+  homeGames: number;
+  awayGames: number;
+  homeGoalsPerMatch: number;
+  homeCornersPerMatch: number;
+  homeCardsPerMatch: number;
+  awayGoalsPerMatch: number;
+  awayCornersPerMatch: number;
+  awayCardsPerMatch: number;
 };
 
 export type TeamPagePer90 = {
@@ -59,6 +80,8 @@ export type TeamPageData = {
   leagueName: string;
   season: string;
   per90: TeamPagePer90 | null;
+  /** Home vs away season splits (goals, corners, cards per match). Only set when warmed and enough games. */
+  homeAwayProfile: TeamPageHomeAwayProfile | null;
   recentFixtures: TeamPageFixtureSummary[];
   keyPlayers: TeamPagePlayerSummary[];
 };
@@ -118,6 +141,31 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
   ) as TeamSeasonRow;
 
   const leagueName = primarySeasonRow.league;
+
+  const homeGames = primarySeasonRow.homeGames ?? 0;
+  const awayGames = primarySeasonRow.awayGames ?? 0;
+  const hasEnoughHome = homeGames >= 3;
+  const hasEnoughAway = awayGames >= 3;
+  const homeAwayProfile: TeamPageHomeAwayProfile | null =
+    (hasEnoughHome || hasEnoughAway) &&
+    (homeGames > 0 || awayGames > 0)
+      ? {
+          homeGames,
+          awayGames,
+          homeGoalsPerMatch: homeGames > 0 ? primarySeasonRow.homeGoalsFor / homeGames : 0,
+          homeCornersPerMatch: homeGames > 0 ? primarySeasonRow.homeCorners / homeGames : 0,
+          homeCardsPerMatch:
+            homeGames > 0
+              ? (primarySeasonRow.homeYellowCards + primarySeasonRow.homeRedCards) / homeGames
+              : 0,
+          awayGoalsPerMatch: awayGames > 0 ? primarySeasonRow.awayGoalsFor / awayGames : 0,
+          awayCornersPerMatch: awayGames > 0 ? primarySeasonRow.awayCorners / awayGames : 0,
+          awayCardsPerMatch:
+            awayGames > 0
+              ? (primarySeasonRow.awayYellowCards + primarySeasonRow.awayRedCards) / awayGames
+              : 0,
+        }
+      : null;
 
   // Recent fixtures in top leagues (last 10), from Fixture table.
   const recentFixturesRaw = await prisma.fixture.findMany({
@@ -188,6 +236,7 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
     leagueName,
     season: API_SEASON,
     per90: rowToPer90(primarySeasonRow),
+    homeAwayProfile,
     recentFixtures,
     keyPlayers,
   };
