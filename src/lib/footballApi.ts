@@ -544,8 +544,8 @@ export type TeamFixturesWithGoals = {
   goalsFor: number;
   goalsAgainst: number;
   played: number;
-  /** Per-fixture for caching (same response, no extra API). */
-  fixtures: { apiFixtureId: number; date: Date; goalsFor: number; goalsAgainst: number }[];
+  /** Per-fixture for caching (same response, no extra API). isHome used for home/away season splits. */
+  fixtures: { apiFixtureId: number; date: Date; goalsFor: number; goalsAgainst: number; isHome: boolean }[];
 };
 
 type ApiFixtureItem = {
@@ -597,19 +597,21 @@ export async function fetchTeamFixturesWithGoals(
     let totalGoalsFor = 0;
     let totalGoalsAgainst = 0;
     const fixtureIds: number[] = [];
-    const fixtures: { apiFixtureId: number; date: Date; goalsFor: number; goalsAgainst: number }[] = [];
+    const fixtures: { apiFixtureId: number; date: Date; goalsFor: number; goalsAgainst: number; isHome: boolean }[] = [];
 
     const { response } = await requestPage<ApiFixtureItem>(path, baseParams);
     if (response?.length) {
       for (const f of response) {
         const id = f.fixture?.id;
+        const homeId = Number(f.teams?.home?.id ?? 0);
+        const isHome = homeId === teamIdNum;
         const { goalsFor: fGoalsFor, goalsAgainst: fGoalsAgainst } = parseFixtureGoals(f, teamIdNum);
         totalGoalsFor += fGoalsFor;
         totalGoalsAgainst += fGoalsAgainst;
         if (typeof id === "number") {
           fixtureIds.push(id);
           const date = f.fixture?.date ? new Date(f.fixture.date) : new Date(0);
-          fixtures.push({ apiFixtureId: id, date, goalsFor: fGoalsFor, goalsAgainst: fGoalsAgainst });
+          fixtures.push({ apiFixtureId: id, date, goalsFor: fGoalsFor, goalsAgainst: fGoalsAgainst, isHome });
         }
       }
     }

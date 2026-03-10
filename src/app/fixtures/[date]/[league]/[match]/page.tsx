@@ -7,7 +7,7 @@ import {
 } from "@/lib/fixturesService";
 import { getPastFixtureLineupOnly } from "@/lib/lineupService";
 import { withPoolRetry } from "@/lib/poolRetry";
-import { fetchLiveFixture } from "@/lib/footballApi";
+import { API_SEASON, fetchLiveFixture } from "@/lib/footballApi";
 import { prisma } from "@/lib/prisma";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import { makeTeamSlug } from "@/lib/teamSlugs";
@@ -15,6 +15,8 @@ import type { RawFixture } from "@/lib/footballApi";
 import type { FixtureSummary } from "@/lib/statsService";
 import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID, isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { TodayFixturesDashboard } from "@/app/_components/today-fixtures-dashboard";
+import { Last5MatchesTile } from "@/app/_components/last5-matches-tile";
+import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { PastFixtureView, type PastFixtureScore } from "./past-fixture-view";
@@ -325,6 +327,64 @@ export default async function FixtureMatchPage({
       mainEntity: faqEntitiesToday,
     };
 
+    // Home vs away season profile (today's fixture only).
+    // Uses TeamSeasonStats home/away splits so we can show how teams behave in this specific spot.
+    const seasonRows = (await prisma.teamSeasonStats.findMany({
+      where: {
+        teamId: { in: [fixture.homeTeam.id, fixture.awayTeam.id] },
+        season: API_SEASON,
+      },
+    })) as any[];
+
+    const pickSeasonRowForTeam = (teamId: number) => {
+      const rows = seasonRows.filter((r) => r.teamId === teamId);
+      if (rows.length === 0) return null;
+      return rows.reduce((best, row) =>
+        !best || (row.minutesPlayed ?? 0) > (best.minutesPlayed ?? 0) ? row : best,
+      ) as any;
+    };
+
+    const homeSeason = pickSeasonRowForTeam(fixture.homeTeam.id);
+    const awaySeason = pickSeasonRowForTeam(fixture.awayTeam.id);
+
+    const homeHomeGames = homeSeason?.homeGames ?? 0;
+    const awayAwayGames = awaySeason?.awayGames ?? 0;
+
+    const homeHomeGoalsPerMatch =
+      homeHomeGames > 0 ? homeSeason!.homeGoalsFor / homeHomeGames : null;
+    const homeHomeCornersPerMatch =
+      homeHomeGames > 0 ? homeSeason!.homeCorners / homeHomeGames : null;
+    const homeHomeCardsPerMatch =
+      homeHomeGames > 0
+        ? (homeSeason!.homeYellowCards + homeSeason!.homeRedCards) / homeHomeGames
+        : null;
+
+    const awayAwayGoalsPerMatch =
+      awayAwayGames > 0 ? awaySeason!.awayGoalsFor / awayAwayGames : null;
+    const awayAwayCornersPerMatch =
+      awayAwayGames > 0 ? awaySeason!.awayCorners / awayAwayGames : null;
+    const awayAwayCardsPerMatch =
+      awayAwayGames > 0
+        ? (awaySeason!.awayYellowCards + awaySeason!.awayRedCards) / awayAwayGames
+        : null;
+
+    const showHomeAwayProfile =
+      homeSeason &&
+      awaySeason &&
+      homeHomeGames >= 3 &&
+      awayAwayGames >= 3 &&
+      (homeHomeGoalsPerMatch !== null ||
+        homeHomeCornersPerMatch !== null ||
+        homeHomeCardsPerMatch !== null ||
+        awayAwayGoalsPerMatch !== null ||
+        awayAwayCornersPerMatch !== null ||
+        awayAwayCardsPerMatch !== null);
+
+    const homeCrest =
+      (fixture.homeTeam as { crestUrl?: string | null }).crestUrl ?? null;
+    const awayCrest =
+      (fixture.awayTeam as { crestUrl?: string | null }).crestUrl ?? null;
+
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <script
@@ -420,6 +480,142 @@ export default async function FixtureMatchPage({
               initialSelectedId={String(fixture.id)}
               hideFixtureSelector
             />
+            <Last5MatchesTile
+              fixtureId={String(fixture.id)}
+              homeName={home ?? fixture.homeTeam.name}
+              awayName={away ?? fixture.awayTeam.name}
+              homeCrest={homeCrest}
+              awayCrest={awayCrest}
+            />
+            {showHomeAwayProfile && (
+              <section className="mt-6 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/60 p-3 text-xs dark:border-neutral-700 dark:bg-neutral-900/70 sm:p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-[0.7rem] font-semibold uppercase tracking-wide text-neutral-700 dark:text-neutral-300 sm:text-xs">
+                      Home vs away profile
+                    </h2>
+                    <p className="text-[0.7rem] text-neutral-600 dark:text-neutral-400 sm:text-xs">
+                      Season averages for this competition only. {home} shows{" "}
+                      <span className="font-medium">home</span> matches; {away} shows{" "}
+                      <span className="font-medium">away</span> matches.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-2.5 sm:mt-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        {homeCrest && (
+                          <img
+                            src={homeCrest}
+                            alt=""
+                            width={20}
+                            height={20}
+                            className="h-5 w-5 flex-shrink-0 rounded-full border border-neutral-200 bg-white object-contain dark:border-neutral-700 dark:bg-neutral-900"
+                            aria-hidden
+                          />
+                        )}
+                        <p className="truncate text-[0.7rem] font-medium text-neutral-800 dark:text-neutral-100 sm:text-xs">
+                          {home} at home
+                        </p>
+                      </div>
+                      <p className="text-[0.7rem] text-neutral-500 dark:text-neutral-400 sm:text-[11px]">
+                        {homeHomeGames} home match{homeHomeGames === 1 ? "" : "es"} this season
+                      </p>
+                    </div>
+                    <dl className="flex flex-1 justify-end gap-4 sm:gap-6">
+                      <div className="text-right">
+                        <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                          Goals
+                        </dt>
+                        <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                          {homeHomeGoalsPerMatch != null
+                            ? homeHomeGoalsPerMatch.toFixed(2)
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                          Corners
+                        </dt>
+                        <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                          {homeHomeCornersPerMatch != null
+                            ? homeHomeCornersPerMatch.toFixed(2)
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                          Cards
+                        </dt>
+                        <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                          {homeHomeCardsPerMatch != null
+                            ? homeHomeCardsPerMatch.toFixed(2)
+                            : "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-t border-dotted border-neutral-200 pt-2.5 dark:border-neutral-700">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        {awayCrest && (
+                          <img
+                            src={awayCrest}
+                            alt=""
+                            width={20}
+                            height={20}
+                            className="h-5 w-5 flex-shrink-0 rounded-full border border-neutral-200 bg-white object-contain dark:border-neutral-700 dark:bg-neutral-900"
+                            aria-hidden
+                          />
+                        )}
+                        <p className="truncate text-[0.7rem] font-medium text-neutral-800 dark:text-neutral-100 sm:text-xs">
+                          {away} away from home
+                        </p>
+                      </div>
+                      <p className="text-[0.7rem] text-neutral-500 dark:text-neutral-400 sm:text-[11px]">
+                        {awayAwayGames} away match{awayAwayGames === 1 ? "" : "es"} this season
+                      </p>
+                    </div>
+                    <dl className="flex flex-1 justify-end gap-4 sm:gap-6">
+                      <div className="text-right">
+                        <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                          Goals
+                        </dt>
+                        <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                          {awayAwayGoalsPerMatch != null
+                            ? awayAwayGoalsPerMatch.toFixed(2)
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                          Corners
+                        </dt>
+                        <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                          {awayAwayCornersPerMatch != null
+                            ? awayAwayCornersPerMatch.toFixed(2)
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-[0.65rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                          Cards
+                        </dt>
+                        <dd className="tabular-nums text-[0.8rem] font-semibold text-neutral-900 dark:text-neutral-50">
+                          {awayAwayCardsPerMatch != null
+                            ? awayAwayCardsPerMatch.toFixed(2)
+                            : "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                </div>
+              </section>
+            )}
+            <div className="mt-8 flex justify-center">
+              <ShareUrlButton />
+            </div>
             <section className="mt-12 border-t border-neutral-200 pt-10 dark:border-neutral-800">
               <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-6 dark:border-violet-800/50 dark:bg-violet-950/20">
                 <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">

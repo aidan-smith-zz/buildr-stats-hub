@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
-import { copyToClipboard } from "@/app/_components/share-url-button";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { decodeHtmlEntities } from "@/lib/text";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
@@ -122,9 +121,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
   const [lineupTab, setLineupTab] = useState<"home" | "away">("home");
   const DETAIL_HASHES = { team: "team-stats", players: "player-stats", lineups: "lineups" } as const;
   const [detailTab, setDetailTab] = useState<"team" | "players" | "lineups">("team");
-  const [shareLabel, setShareLabel] = useState<"Share" | "…" | "Copied!" | "Shared!">("Share");
   const [teamStatsView, setTeamStatsView] = useState<"season" | "last5">("season");
-  const [betFilter, setBetFilter] = useState<"over15" | "over25" | "btts">("over15");
   const [liveScore, setLiveScore] = useState<{
     homeGoals: number;
     awayGoals: number;
@@ -137,41 +134,6 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
       window.scrollTo(0, 0);
     }
   }, [hideFixtureSelector]);
-
-  const handleShare = async () => {
-    setShareLabel("…");
-    let url = typeof window !== "undefined" ? window.location.href : "";
-    const selectedFixture = selectedId ? filteredFixtures.find((f) => String(f.id) === selectedId) : null;
-    if (typeof window !== "undefined" && selectedFixture) {
-      const dateKey = new Date(selectedFixture.date).toLocaleDateString("en-CA", {
-        timeZone: "Europe/London",
-      });
-      const leagueSlug = leagueToSlug(selectedFixture.league);
-      const homeName = selectedFixture.homeTeam.shortName ?? selectedFixture.homeTeam.name;
-      const awayName = selectedFixture.awayTeam.shortName ?? selectedFixture.awayTeam.name;
-      const match = matchSlug(homeName, awayName);
-      url = `${window.location.origin}/fixtures/${dateKey}/${leagueSlug}/${match}`;
-    }
-    if (!url) {
-      setShareLabel("Share");
-      return;
-    }
-    const title = "Football stats | statsBuildr";
-    const text = "Check today's fixtures and player stats before you build your bet.";
-    try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ title, url, text });
-        setShareLabel("Shared!");
-      } else {
-        const copied = copyToClipboard(url);
-        setShareLabel(copied ? "Copied!" : "Share");
-      }
-    } catch {
-      const copied = copyToClipboard(url);
-      setShareLabel(copied ? "Copied!" : "Share");
-    }
-    setTimeout(() => setShareLabel("Share"), 2000);
-  };
 
   // Reset to home tab when fixture changes
   useEffect(() => {
@@ -807,106 +769,6 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
                                 ))}
                               </tbody>
                             </table>
-                          </div>
-                          {/* Bet-type last 5 form visualisation */}
-                          {stats.last5Goals && (stats.last5Goals.home.length > 0 || stats.last5Goals.away.length > 0) && (
-                            <section className="mt-6 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/60 p-3 text-xs dark:border-neutral-700 dark:bg-neutral-900/70 sm:p-4">
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div>
-                                  <h3 className="text-[0.7rem] font-semibold uppercase tracking-wide text-neutral-700 dark:text-neutral-300 sm:text-xs">
-                                    Last 5 matches
-                                  </h3>
-                                  <p className="text-[0.7rem] text-neutral-600 dark:text-neutral-400 sm:text-xs">
-                                    See how often over 1.5 goals, over 2.5 goals and both teams to score (BTTS) have landed in each team&apos;s last 5 matches for quick bet builder stats.
-                                  </p>
-                                  <p className="mt-0.5 text-[0.7rem] text-neutral-500 dark:text-neutral-500 sm:text-xs">
-                                    Green = selection landed, red = did not. Left to right: oldest → latest.
-                                  </p>
-                                </div>
-                                <div className="inline-flex rounded-md bg-white p-0.5 text-[0.7rem] shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-700 sm:text-xs">
-                                  {[
-                                    { id: "over15" as const, label: "Over 1.5 goals" },
-                                    { id: "over25" as const, label: "Over 2.5 goals" },
-                                    { id: "btts" as const, label: "Both teams score" },
-                                  ].map((option) => (
-                                    <button
-                                      key={option.id}
-                                      type="button"
-                                      onClick={() => setBetFilter(option.id)}
-                                      className={`whitespace-nowrap rounded-md px-2.5 py-1 font-medium transition-colors ${
-                                        betFilter === option.id
-                                          ? "bg-green-600 text-white shadow-sm dark:bg-green-500"
-                                          : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                                      }`}
-                                      aria-pressed={betFilter === option.id}
-                                    >
-                                      {option.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              <div className="mt-3 space-y-2.5 sm:mt-4">
-                                {[
-                                  {
-                                    key: "home" as const,
-                                    name: homeName,
-                                    crest: homeCrest,
-                                    matches: stats.last5Goals.home,
-                                  },
-                                  {
-                                    key: "away" as const,
-                                    name: awayName,
-                                    crest: awayCrest,
-                                    matches: stats.last5Goals.away,
-                                  },
-                                ].map((team) => (
-                                  <div key={team.key} className="flex items-center justify-between gap-3 sm:gap-4">
-                                    <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
-                                      <TeamCrestOrShirt crestUrl={team.crest} alt={team.name} size="sm" />
-                                      <span className="truncate text-xs font-semibold text-neutral-800 dark:text-neutral-100 sm:text-sm">
-                                        {team.name}
-                                      </span>
-                                    </div>
-                                    <div className="flex flex-1 justify-end gap-1.5 sm:gap-2">
-                                      {[...team.matches].slice().reverse().map((match, index) => {
-                                        const totalGoals = match.goalsFor + match.goalsAgainst;
-                                        const landed =
-                                          betFilter === "over15"
-                                            ? totalGoals >= 2
-                                            : betFilter === "over25"
-                                              ? totalGoals >= 3
-                                              : match.goalsFor > 0 && match.goalsAgainst > 0;
-                                        const colorClass = landed
-                                          ? "bg-emerald-500 dark:bg-emerald-400"
-                                          : "bg-red-400 dark:bg-red-500";
-                                        const title =
-                                          `${team.name} ${match.goalsFor}-${match.goalsAgainst} (${totalGoals} goals) – ` +
-                                          (landed ? "selection landed" : "selection did not land");
-                                        return (
-                                          <span
-                                            key={index}
-                                            className={`h-3 w-3 rounded-sm sm:h-3.5 sm:w-3.5 ${colorClass}`}
-                                            title={title}
-                                            aria-label={title}
-                                          />
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </section>
-                          )}
-                          <div className="mt-6 flex justify-end">
-                            <button
-                              type="button"
-                              onClick={handleShare}
-                              disabled={shareLabel === "…"}
-                              aria-busy={shareLabel === "…"}
-                              className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 disabled:pointer-events-none disabled:opacity-70 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:text-sm sm:px-4 sm:py-2"
-                            >
-                              {shareLabel}
-                            </button>
                           </div>
                         </>
                       );

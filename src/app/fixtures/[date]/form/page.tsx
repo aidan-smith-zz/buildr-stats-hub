@@ -211,7 +211,7 @@ export default async function FormPage({
           </p>
         </section>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-8 flex justify-center">
           <ShareUrlButton className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700" />
         </div>
       </main>

@@ -77,6 +77,22 @@ model TeamSeasonStats {
   yellowCards   Int   @default(0)
   redCards      Int   @default(0)
 
+  // Home/away splits (populated by warm; combined totals above stay the single source for existing UI).
+  homeGames        Int    @default(0)
+  awayGames        Int    @default(0)
+  homeGoalsFor     Int    @default(0)
+  homeGoalsAgainst Int    @default(0)
+  homeCorners      Int    @default(0)
+  homeYellowCards  Int    @default(0)
+  homeRedCards     Int    @default(0)
+  homeXgFor        Float?
+  awayGoalsFor     Int    @default(0)
+  awayGoalsAgainst Int    @default(0)
+  awayCorners      Int    @default(0)
+  awayYellowCards  Int    @default(0)
+  awayRedCards     Int    @default(0)
+  awayXgFor        Float?
+
   team Team @relation(fields: [teamId], references: [id])
 
   createdAt DateTime @default(now())

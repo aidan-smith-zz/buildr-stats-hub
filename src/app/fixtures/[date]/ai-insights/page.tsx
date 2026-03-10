@@ -251,7 +251,7 @@ export default async function AIInsightsPage({
           </>
         )}
 
-        <div className="mt-8 flex justify-end">
+        <div className="mt-8 flex justify-center">
           <ShareUrlButton className="rounded-lg border border-slate-600 bg-slate-800/50 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700/50 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700" />
         </div>
       </main>

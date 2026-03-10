@@ -151,6 +151,10 @@ async function ensureTeamSeasonStatsCornersAndCards(
 
   const limit = Math.min(pastFixtureIds.length, MAX_FIXTURES_PER_SEASON);
   const fixtureIdsToProcess = pastFixtureIds.slice(0, limit);
+  /** Map apiFixtureId -> isHome for home/away season splits (from API fixture list). */
+  const isHomeByApiId = new Map(
+    pastFixtures.slice(0, limit).map((f) => [String(f.apiFixtureId), f.isHome])
+  );
 
   type CachedFixtureStats = {
     apiFixtureId: string;
@@ -184,14 +188,63 @@ async function ensureTeamSeasonStatsCornersAndCards(
 
   const apiFixtureIds = fixtureIdsToProcess.map((id) => String(id));
 
-  /** Upsert TeamSeasonStats from current cache (and full goals/minutes). Used so warm-today sees a row even if we timeout or return done:false. */
-  async function upsertTeamSeasonStatsFromCache(cacheRows: { corners: number; yellowCards: number; redCards: number; xg: number | null }[]) {
+  type CacheRowForAggregate = {
+    apiFixtureId: string;
+    goalsFor: number;
+    goalsAgainst: number;
+    corners: number;
+    yellowCards: number;
+    redCards: number;
+    xg: number | null;
+  };
+
+  /** Aggregate cache rows into combined + home/away buckets using isHomeByApiId (from API list). */
+  function aggregateHomeAway(
+    cacheRows: CacheRowForAggregate[],
+    isHomeMap: Map<string, boolean>
+  ): {
+    corners: number;
+    yellowCards: number;
+    redCards: number;
+    xgFor: number | null;
+    homeGames: number;
+    awayGames: number;
+    homeGoalsFor: number;
+    homeGoalsAgainst: number;
+    homeCorners: number;
+    homeYellowCards: number;
+    homeRedCards: number;
+    homeXgFor: number | null;
+    awayGoalsFor: number;
+    awayGoalsAgainst: number;
+    awayCorners: number;
+    awayYellowCards: number;
+    awayRedCards: number;
+    awayXgFor: number | null;
+  } {
     let corners = 0;
     let yellowCards = 0;
     let redCards = 0;
     let xgSum = 0;
     let xgCount = 0;
+    let homeGames = 0;
+    let awayGames = 0;
+    let homeGoalsFor = 0;
+    let homeGoalsAgainst = 0;
+    let homeCorners = 0;
+    let homeYellowCards = 0;
+    let homeRedCards = 0;
+    let homeXgSum = 0;
+    let homeXgCount = 0;
+    let awayGoalsFor = 0;
+    let awayGoalsAgainst = 0;
+    let awayCorners = 0;
+    let awayYellowCards = 0;
+    let awayRedCards = 0;
+    let awayXgSum = 0;
+    let awayXgCount = 0;
     for (const r of cacheRows) {
+      const isHome = isHomeMap.get(r.apiFixtureId) ?? false;
       corners += r.corners;
       yellowCards += r.yellowCards;
       redCards += r.redCards;
@@ -199,8 +252,61 @@ async function ensureTeamSeasonStatsCornersAndCards(
         xgSum += r.xg;
         xgCount++;
       }
+      if (isHome) {
+        homeGames += 1;
+        homeGoalsFor += r.goalsFor;
+        homeGoalsAgainst += r.goalsAgainst;
+        homeCorners += r.corners;
+        homeYellowCards += r.yellowCards;
+        homeRedCards += r.redCards;
+        if (r.xg != null) {
+          homeXgSum += r.xg;
+          homeXgCount++;
+        }
+      } else {
+        awayGames += 1;
+        awayGoalsFor += r.goalsFor;
+        awayGoalsAgainst += r.goalsAgainst;
+        awayCorners += r.corners;
+        awayYellowCards += r.yellowCards;
+        awayRedCards += r.redCards;
+        if (r.xg != null) {
+          awayXgSum += r.xg;
+          awayXgCount++;
+        }
+      }
     }
     const xgFor = xgCount > 0 ? xgSum : null;
+    const homeXgFor = homeXgCount > 0 ? homeXgSum : null;
+    const awayXgFor = awayXgCount > 0 ? awayXgSum : null;
+    return {
+      corners,
+      yellowCards,
+      redCards,
+      xgFor,
+      homeGames,
+      awayGames,
+      homeGoalsFor,
+      homeGoalsAgainst,
+      homeCorners,
+      homeYellowCards,
+      homeRedCards,
+      homeXgFor,
+      awayGoalsFor,
+      awayGoalsAgainst,
+      awayCorners,
+      awayYellowCards,
+      awayRedCards,
+      awayXgFor,
+    };
+  }
+
+  /** Upsert TeamSeasonStats from current cache (and full goals/minutes). Populates home/away splits. */
+  async function upsertTeamSeasonStatsFromCache(
+    cacheRows: CacheRowForAggregate[],
+    isHomeMap: Map<string, boolean>
+  ) {
+    const agg = aggregateHomeAway(cacheRows, isHomeMap);
     await prisma.teamSeasonStats.upsert({
       where: {
         teamId_season_league: { teamId, season, league: leagueKey },
@@ -213,19 +319,47 @@ async function ensureTeamSeasonStatsCornersAndCards(
         minutesPlayed,
         goalsFor: pastGoalsFor,
         goalsAgainst: pastGoalsAgainst,
-        xgFor,
-        corners,
-        yellowCards,
-        redCards,
+        xgFor: agg.xgFor,
+        corners: agg.corners,
+        yellowCards: agg.yellowCards,
+        redCards: agg.redCards,
+        homeGames: agg.homeGames,
+        awayGames: agg.awayGames,
+        homeGoalsFor: agg.homeGoalsFor,
+        homeGoalsAgainst: agg.homeGoalsAgainst,
+        homeCorners: agg.homeCorners,
+        homeYellowCards: agg.homeYellowCards,
+        homeRedCards: agg.homeRedCards,
+        homeXgFor: agg.homeXgFor,
+        awayGoalsFor: agg.awayGoalsFor,
+        awayGoalsAgainst: agg.awayGoalsAgainst,
+        awayCorners: agg.awayCorners,
+        awayYellowCards: agg.awayYellowCards,
+        awayRedCards: agg.awayRedCards,
+        awayXgFor: agg.awayXgFor,
       },
       update: {
         minutesPlayed,
         goalsFor: pastGoalsFor,
         goalsAgainst: pastGoalsAgainst,
-        xgFor,
-        corners,
-        yellowCards,
-        redCards,
+        xgFor: agg.xgFor,
+        corners: agg.corners,
+        yellowCards: agg.yellowCards,
+        redCards: agg.redCards,
+        homeGames: agg.homeGames,
+        awayGames: agg.awayGames,
+        homeGoalsFor: agg.homeGoalsFor,
+        homeGoalsAgainst: agg.homeGoalsAgainst,
+        homeCorners: agg.homeCorners,
+        homeYellowCards: agg.homeYellowCards,
+        homeRedCards: agg.homeRedCards,
+        homeXgFor: agg.homeXgFor,
+        awayGoalsFor: agg.awayGoalsFor,
+        awayGoalsAgainst: agg.awayGoalsAgainst,
+        awayCorners: agg.awayCorners,
+        awayYellowCards: agg.awayYellowCards,
+        awayRedCards: agg.awayRedCards,
+        awayXgFor: agg.awayXgFor,
       },
     });
   }
@@ -239,9 +373,9 @@ async function ensureTeamSeasonStatsCornersAndCards(
         league: cacheKey,
         apiFixtureId: { in: apiFixtureIds },
       },
-      select: { corners: true, yellowCards: true, redCards: true, xg: true },
+      select: { apiFixtureId: true, goalsFor: true, goalsAgainst: true, corners: true, yellowCards: true, redCards: true, xg: true },
     });
-    await upsertTeamSeasonStatsFromCache(partialCacheRows);
+    await upsertTeamSeasonStatsFromCache(partialCacheRows as CacheRowForAggregate[], isHomeByApiId);
     console.log("[statsService] TeamSeasonStats upserted (chunked path)", {
       teamId,
       season,
@@ -264,9 +398,9 @@ async function ensureTeamSeasonStatsCornersAndCards(
           league: cacheKey,
           apiFixtureId: { in: apiFixtureIds },
         },
-        select: { corners: true, yellowCards: true, redCards: true, xg: true },
+        select: { apiFixtureId: true, goalsFor: true, goalsAgainst: true, corners: true, yellowCards: true, redCards: true, xg: true },
       });
-      await upsertTeamSeasonStatsFromCache(partialCacheRows);
+      await upsertTeamSeasonStatsFromCache(partialCacheRows as CacheRowForAggregate[], isHomeByApiId);
       return { done: false };
     }
     const apiFixtureId = String(fixtureIdsToProcess[i]);
@@ -356,7 +490,7 @@ async function ensureTeamSeasonStatsCornersAndCards(
     }
   }
 
-  // All fixtures processed (from cache or API). Aggregate from DB and write season row.
+  // All fixtures processed (from cache or API). Aggregate from DB and write season row (combined + home/away).
   const cacheRows = await db.teamFixtureCache.findMany({
     where: {
       teamId,
@@ -364,23 +498,9 @@ async function ensureTeamSeasonStatsCornersAndCards(
       league: cacheKey,
       apiFixtureId: { in: fixtureIdsToProcess.map((id) => String(id)) },
     },
-    select: { corners: true, yellowCards: true, redCards: true, xg: true },
+    select: { apiFixtureId: true, goalsFor: true, goalsAgainst: true, corners: true, yellowCards: true, redCards: true, xg: true },
   });
-  let corners = 0;
-  let yellowCards = 0;
-  let redCards = 0;
-  let xgSum = 0;
-  let xgCount = 0;
-  for (const r of cacheRows) {
-    corners += r.corners;
-    yellowCards += r.yellowCards;
-    redCards += r.redCards;
-    if (r.xg != null) {
-      xgSum += r.xg;
-      xgCount++;
-    }
-  }
-  const xgFor = xgCount > 0 ? xgSum : null;
+  const agg = aggregateHomeAway(cacheRows as CacheRowForAggregate[], isHomeByApiId);
 
   await prisma.teamSeasonStats.upsert({
     where: {
@@ -394,19 +514,47 @@ async function ensureTeamSeasonStatsCornersAndCards(
       minutesPlayed,
       goalsFor: pastGoalsFor,
       goalsAgainst: pastGoalsAgainst,
-      xgFor,
-      corners,
-      yellowCards,
-      redCards,
+      xgFor: agg.xgFor,
+      corners: agg.corners,
+      yellowCards: agg.yellowCards,
+      redCards: agg.redCards,
+      homeGames: agg.homeGames,
+      awayGames: agg.awayGames,
+      homeGoalsFor: agg.homeGoalsFor,
+      homeGoalsAgainst: agg.homeGoalsAgainst,
+      homeCorners: agg.homeCorners,
+      homeYellowCards: agg.homeYellowCards,
+      homeRedCards: agg.homeRedCards,
+      homeXgFor: agg.homeXgFor,
+      awayGoalsFor: agg.awayGoalsFor,
+      awayGoalsAgainst: agg.awayGoalsAgainst,
+      awayCorners: agg.awayCorners,
+      awayYellowCards: agg.awayYellowCards,
+      awayRedCards: agg.awayRedCards,
+      awayXgFor: agg.awayXgFor,
     },
     update: {
       minutesPlayed,
       goalsFor: pastGoalsFor,
       goalsAgainst: pastGoalsAgainst,
-      xgFor,
-      corners,
-      yellowCards,
-      redCards,
+      xgFor: agg.xgFor,
+      corners: agg.corners,
+      yellowCards: agg.yellowCards,
+      redCards: agg.redCards,
+      homeGames: agg.homeGames,
+      awayGames: agg.awayGames,
+      homeGoalsFor: agg.homeGoalsFor,
+      homeGoalsAgainst: agg.homeGoalsAgainst,
+      homeCorners: agg.homeCorners,
+      homeYellowCards: agg.homeYellowCards,
+      homeRedCards: agg.homeRedCards,
+      homeXgFor: agg.homeXgFor,
+      awayGoalsFor: agg.awayGoalsFor,
+      awayGoalsAgainst: agg.awayGoalsAgainst,
+      awayCorners: agg.awayCorners,
+      awayYellowCards: agg.awayYellowCards,
+      awayRedCards: agg.awayRedCards,
+      awayXgFor: agg.awayXgFor,
     },
   });
 
