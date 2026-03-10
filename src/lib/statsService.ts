@@ -638,7 +638,9 @@ export async function topUpIsHomeForTeam(
         isHome: true,
       },
     });
-    const isHomeMap = new Map(cacheRows.map((r) => [r.apiFixtureId, r.isHome]));
+    const isHomeMap = new Map(
+      cacheRows.map((r: { apiFixtureId: string; isHome: boolean }) => [r.apiFixtureId, r.isHome]),
+    );
     let homeGames = 0;
     let awayGames = 0;
     let homeGoalsFor = 0;
