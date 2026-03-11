@@ -2,10 +2,14 @@ import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { API_SEASON } from "@/lib/footballApi";
 import { LEAGUE_DISPLAY_NAMES } from "@/lib/leagues";
+import { makeTeamSlug, normalizeTeamSlug } from "@/lib/teamSlugs";
+import { todayDateKey } from "@/lib/slugs";
 
 // Top leagues: English Premier League (39), Championship (40), Scottish Premiership (179), Champions League (2), Europa League (3)
 const TOP_LEAGUE_IDS = [39, 40, 179, 2, 3] as const;
 const TOP_LEAGUE_KEYS = TOP_LEAGUE_IDS.map((id) => LEAGUE_DISPLAY_NAMES[id]);
+/** TeamFixtureCache stores league as String(leagueId); use for recent fixtures from warm data. */
+const TOP_LEAGUE_CACHE_KEYS = TOP_LEAGUE_IDS.map((id) => String(id));
 
 type TeamSeasonRow = {
   teamId: number;
@@ -173,37 +177,89 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
         }
       : null;
 
-  // Recent fixtures in top leagues (last 10), from Fixture table.
-  const recentFixturesRaw = await prisma.fixture.findMany({
+  // Recent fixtures: prefer TeamFixtureCache (populated by warm-league-stats) so team/market pages have data.
+  // Fall back to Fixture + LiveScoreCache only when cache is empty (e.g. before first warm).
+  const cacheRows = await prisma.teamFixtureCache.findMany({
     where: {
+      teamId,
       season: API_SEASON,
-      leagueId: { in: TOP_LEAGUE_IDS as unknown as number[] },
-      OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
+      league: { in: TOP_LEAGUE_CACHE_KEYS },
     },
-    orderBy: { date: "desc" },
+    orderBy: { fixtureDate: "desc" },
     take: 10,
-    include: {
-      homeTeam: true,
-      awayTeam: true,
-      liveScoreCache: true,
-    },
   });
 
-  const recentFixtures: TeamPageFixtureSummary[] = recentFixturesRaw.map((f) => {
-    const isHome = f.homeTeamId === teamId;
-    const opponent = isHome ? f.awayTeam : f.homeTeam;
-    const scoreSource = f.liveScoreCache;
-    return {
-      id: f.id,
-      date: f.date instanceof Date ? f.date.toISOString() : new Date(f.date).toISOString(),
-      league: f.league ?? null,
-      opponentName: opponent.shortName ?? opponent.name,
-      isHome,
-      homeGoals: scoreSource ? scoreSource.homeGoals : null,
-      awayGoals: scoreSource ? scoreSource.awayGoals : null,
-      statusShort: scoreSource ? scoreSource.statusShort : null,
-    };
-  });
+  let recentFixtures: TeamPageFixtureSummary[];
+
+  if (cacheRows.length > 0) {
+    const apiIds = cacheRows.map((r) => r.apiFixtureId);
+    const fixturesByApiId = new Map<
+      string,
+      { homeTeam: { name: string; shortName: string | null }; awayTeam: { name: string; shortName: string | null } }
+    >();
+    const fixturesFound = await prisma.fixture.findMany({
+      where: { apiId: { in: apiIds } },
+      select: {
+        apiId: true,
+        homeTeam: { select: { name: true, shortName: true } },
+        awayTeam: { select: { name: true, shortName: true } },
+      },
+    });
+    for (const f of fixturesFound) {
+      if (f.apiId) fixturesByApiId.set(f.apiId, { homeTeam: f.homeTeam, awayTeam: f.awayTeam });
+    }
+
+    recentFixtures = cacheRows.map((r) => {
+      const isHome = r.isHome;
+      const homeGoals = isHome ? r.goalsFor : r.goalsAgainst;
+      const awayGoals = isHome ? r.goalsAgainst : r.goalsFor;
+      const fixture = fixturesByApiId.get(r.apiFixtureId);
+      const opponent = fixture
+        ? (isHome ? fixture.awayTeam.shortName ?? fixture.awayTeam.name : fixture.homeTeam.shortName ?? fixture.homeTeam.name)
+        : "—";
+      const leagueDisplay = LEAGUE_DISPLAY_NAMES[Number(r.league) as keyof typeof LEAGUE_DISPLAY_NAMES] ?? r.league;
+      return {
+        id: r.id,
+        date: r.fixtureDate instanceof Date ? r.fixtureDate.toISOString() : new Date(r.fixtureDate).toISOString(),
+        league: leagueDisplay,
+        opponentName: opponent,
+        isHome,
+        homeGoals,
+        awayGoals,
+        statusShort: "FT",
+      };
+    });
+  } else {
+    const recentFixturesRaw = await prisma.fixture.findMany({
+      where: {
+        season: API_SEASON,
+        leagueId: { in: TOP_LEAGUE_IDS as unknown as number[] },
+        OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
+      },
+      orderBy: { date: "desc" },
+      take: 10,
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+        liveScoreCache: true,
+      },
+    });
+    recentFixtures = recentFixturesRaw.map((f) => {
+      const isHome = f.homeTeamId === teamId;
+      const opponent = isHome ? f.awayTeam : f.homeTeam;
+      const scoreSource = f.liveScoreCache;
+      return {
+        id: f.id,
+        date: f.date instanceof Date ? f.date.toISOString() : new Date(f.date).toISOString(),
+        league: f.league ?? null,
+        opponentName: opponent.shortName ?? opponent.name,
+        isHome,
+        homeGoals: scoreSource ? scoreSource.homeGoals : null,
+        awayGoals: scoreSource ? scoreSource.awayGoals : null,
+        statusShort: scoreSource ? scoreSource.statusShort : null,
+      };
+    });
+  }
 
   // Key players for this team in the same league + season.
   const playerLeagueKeys = new Set<string>([leagueName]);
@@ -261,6 +317,31 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
   };
 }
 
+/** Resolve team id from URL slug (e.g. "vfb-stuttgart"). Returns null if not found. */
+export async function getTeamIdBySlug(rawSlug: string): Promise<number | null> {
+  const slug = normalizeTeamSlug(rawSlug);
+  if (!slug) return null;
+  const approxName = rawSlug.replace(/-/g, " ");
+  const candidates = await prisma.team.findMany({
+    where: {
+      OR: [
+        { name: { contains: approxName, mode: "insensitive" } },
+        { shortName: { contains: approxName, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, name: true, shortName: true },
+  });
+  if (!candidates.length) return null;
+  const matches = candidates.filter((team) => {
+    const nameSlug = makeTeamSlug(team.name);
+    const shortSlug = team.shortName ? makeTeamSlug(team.shortName) : null;
+    return nameSlug === slug || shortSlug === slug;
+  });
+  if (!matches.length) return null;
+  matches.sort((a, b) => a.name.localeCompare(b.name));
+  return matches[0].id;
+}
+
 export const getTeamPageData = unstable_cache(
   async (teamId: number) => {
     return loadTeamPageData(teamId);
@@ -271,4 +352,41 @@ export const getTeamPageData = unstable_cache(
     tags: ["team-page"],
   },
 );
+
+export type TeamUpcomingFixture = {
+  dateKey: string;
+  kickoff: string;
+  league: string | null;
+  opponentName: string;
+  isHome: boolean;
+};
+
+/** Upcoming fixtures for this team (from UpcomingFixture table, next 14 days). For market pages. */
+export async function getTeamUpcomingFixtures(teamId: number): Promise<TeamUpcomingFixture[]> {
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: { apiId: true },
+  });
+  if (!team?.apiId) return [];
+  const today = todayDateKey();
+  const rows = await prisma.upcomingFixture.findMany({
+    where: {
+      dateKey: { gte: today },
+      OR: [{ homeTeamApiId: team.apiId }, { awayTeamApiId: team.apiId }],
+    },
+    orderBy: [{ dateKey: "asc" }, { kickoff: "asc" }],
+    take: 5,
+  });
+  return rows.map((r) => {
+    const isHome = r.homeTeamApiId === team.apiId;
+    const opponentName = isHome ? (r.awayTeamShortName ?? r.awayTeamName) : (r.homeTeamShortName ?? r.homeTeamName);
+    return {
+      dateKey: r.dateKey,
+      kickoff: r.kickoff instanceof Date ? r.kickoff.toISOString() : new Date(r.kickoff).toISOString(),
+      league: r.league ?? null,
+      opponentName,
+      isHome,
+    };
+  });
+}
 

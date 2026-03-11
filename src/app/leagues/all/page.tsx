@@ -249,6 +249,18 @@ export default async function LeaguesAllPage() {
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <NavLinkWithOverlay
+              href="/teams/all"
+              className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:shadow-neutral-800/50"
+              message="Loading…"
+            >
+              <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+                All teams
+              </span>
+              <svg className="h-5 w-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </NavLinkWithOverlay>
+            <NavLinkWithOverlay
               href="/"
               className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:shadow-neutral-800/50"
               message="Loading…"

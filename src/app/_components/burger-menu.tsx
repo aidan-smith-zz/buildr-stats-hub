@@ -119,6 +119,9 @@ export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
           <Link href="/leagues/all" onClick={closeMenu} className={linkClass} role="menuitem">
             All leagues
           </Link>
+          <Link href="/teams/all" onClick={closeMenu} className={linkClass} role="menuitem">
+            All teams
+          </Link>
 
           <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
           <p className={sectionLabelClass}>Fixtures</p>

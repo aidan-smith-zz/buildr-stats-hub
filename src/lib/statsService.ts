@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import {
   API_SEASON,
@@ -1604,6 +1605,94 @@ export async function getFixtureStats(
     teamStatsTotals,
     last5Goals,
     teamStatsUnavailableReason,
+  };
+}
+
+/** Cached fixture stats (7h). Used by GET /api/fixtures/[id]/stats so repeat requests avoid full recompute. */
+export const getFixtureStatsCached = unstable_cache(
+  (fixtureId: number) => getFixtureStats(fixtureId, { sequential: true }),
+  ["fixture-stats"],
+  { revalidate: 25200 },
+);
+
+type LineupByTeam = Map<number, Map<number, "starting" | "substitute">>;
+
+/**
+ * Merge lineup status and lineup-only players into a copy of stats. Used when we have cached stats
+ * without lineup and do a lightweight lineup fetch (ensureLineupIfWithinWindow + getLineupForFixture).
+ * Returns a new FixtureStatsResponse; does not mutate input.
+ */
+export async function mergeLineupIntoStats(
+  stats: FixtureStatsResponse,
+  lineupByTeam: LineupByTeam,
+): Promise<FixtureStatsResponse> {
+  if (lineupByTeam.size === 0) return stats;
+
+  const lineupOnlyPlayerIds: number[] = [];
+  for (const team of stats.teams) {
+    const existingIds = new Set(team.players.map((p) => p.playerId));
+    const teamLineup = lineupByTeam.get(team.teamId);
+    if (!teamLineup) continue;
+    for (const playerId of teamLineup.keys()) {
+      if (!existingIds.has(playerId)) lineupOnlyPlayerIds.push(playerId);
+    }
+  }
+
+  const playersById =
+    lineupOnlyPlayerIds.length > 0
+      ? new Map(
+          (
+            await prisma.player.findMany({
+              where: { id: { in: lineupOnlyPlayerIds } },
+              select: { id: true, name: true, position: true, shirtNumber: true },
+            })
+          ).map((p) => [p.id, p] as const),
+        )
+      : new Map<number, { id: number; name: string; position: string | null; shirtNumber: number | null }>();
+
+  const ZERO = {
+    appearances: 0,
+    minutes: 0,
+    goals: 0,
+    assists: 0,
+    fouls: 0,
+    shots: 0,
+    shotsOnTarget: 0,
+    tackles: 0,
+    yellowCards: 0,
+    redCards: 0,
+  };
+
+  const newTeams = stats.teams.map((team) => {
+    const teamLineup = lineupByTeam.get(team.teamId);
+    const existingIds = new Set(team.players.map((p) => p.playerId));
+    const players = team.players.map((p) => ({
+      ...p,
+      lineupStatus: (teamLineup?.get(p.playerId) ?? null) as "starting" | "substitute" | null,
+    }));
+    if (teamLineup) {
+      for (const [playerId, status] of teamLineup) {
+        if (existingIds.has(playerId)) continue;
+        const row = playersById.get(playerId);
+        if (!row) continue;
+        players.push({
+          playerId: row.id,
+          name: row.name,
+          position: row.position ?? null,
+          shirtNumber: row.shirtNumber ?? null,
+          ...ZERO,
+          lineupStatus: status,
+        });
+        existingIds.add(playerId);
+      }
+    }
+    return { ...team, players };
+  });
+
+  return {
+    ...stats,
+    hasLineup: true,
+    teams: newTeams,
   };
 }
 

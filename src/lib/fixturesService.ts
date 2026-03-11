@@ -242,7 +242,8 @@ export async function getUpcomingFixturesFromDb(options?: { skipRefresh?: boolea
 export async function clearOutdatedUpcomingFixtures(now: Date = new Date()): Promise<number> {
   const todayKey = now.toLocaleDateString("en-CA", { timeZone: FIXTURES_TIMEZONE });
   const result = await prisma.upcomingFixture.deleteMany({
-    where: { dateKey: { lt: todayKey } },
+    // Treat "today" as no longer upcoming for the purposes of the upcoming fixtures window.
+    where: { dateKey: { lte: todayKey } },
   });
   return result.count;
 }
@@ -255,13 +256,32 @@ export async function refreshUpcomingFixturesTable(now: Date = new Date()): Prom
   await clearOutdatedUpcomingFixtures(now);
   const todayKey = now.toLocaleDateString("en-CA", { timeZone: FIXTURES_TIMEZONE });
 
-  for (const dateKey of nextDateKeys(14)) {
-    if (dateKey <= todayKey) continue;
+  // Target window: approximately the next 14 days from "today" (Europe/London).
+  const windowKeys = nextDateKeys(14).filter((k) => k > todayKey);
+  if (windowKeys.length === 0) return;
+
+  // Existing upcoming dates in the current window.
+  const existingDates = await prisma.upcomingFixture.findMany({
+    where: { dateKey: { gte: todayKey } },
+    select: { dateKey: true },
+    distinct: ["dateKey"],
+    orderBy: { dateKey: "asc" },
+  });
+  const existingSet = new Set(existingDates.map((r) => r.dateKey));
+
+  // If we have no upcoming rows at all, backfill the full 14‑day window (initial bootstrap).
+  const isBootstrap = existingDates.length === 0;
+
+  const targetKeys = isBootstrap ? windowKeys : [windowKeys[windowKeys.length - 1]!];
+
+  for (const dateKey of targetKeys) {
+    // In incremental mode, if we already have this date, skip it.
+    if (!isBootstrap && existingSet.has(dateKey)) continue;
     try {
       const fixtures = await getFixturesForDatePreview(dateKey);
       // Extra guard: only persist fixtures in required leagues (e.g. exclude National League 43).
       const filteredFixtures = fixtures.filter((raw) =>
-        isFixtureInRequiredLeagues({ leagueId: raw.leagueId ?? null, league: raw.league ?? null })
+        isFixtureInRequiredLeagues({ leagueId: raw.leagueId ?? null, league: raw.league ?? null }),
       );
       const leagueCountry = null;
       for (const raw of filteredFixtures) {
