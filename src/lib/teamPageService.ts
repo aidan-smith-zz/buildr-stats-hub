@@ -11,6 +11,7 @@ type TeamSeasonRow = {
   teamId: number;
   season: string;
   league: string;
+  leagueId?: number | null;
   minutesPlayed: number;
   goalsFor: number;
   goalsAgainst: number;
@@ -145,6 +146,7 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
   ) as TeamSeasonRow;
 
   const leagueName = primarySeasonRow.league;
+  const leagueId = primarySeasonRow.leagueId ?? null;
 
   const homeGames = primarySeasonRow.homeGames ?? 0;
   const awayGames = primarySeasonRow.awayGames ?? 0;
@@ -204,11 +206,24 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
   });
 
   // Key players for this team in the same league + season.
+  const playerLeagueKeys = new Set<string>([leagueName]);
+  if (leagueId != null) {
+    for (const row of seasonRows) {
+      if (row.leagueId === leagueId) playerLeagueKeys.add(row.league);
+    }
+    const displayName = LEAGUE_DISPLAY_NAMES[leagueId];
+    if (displayName) {
+      playerLeagueKeys.add(displayName);
+      playerLeagueKeys.add(`UEFA ${displayName}`);
+    }
+  }
+  const playerLeagueList = Array.from(playerLeagueKeys).filter(Boolean);
+
   const playerRows = await prisma.playerSeasonStats.findMany({
     where: {
       teamId,
       season: API_SEASON,
-      league: leagueName,
+      league: playerLeagueList.length > 1 ? { in: playerLeagueList } : leagueName,
       minutes: { gt: 0 },
     },
     include: {
