@@ -86,9 +86,9 @@ export default async function UpcomingPage() {
 
       return { byDate, warmedByKeySerialized };
     },
-    // No TTL: only warm endpoints should update this cache (via revalidateTag).
+    // 24h TTL: after that we show DB data (stale if no warm ran); we never refetch fixtures here.
     [UPCOMING_PAGE_CACHE_TAG],
-    { revalidate: false, tags: [UPCOMING_PAGE_CACHE_TAG] },
+    { revalidate: 86400, tags: [UPCOMING_PAGE_CACHE_TAG] },
   );
 
   const { byDate, warmedByKeySerialized } = await getUpcomingPageData();
