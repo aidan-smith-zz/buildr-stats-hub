@@ -844,6 +844,22 @@ export default async function FixtureMatchPage({
               leagueSlug={leagueSlug}
               leagueId={warmedFixture.leagueId ?? null}
             />
+            <div className="mt-8 flex justify-center">
+              <ShareUrlButton />
+            </div>
+            <section className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+              <NavLinkWithOverlay
+                href={`/fixtures/${dateKey}/ai-insights`}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300 sm:text-sm"
+                message="Loading insights…"
+                italic={false}
+              >
+                AI insights for this date
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </NavLinkWithOverlay>
+            </section>
             <section className="mt-10 border-t border-neutral-200 pt-8 text-sm text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
               <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
                 Frequently asked questions about this result
@@ -1258,24 +1274,21 @@ export default async function FixtureMatchPage({
               leagueSlug={leagueSlug}
               leagueId={fixture.leagueId ?? null}
             />
-            <section className="mt-12 border-t border-neutral-200 pt-10 dark:border-neutral-800">
-              <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-6 dark:border-violet-800/50 dark:bg-violet-950/20">
-                <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                  New AI insights
-                </h2>
-                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                  We scan today&apos;s fixtures & stats then we surface the trends
-                  that matter
-                </p>
-                <NavLinkWithOverlay
-                  href={`/fixtures/${dateKey}/ai-insights`}
-                  className="mt-4 inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400"
-                  message="Loading insights…"
-                  italic={false}
-                >
-                  See AI insights for this date →
-                </NavLinkWithOverlay>
-              </div>
+            <div className="mt-8 flex justify-center">
+              <ShareUrlButton />
+            </div>
+            <section className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+              <NavLinkWithOverlay
+                href={`/fixtures/${dateKey}/ai-insights`}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300 sm:text-sm"
+                message="Loading insights…"
+                italic={false}
+              >
+                AI insights for this date
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </NavLinkWithOverlay>
             </section>
 
             <section className="mt-10 border-t border-neutral-200 pt-8 text-sm text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
@@ -1430,6 +1443,22 @@ export default async function FixtureMatchPage({
             leagueSlug={leagueSlug}
             leagueId={fixture.leagueId ?? null}
           />
+          <div className="mt-8 flex justify-center">
+            <ShareUrlButton />
+          </div>
+          <section className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+            <NavLinkWithOverlay
+              href={`/fixtures/${dateKey}/ai-insights`}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300 sm:text-sm"
+              message="Loading insights…"
+              italic={false}
+            >
+              AI insights for this date
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </NavLinkWithOverlay>
+          </section>
           <section className="mt-10 border-t border-neutral-200 pt-8 text-sm text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
               Frequently asked questions about this match
@@ -1486,8 +1515,12 @@ function TeamAndLeagueStatsSection({
     leagueId != null && STANDINGS_LEAGUE_SLUG_BY_ID[leagueId]
       ? STANDINGS_LEAGUE_SLUG_BY_ID[leagueId]
       : leagueSlug;
+  const hasTeamPages = leagueId != null && [39, 40, 179, 2, 3].includes(leagueId);
+  const hasLeagueMarkets = leagueId != null && STANDINGS_LEAGUE_SLUG_BY_ID[leagueId] != null;
   const linkClass =
     "inline-flex items-center gap-1 text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300";
+  const disabledClass =
+    "inline-flex items-center gap-1 text-neutral-400 dark:text-neutral-500";
   const arrow = (
     <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1508,37 +1541,73 @@ function TeamAndLeagueStatsSection({
         <div className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-3 dark:border-neutral-800 dark:bg-neutral-800/40 sm:p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{home}</span>
-            <NavLinkWithOverlay
-              href={`/teams/${makeTeamSlug(home)}`}
-              className="text-xs font-medium text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
-              message="Loading team…"
-            >
-              Team stats →
-            </NavLinkWithOverlay>
+            {hasTeamPages ? (
+              <NavLinkWithOverlay
+                href={`/teams/${makeTeamSlug(home)}`}
+                className="text-xs font-medium text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                message="Loading team…"
+              >
+                Team stats →
+              </NavLinkWithOverlay>
+            ) : null}
           </div>
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-neutral-200 pt-2 text-xs dark:border-neutral-700">
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/btts`} className={linkClass} message="Loading…"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/total-goals`} className={linkClass} message="Loading…"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/corners`} className={linkClass} message="Loading…"><span>Corners</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/cards`} className={linkClass} message="Loading…"><span>Cards</span>{arrow}</NavLinkWithOverlay>
+            {hasTeamPages ? (
+              <>
+                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/btts`} className={linkClass} message="Loading…"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
+                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/total-goals`} className={linkClass} message="Loading…"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
+                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/corners`} className={linkClass} message="Loading…"><span>Corners</span>{arrow}</NavLinkWithOverlay>
+                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/cards`} className={linkClass} message="Loading…"><span>Cards</span>{arrow}</NavLinkWithOverlay>
+              </>
+            ) : (
+              <div className="space-y-1">
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  <span className={disabledClass}>BTTS</span>
+                  <span className={disabledClass}>Total goals</span>
+                  <span className={disabledClass}>Corners</span>
+                  <span className={disabledClass}>Cards</span>
+                </div>
+                <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
+                  Team markets for this competition are coming soon.
+                </p>
+              </div>
+            )}
           </div>
         </div>
         <div className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-3 dark:border-neutral-800 dark:bg-neutral-800/40 sm:p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{away}</span>
-            <NavLinkWithOverlay
-              href={`/teams/${makeTeamSlug(away)}`}
-              className="text-xs font-medium text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
-              message="Loading team…"
-            >
-              Team stats →
-            </NavLinkWithOverlay>
+            {hasTeamPages ? (
+              <NavLinkWithOverlay
+                href={`/teams/${makeTeamSlug(away)}`}
+                className="text-xs font-medium text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                message="Loading team…"
+              >
+                Team stats →
+              </NavLinkWithOverlay>
+            ) : null}
           </div>
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-neutral-200 pt-2 text-xs dark:border-neutral-700">
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/btts`} className={linkClass} message="Loading…"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/total-goals`} className={linkClass} message="Loading…"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/corners`} className={linkClass} message="Loading…"><span>Corners</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/cards`} className={linkClass} message="Loading…"><span>Cards</span>{arrow}</NavLinkWithOverlay>
+            {hasTeamPages ? (
+              <>
+                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/btts`} className={linkClass} message="Loading…"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
+                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/total-goals`} className={linkClass} message="Loading…"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
+                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/corners`} className={linkClass} message="Loading…"><span>Corners</span>{arrow}</NavLinkWithOverlay>
+                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/cards`} className={linkClass} message="Loading…"><span>Cards</span>{arrow}</NavLinkWithOverlay>
+              </>
+            ) : (
+              <div className="space-y-1">
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  <span className={disabledClass}>BTTS</span>
+                  <span className={disabledClass}>Total goals</span>
+                  <span className={disabledClass}>Corners</span>
+                  <span className={disabledClass}>Cards</span>
+                </div>
+                <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
+                  Team markets for this competition are coming soon.
+                </p>
+              </div>
+            )}
           </div>
         </div>
         <div className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-3 dark:border-neutral-800 dark:bg-neutral-800/40 sm:p-4">
@@ -1546,10 +1615,26 @@ function TeamAndLeagueStatsSection({
             <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{league}</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-neutral-200 pt-2 text-xs dark:border-neutral-700">
-            <NavLinkWithOverlay href={`/leagues/${leagueSlugForLinks}/markets/btts`} className={linkClass} message="Loading…"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/leagues/${leagueSlugForLinks}/markets/total-goals`} className={linkClass} message="Loading…"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/leagues/${leagueSlugForLinks}/markets/corners`} className={linkClass} message="Loading…"><span>Corners</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/leagues/${leagueSlugForLinks}/markets/cards`} className={linkClass} message="Loading…"><span>Cards</span>{arrow}</NavLinkWithOverlay>
+            {hasLeagueMarkets ? (
+              <>
+                <NavLinkWithOverlay href={`/leagues/${leagueSlugForLinks}/markets/btts`} className={linkClass} message="Loading…"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
+                <NavLinkWithOverlay href={`/leagues/${leagueSlugForLinks}/markets/total-goals`} className={linkClass} message="Loading…"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
+                <NavLinkWithOverlay href={`/leagues/${leagueSlugForLinks}/markets/corners`} className={linkClass} message="Loading…"><span>Corners</span>{arrow}</NavLinkWithOverlay>
+                <NavLinkWithOverlay href={`/leagues/${leagueSlugForLinks}/markets/cards`} className={linkClass} message="Loading…"><span>Cards</span>{arrow}</NavLinkWithOverlay>
+              </>
+            ) : (
+              <div className="space-y-1">
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  <span className={disabledClass}>BTTS</span>
+                  <span className={disabledClass}>Total goals</span>
+                  <span className={disabledClass}>Corners</span>
+                  <span className={disabledClass}>Cards</span>
+                </div>
+                <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
+                  League market pages for this competition are coming soon.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
