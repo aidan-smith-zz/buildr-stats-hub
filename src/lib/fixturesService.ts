@@ -269,14 +269,12 @@ export async function refreshUpcomingFixturesTable(now: Date = new Date()): Prom
   });
   const existingSet = new Set(existingDates.map((r) => r.dateKey));
 
-  // If we have no upcoming rows at all, backfill the full 14‑day window (initial bootstrap).
-  const isBootstrap = existingDates.length === 0;
-
-  const targetKeys = isBootstrap ? windowKeys : [windowKeys[windowKeys.length - 1]!];
+  // Backfill any missing dates in the 14‑day window.
+  // This avoids getting "stuck" when the last-day fetch fails (previously we only tried the last day).
+  const targetKeys = windowKeys.filter((k) => !existingSet.has(k));
+  if (targetKeys.length === 0) return;
 
   for (const dateKey of targetKeys) {
-    // In incremental mode, if we already have this date, skip it.
-    if (!isBootstrap && existingSet.has(dateKey)) continue;
     try {
       const fixtures = await getFixturesForDatePreview(dateKey);
       // Extra guard: only persist fixtures in required leagues (e.g. exclude National League 43).
@@ -351,8 +349,12 @@ export async function refreshUpcomingFixturesTable(now: Date = new Date()): Prom
           },
         });
       }
-    } catch {
-      // Skip this date on API failure
+    } catch (err) {
+      // Skip this date on API failure, but log so we can detect gaps.
+      console.warn("[fixturesService] refreshUpcomingFixturesTable: failed date", {
+        dateKey,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 }

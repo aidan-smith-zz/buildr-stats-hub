@@ -355,6 +355,41 @@ function TeamPageView({
           </section>
         ) : null}
 
+        <section className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+            Team markets for bet builders
+          </h2>
+          <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+            Deep-dive into {displayName}&apos;s stats for popular bet builder markets using last games from this season.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <a
+              href={`/teams/${slug}/markets/btts`}
+              className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-800 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-violet-500 dark:hover:bg-violet-950/40"
+            >
+              BTTS (Both teams to score)
+            </a>
+            <a
+              href={`/teams/${slug}/markets/total-goals`}
+              className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-800 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-violet-500 dark:hover:bg-violet-950/40"
+            >
+              Total goals (over X.5)
+            </a>
+            <a
+              href={`/teams/${slug}/markets/corners`}
+              className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-800 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-violet-500 dark:hover:bg-violet-950/40"
+            >
+              Team corners
+            </a>
+            <a
+              href={`/teams/${slug}/markets/cards`}
+              className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-800 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-violet-500 dark:hover:bg-violet-950/40"
+            >
+              Team cards
+            </a>
+          </div>
+        </section>
+
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">

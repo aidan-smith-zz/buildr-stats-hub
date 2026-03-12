@@ -103,6 +103,24 @@ async function warmTeamStatsUntilDone(
   }
 }
 
+/** Warm only teamstats for a fixture (used for yesterday: add result to TeamFixtureCache so last 10 includes it). */
+async function warmOneFixtureTeamStatsOnlyForYesterday(
+  id: number,
+  label: string,
+  leagueId?: number,
+  logPrefix?: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (leagueId != null && LEAGUES_TEAM_STATS_ONLY.includes(leagueId)) {
+    const r = await warmTeamStatsUntilDone(id, "teamstats", 2, logPrefix ? `${logPrefix} teamstats` : undefined);
+    return r.ok ? { ok: true } : { ok: false, error: r.error };
+  }
+  const home = await warmTeamStatsUntilDone(id, "teamstats-home", 2, logPrefix ? `${logPrefix} teamstats-home` : undefined);
+  if (!home.ok) return home;
+  await sleep(DELAY_BETWEEN_CHUNKS_MS);
+  const away = await warmTeamStatsUntilDone(id, "teamstats-away", 2, logPrefix ? `${logPrefix} teamstats-away` : undefined);
+  return away.ok ? { ok: true } : { ok: false, error: away.error };
+}
+
 /** League 1/2: single teamstats (both teams in one request) then stats — far fewer round-trips. */
 async function warmOneFixtureTeamStatsOnly(
   id: number,
@@ -203,6 +221,34 @@ async function main() {
   } else {
     console.log("[warm-today] Full run: refreshing fixture list, then warming.\n");
   }
+
+  // Warm yesterday's fixtures (teamstats only) so TeamFixtureCache gets the new results and team/market pages show last 10.
+  const yesterdayRes = await fetch(`${BASE_URL}/api/warm-yesterday`, { cache: "no-store" });
+  if (yesterdayRes.ok) {
+    const yesterdayData = (await yesterdayRes.json()) as {
+      ok: boolean;
+      dateKey?: string;
+      total?: number;
+      fixtures?: { id: number; label: string; leagueId?: number }[];
+    };
+    const yesterdayFixtures = yesterdayData.fixtures ?? [];
+    if (yesterdayFixtures.length > 0) {
+      console.log(`[warm-today] Warming yesterday (${yesterdayData.dateKey ?? "?"}) teamstats: ${yesterdayFixtures.length} fixture(s) …\n`);
+      for (let i = 0; i < yesterdayFixtures.length; i++) {
+        const f = yesterdayFixtures[i];
+        const prefix = `yesterday ${i + 1}/${yesterdayFixtures.length} ${f.label}`;
+        const result = await warmOneFixtureTeamStatsOnlyForYesterday(f.id, f.label, f.leagueId, prefix);
+        if (result.ok) {
+          console.log(`[warm-today]   ${prefix}: ✓`);
+        } else {
+          console.log(`[warm-today]   ${prefix}: ✗ ${result.error ?? "unknown"}`);
+        }
+        if (i < yesterdayFixtures.length - 1) await sleep(DELAY_BETWEEN_CHUNKS_MS);
+      }
+      console.log("");
+    }
+  }
+
   console.log("[warm-today] Fetching fixture list (only fixtures that need warming) ...\n");
 
   const params = new URLSearchParams();

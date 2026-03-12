@@ -61,6 +61,9 @@ export type TeamPageFixtureSummary = {
   homeGoals: number | null;
   awayGoals: number | null;
   statusShort: string | null;
+  /** Team-specific stats from TeamFixtureCache when available (null when using Fixture fallback). */
+  teamCorners: number | null;
+  teamCards: number | null;
 };
 
 export type TeamPagePlayerSummary = {
@@ -227,6 +230,8 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
         homeGoals,
         awayGoals,
         statusShort: "FT",
+        teamCorners: r.corners ?? 0,
+        teamCards: (r.yellowCards ?? 0) + (r.redCards ?? 0),
       };
     });
   } else {
@@ -257,6 +262,8 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
         homeGoals: scoreSource ? scoreSource.homeGoals : null,
         awayGoals: scoreSource ? scoreSource.awayGoals : null,
         statusShort: scoreSource ? scoreSource.statusShort : null,
+        teamCorners: null,
+        teamCards: null,
       };
     });
   }

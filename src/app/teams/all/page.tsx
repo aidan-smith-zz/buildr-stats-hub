@@ -256,6 +256,18 @@ export default async function TeamsAllPage() {
                           >
                             Total goals
                           </Link>
+                          <Link
+                            href={`/teams/${team.slug}/markets/corners`}
+                            className="font-medium text-neutral-600 hover:text-violet-600 dark:text-neutral-400 dark:hover:text-violet-400"
+                          >
+                            Corners
+                          </Link>
+                          <Link
+                            href={`/teams/${team.slug}/markets/cards`}
+                            className="font-medium text-neutral-600 hover:text-violet-600 dark:text-neutral-400 dark:hover:text-violet-400"
+                          >
+                            Cards
+                          </Link>
                         </div>
                       </div>
                     );

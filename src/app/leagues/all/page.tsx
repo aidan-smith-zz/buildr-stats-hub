@@ -229,12 +229,53 @@ export default async function LeaguesAllPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </NavLinkWithOverlay>
+                    <div className="flex items-center gap-2">
+                      <span className="hidden text-[11px] font-medium uppercase tracking-wide text-neutral-400 sm:inline">
+                        Stats
+                      </span>
+                      <NavLinkWithOverlay
+                        href={`/leagues/${slug}/stats`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-violet-100 bg-violet-50 px-2.5 py-1.5 text-[11px] font-medium text-violet-700 transition-colors hover:border-violet-200 hover:bg-violet-100 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:border-violet-700 dark:hover:bg-violet-900/60"
+                        message="Loading league stats…"
+                      >
+                        <span>Stats hub</span>
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </NavLinkWithOverlay>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-neutral-100 pt-3 text-sm text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+                    <span className="font-medium text-neutral-600 dark:text-neutral-300">
+                      League markets:
+                    </span>
                     <NavLinkWithOverlay
-                      href={`/leagues/${slug}/stats`}
-                      className="text-xs font-medium text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
-                      message="Loading league stats…"
+                      href={`/leagues/${slug}/markets/btts`}
+                      className="font-medium text-neutral-600 underline-offset-2 hover:text-violet-600 hover:underline dark:text-neutral-400 dark:hover:text-violet-400"
+                      message="Loading BTTS market stats…"
                     >
-                      League stats
+                      BTTS
+                    </NavLinkWithOverlay>
+                    <NavLinkWithOverlay
+                      href={`/leagues/${slug}/markets/total-goals`}
+                      className="font-medium text-neutral-600 underline-offset-2 hover:text-violet-600 hover:underline dark:text-neutral-400 dark:hover:text-violet-400"
+                      message="Loading total goals stats…"
+                    >
+                      Total goals
+                    </NavLinkWithOverlay>
+                    <NavLinkWithOverlay
+                      href={`/leagues/${slug}/markets/corners`}
+                      className="font-medium text-neutral-600 underline-offset-2 hover:text-violet-600 hover:underline dark:text-neutral-400 dark:hover:text-violet-400"
+                      message="Loading corners stats…"
+                    >
+                      Corners
+                    </NavLinkWithOverlay>
+                    <NavLinkWithOverlay
+                      href={`/leagues/${slug}/markets/cards`}
+                      className="font-medium text-neutral-600 underline-offset-2 hover:text-violet-600 hover:underline dark:text-neutral-400 dark:hover:text-violet-400"
+                      message="Loading cards stats…"
+                    >
+                      Cards
                     </NavLinkWithOverlay>
                   </div>
                 </div>

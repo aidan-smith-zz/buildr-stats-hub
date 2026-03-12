@@ -59,6 +59,24 @@ function likelihoodOutOf10(bttsPct: number | null): number | null {
   return Math.round((bttsPct / 100) * 10);
 }
 
+function fixtureLikelihoodOutOf10(
+  stats: ReturnType<typeof computeBttsStats>,
+  isHome: boolean,
+  opponentBttsPct: number | null,
+): number | null {
+  if (stats.pct == null) return null;
+  let base = stats.pct;
+  const venuePct = isHome ? stats.homePct : stats.awayPct;
+  if (venuePct != null) {
+    base = base * 0.7 + venuePct * 0.3;
+  }
+  let combined = base;
+  if (opponentBttsPct != null) {
+    combined = combined * 0.6 + opponentBttsPct * 0.4;
+  }
+  return likelihoodOutOf10(combined);
+}
+
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { slug } = await params;
   const teamId = await getTeamIdBySlug(slug);
@@ -66,8 +84,8 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const data = await getTeamPageData(teamId);
   if (!data) return { title: "Team not found", robots: { index: false, follow: false } };
   const displayName = data.shortName ?? data.name;
-  const title = `${displayName} BTTS stats | Both teams to score | ${data.leagueName} ${data.season}`;
-  const description = `See ${displayName}'s both teams to score (BTTS) record in ${data.leagueName} ${data.season}: BTTS percentage, recent results and home vs away. Use for bet builder and BTTS tips.`;
+  const title = `${displayName} BTTS stats & predictions | Both teams to score | ${data.leagueName} ${data.season}`;
+  const description = `See ${displayName}'s both teams to score (BTTS) stats in ${data.leagueName} ${data.season}: BTTS percentage, last 10 games and home vs away splits. Use for BTTS tips, bet builders and accumulators.`;
   return {
     title,
     description,
@@ -117,7 +135,23 @@ export default async function TeamBttsPage({ params }: RouteParams) {
         name: `How can I use ${displayName}'s BTTS stats for betting?`,
         acceptedAnswer: {
           "@type": "Answer",
-          text: `Use this page to see what share of ${displayName}'s games this season had both teams scoring, and how that splits between home and away. Combine with upcoming fixtures to gauge BTTS likelihood.`,
+          text: `Use this page to see what share of ${displayName}'s games this season had both teams scoring, and how that splits between home and away. Combine with upcoming fixtures to gauge BTTS likelihood, compare to BTTS odds and build bet builders.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `Is ${displayName} a good BTTS team?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `The BTTS percentage and recent results on this page show whether ${displayName}'s matches regularly see both teams scoring. A consistently high BTTS rate suggests they are a strong candidate for BTTS yes selections in coupons and bet builders.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `How often do ${displayName}'s home games land BTTS?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `Home vs away BTTS splits on this page highlight whether ${displayName}'s home matches behave differently to their away games. You can use this when deciding if BTTS is stronger at home, away or in neutral fixtures for this team.`,
         },
       },
     ],
@@ -143,13 +177,16 @@ export default async function TeamBttsPage({ params }: RouteParams) {
             </div>
           </div>
           <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
-            Both teams to score (BTTS) means each side scores at least one goal. Use this page to see how often {displayName}&apos;s
-            games land BTTS this season and how that varies at home vs away for bet builders and BTTS tips.
+            Both teams to score (BTTS) means each side scores at least one goal. This page uses roughly the last 10 games from {displayName}&apos;s
+            current season in tracked competitions to show how often their matches land BTTS and how that varies at home vs away for bet builders and BTTS tips.
           </p>
         </header>
 
         {/* Season BTTS % */}
-        <section className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <section
+          id="btts-season-stats"
+          className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        >
           <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
             BTTS this season
           </h2>
@@ -171,7 +208,10 @@ export default async function TeamBttsPage({ params }: RouteParams) {
         </section>
 
         {/* Recent results + BTTS */}
-        <section className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <section
+          id="btts-recent-results"
+          className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        >
           <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
             Recent results & BTTS
           </h2>
@@ -213,7 +253,10 @@ export default async function TeamBttsPage({ params }: RouteParams) {
 
         {/* Home vs Away BTTS */}
         {stats.homeGames > 0 || stats.awayGames > 0 ? (
-          <section className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+          <section
+            id="btts-home-away"
+            className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+          >
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
               Home vs away BTTS
             </h2>
@@ -240,39 +283,50 @@ export default async function TeamBttsPage({ params }: RouteParams) {
         ) : null}
 
         {/* Upcoming + likelihood */}
-        <section className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <section
+          id="btts-upcoming"
+          className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        >
           <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
             Upcoming fixtures & BTTS likelihood
           </h2>
           <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-            Next fixtures and a simple BTTS likelihood score (1–10) based on {displayName}&apos;s season BTTS rate.
+            Next fixtures and a simple BTTS likelihood score (1–10) based on {displayName}&apos;s overall and home/away BTTS rates
+            and, when available, the opponent&apos;s BTTS record. This is a basic indicator, not betting advice.
           </p>
           {upcoming.length === 0 ? (
             <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-500">No upcoming fixtures in the next 14 days.</p>
           ) : (
             <ul className="mt-3 space-y-2 text-sm">
-              {upcoming.map((u, i) => (
-                <li key={`${u.dateKey}-${i}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-100 bg-neutral-50/50 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-800/50">
-                  <div>
-                    <p className="font-medium text-neutral-900 dark:text-neutral-50">
-                      {u.isHome ? `${displayName} vs ${u.opponentName}` : `${u.opponentName} vs ${displayName}`}
-                    </p>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {formatDate(u.kickoff)}{u.league ? ` · ${u.league}` : null} · {formatKickoff(u.kickoff)}
-                    </p>
-                  </div>
-                  {likelihood != null && (
-                    <span className="rounded bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-800 dark:bg-violet-900/50 dark:text-violet-200">
-                      BTTS {likelihood}/10
-                    </span>
-                  )}
-                </li>
-              ))}
+              {upcoming.map((u, i) => {
+                // For now we only adjust by venue (home/away). Opponent BTTS can be folded in later when available.
+                const fixtureScore = fixtureLikelihoodOutOf10(stats, u.isHome, null);
+                return (
+                  <li key={`${u.dateKey}-${i}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-100 bg-neutral-50/50 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-800/50">
+                    <div>
+                      <p className="font-medium text-neutral-900 dark:text-neutral-50">
+                        {u.isHome ? `${displayName} vs ${u.opponentName}` : `${u.opponentName} vs ${displayName}`}
+                      </p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        {formatDate(u.kickoff)}{u.league ? ` · ${u.league}` : null} · {formatKickoff(u.kickoff)}
+                      </p>
+                    </div>
+                    {fixtureScore != null && (
+                      <span className="rounded bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-800 dark:bg-violet-900/50 dark:text-violet-200">
+                        BTTS {fixtureScore}/10
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>
 
-        <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <section
+          id="btts-about"
+          className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        >
           <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
             About BTTS and this page
           </h2>
@@ -283,7 +337,14 @@ export default async function TeamBttsPage({ params }: RouteParams) {
             The &quot;BTTS out of 10&quot; for upcoming games is a simple guide based on the team&apos;s season rate, not a prediction model.
           </p>
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-            For more stats and form, see the main team page and use today&apos;s fixtures for live match data.
+            For more stats and form, see the main team page and use today&apos;s fixtures for live match data. You can also look at{" "}
+            <Link
+              href={`/teams/${canonicalSlug}/markets/total-goals`}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              {displayName}&apos;s total goals (over/under) stats
+            </Link>{" "}
+            to understand whether their matches are generally high-scoring as well as BTTS-friendly.
           </p>
           <Link
             href={`/teams/${canonicalSlug}`}

@@ -72,8 +72,8 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const data = await getTeamPageData(teamId);
   if (!data) return { title: "Team not found", robots: { index: false, follow: false } };
   const displayName = data.shortName ?? data.name;
-  const title = `${displayName} total goals stats | Over 2.5, Over 1.5 | ${data.leagueName} ${data.season}`;
-  const description = `See ${displayName}'s total goals record in ${data.leagueName} ${data.season}: % of games over 1.5, 2.5 and 3.5 goals, recent results and home vs away. Use for over/under and bet builder.`;
+  const title = `${displayName} total goals stats & over 2.5 tips | ${data.leagueName} ${data.season}`;
+  const description = `See ${displayName}'s total goals record in ${data.leagueName} ${data.season}: % of games over 1.5, 2.5 and 3.5 goals, recent results, and home vs away goal averages. Use for over 2.5 goals, over 1.5 and bet builder picks.`;
   return {
     title,
     description,
@@ -124,6 +124,22 @@ export default async function TeamTotalGoalsPage({ params }: RouteParams) {
           text: `This page shows what share of ${displayName}'s games this season had over 1.5, 2.5 and 3.5 total goals, and how that splits between home and away. Use it to compare with odds and build over/under bets.`,
         },
       },
+      {
+        "@type": "Question",
+        name: `Are ${displayName}'s matches usually high scoring?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `The percentages for over 1.5, 2.5 and 3.5 goals give a quick view of how often ${displayName}'s games are high scoring compared to a typical fixture in their league. Higher over 2.5 and over 3.5 rates indicate more open, goal-heavy matches.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `What does over 2.5 goals mean for ${displayName}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `Over 2.5 goals means there must be at least 3 total goals in the match, regardless of which side scores them. This page shows how often ${displayName}'s games clear that line so you can judge whether over 2.5 goals is a realistic outcome for upcoming fixtures.`,
+        },
+      },
     ],
   };
 
@@ -147,13 +163,16 @@ export default async function TeamTotalGoalsPage({ params }: RouteParams) {
             </div>
           </div>
           <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
-            Total goals is the combined score (both teams). See how often {displayName}&apos;s games go over 1.5, 2.5 and 3.5
-            goals this season and how that varies at home vs away for over/under and bet builder tips.
+            Total goals is the combined score (both teams). This page looks at roughly the last 10 games from {displayName}&apos;s current season
+            to show how often their matches go over 1.5, 2.5 and 3.5 goals and how that varies at home vs away for over/under and bet builder tips.
           </p>
         </header>
 
         {/* Over 1.5, 2.5, 3.5 % */}
-        <section className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <section
+          id="total-goals-season-stats"
+          className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        >
           <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
             Total goals this season
           </h2>
@@ -190,7 +209,10 @@ export default async function TeamTotalGoalsPage({ params }: RouteParams) {
         </section>
 
         {/* Recent results + total goals */}
-        <section className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <section
+          id="total-goals-recent-results"
+          className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        >
           <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
             Recent results & total goals
           </h2>
@@ -229,7 +251,10 @@ export default async function TeamTotalGoalsPage({ params }: RouteParams) {
 
         {/* Home vs Away total goals */}
         {stats.homeGames > 0 || stats.awayGames > 0 ? (
-          <section className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+          <section
+            id="total-goals-home-away"
+            className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+          >
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
               Home vs away total goals
             </h2>
@@ -255,7 +280,10 @@ export default async function TeamTotalGoalsPage({ params }: RouteParams) {
           </section>
         ) : null}
 
-        <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <section
+          id="total-goals-about"
+          className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        >
           <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
             About total goals and this page
           </h2>
@@ -266,7 +294,14 @@ export default async function TeamTotalGoalsPage({ params }: RouteParams) {
             Home and away averages help you see whether their matches tend to be higher or lower scoring in different venues.
           </p>
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-            For more stats and form, see the main team page and use today&apos;s fixtures for live match data.
+            For more stats and form, see the main team page and use today&apos;s fixtures for live match data. You can also{" "}
+            <Link
+              href={`/teams/${canonicalSlug}/markets/btts`}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              check {displayName}&apos;s BTTS (both teams to score) stats
+            </Link>{" "}
+            to see whether their matches combine high goal counts with both sides getting on the scoresheet.
           </p>
           <Link
             href={`/teams/${canonicalSlug}`}

@@ -1,0 +1,218 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { getTeamPageData, getTeamIdBySlug } from "@/lib/teamPageService";
+import { Breadcrumbs } from "@/app/_components/breadcrumbs";
+import { LEAGUE_DISPLAY_NAMES, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
+import { makeTeamSlug } from "@/lib/teamSlugs";
+
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
+
+type RouteParams = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
+  const { slug } = await params;
+  const teamId = await getTeamIdBySlug(slug);
+  if (!teamId) return { title: "Team not found", robots: { index: false, follow: false } };
+  const data = await getTeamPageData(teamId);
+  if (!data) return { title: "Team not found", robots: { index: false, follow: false } };
+  const displayName = data.shortName ?? data.name;
+  const title = `${displayName} corners stats & over 4.5 tips | ${data.leagueName} ${data.season}`;
+  const description = `See ${displayName}'s team corners stats in ${data.leagueName} ${data.season}: how often they win over 3.5, 4.5 and 5.5 team corners in recent games and their home vs away corner averages. Use for team corners and bet builder picks.`;
+  return {
+    title,
+    description,
+    robots: { index: true, follow: true },
+    openGraph: { title, description, url: `${BASE_URL}/teams/${makeTeamSlug(displayName)}/markets/corners` },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
+
+export default async function TeamCornersPage({ params }: RouteParams) {
+  const { slug } = await params;
+  const teamId = await getTeamIdBySlug(slug);
+  if (!teamId) notFound();
+  const data = await getTeamPageData(teamId);
+  if (!data) notFound();
+  const canonicalSlug = makeTeamSlug(data.shortName ?? data.name);
+  const displayName = data.shortName ?? data.name;
+  const recentWithCorners = data.recentFixtures.filter((f) => f.teamCorners != null);
+  const sampleSize = recentWithCorners.length;
+  const over35Count = recentWithCorners.filter((f) => (f.teamCorners ?? 0) > 3.5).length;
+  const over45Count = recentWithCorners.filter((f) => (f.teamCorners ?? 0) > 4.5).length;
+  const over55Count = recentWithCorners.filter((f) => (f.teamCorners ?? 0) > 5.5).length;
+  const over35Pct = sampleSize > 0 ? (over35Count / sampleSize) * 100 : null;
+  const over45Pct = sampleSize > 0 ? (over45Count / sampleSize) * 100 : null;
+  const over55Pct = sampleSize > 0 ? (over55Count / sampleSize) * 100 : null;
+  const homeAvg = data.homeAwayProfile?.homeCornersPerMatch ?? null;
+  const awayAvg = data.homeAwayProfile?.awayCornersPerMatch ?? null;
+  const homeGames = data.homeAwayProfile?.homeGames ?? 0;
+  const awayGames = data.homeAwayProfile?.awayGames ?? 0;
+
+  const leagueIdEntry = Object.entries(LEAGUE_DISPLAY_NAMES).find(([, name]) => name === data.leagueName);
+  const leagueId = leagueIdEntry ? Number(leagueIdEntry[0]) : undefined;
+  const leagueSlug = leagueId != null ? STANDINGS_LEAGUE_SLUG_BY_ID[leagueId] : null;
+
+  const breadcrumbItems = [
+    { href: "/", label: "Home" },
+    leagueSlug ? { href: `/leagues/${leagueSlug}/standings`, label: `${data.leagueName} table` } : null,
+    { href: `/teams/${canonicalSlug}`, label: displayName },
+    { href: `/teams/${canonicalSlug}/markets/corners`, label: "Corners" },
+  ].filter(Boolean) as { href: string; label: string }[];
+
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "What are team corners markets?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Team corners markets focus on how many corners one specific team will win in a match, such as over 4.5 corners for the home side. They are popular in bet builders and stats-based betting.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: `How can I use ${displayName}'s corners stats for betting?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `This page estimates the chances of ${displayName} winning over 3.5, 4.5 and 5.5 corners in a match using their season averages, and shows home vs away corner figures. You can compare this to prices and use it to build team corners legs in your bet builder.`,
+        },
+      },
+    ],
+  };
+
+  return (
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <Breadcrumbs items={breadcrumbItems} className="mb-3" />
+        <header className="mb-6 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
+          <div className="flex items-center gap-3">
+            {data.crestUrl ? (
+              <img src={data.crestUrl} alt="" width={40} height={40} className="h-10 w-10 flex-shrink-0 object-contain" />
+            ) : null}
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                {data.leagueName} · {data.season}
+              </p>
+              <h1 className="mt-0.5 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
+                {displayName} – Team corners
+              </h1>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
+            Team corners focus on how many corners {displayName} win in a match. This page looks at roughly the last 10 games from
+            their current season (in tracked competitions) to show how often they go over 3.5, 4.5 and 5.5 team corners and how their
+            corner output differs at home vs away.
+          </p>
+        </header>
+
+        {/* Over 3.5, 4.5, 5.5 team corners (last ~10 games) */}
+        <section
+          id="corners-season-stats"
+          className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        >
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+            Over 3.5, 4.5 and 5.5 team corners (last {sampleSize || "0"} games)
+          </h2>
+          <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+            Share of {displayName}&apos;s recent games (up to the last 10) where <strong>their own</strong> corners total went over each team corners line (opponent corners are not included).
+          </p>
+          {sampleSize === 0 ? (
+            <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-500">
+              No recent games with team corners data yet.
+            </p>
+          ) : (
+            <div className="mt-3 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3 dark:border-neutral-700 dark:bg-neutral-800/50">
+                <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Over 3.5 corners</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-neutral-900 dark:text-neutral-50">
+                  {over35Pct != null ? `${over35Pct.toFixed(1)}%` : "—"}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-500">
+                  {over35Count} of {sampleSize} games
+                </p>
+              </div>
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3 dark:border-neutral-700 dark:bg-neutral-800/50">
+                <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Over 4.5 corners</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-neutral-900 dark:text-neutral-50">
+                  {over45Pct != null ? `${over45Pct.toFixed(1)}%` : "—"}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-500">
+                  {over45Count} of {sampleSize} games
+                </p>
+              </div>
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3 dark:border-neutral-700 dark:bg-neutral-800/50">
+                <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Over 5.5 corners</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-neutral-900 dark:text-neutral-50">
+                  {over55Pct != null ? `${over55Pct.toFixed(1)}%` : "—"}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-500">
+                  {over55Count} of {sampleSize} games
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Home vs Away corners */}
+        {homeGames > 0 || awayGames > 0 ? (
+          <section
+            id="corners-home-away"
+            className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+          >
+            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+              Home vs away team corners
+            </h2>
+          <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+            Average <strong>corners won by {displayName}</strong> per match at home vs away (from recent results). This does not include opponent corners.
+            </p>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3 dark:border-neutral-700 dark:bg-neutral-800/50">
+                <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">At home</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-neutral-900 dark:text-neutral-50">
+                  {homeAvg != null ? homeAvg.toFixed(2) : "—"}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-500">avg corners · {homeGames} games</p>
+              </div>
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3 dark:border-neutral-700 dark:bg-neutral-800/50">
+                <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Away</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-neutral-900 dark:text-neutral-50">
+                  {awayAvg != null ? awayAvg.toFixed(2) : "—"}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-500">avg corners · {awayGames} games</p>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        <section
+          id="corners-about"
+          className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        >
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+            About team corners and this page
+          </h2>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            <strong>Team corners</strong> track how many corners a single team wins in a match. Markets like over 4.5 or over 5.5 <strong>{displayName} corners</strong>
+            are common in bet builders, especially for attacking sides who pin opponents back. This page only looks at corners taken by {displayName} in our
+            tracked competitions for {data.season} to show how often they clear popular corners lines and how their corner output shifts between home and away matches.
+          </p>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            Estimates are based on season averages and are for information only, not a prediction model or betting advice.
+          </p>
+          <Link
+            href={`/teams/${canonicalSlug}`}
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+          >
+            {displayName} stats &amp; form
+            <span aria-hidden>→</span>
+          </Link>
+        </section>
+      </main>
+    </div>
+  );
+}
+
