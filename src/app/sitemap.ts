@@ -185,6 +185,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.6,
     });
+    // League market pages for competitions that have league-level stats.
+    entries.push(
+      {
+        url: `${baseUrl}/leagues/${slug}/markets/btts`,
+        lastModified: lastmodStats,
+        changeFrequency: "daily",
+        priority: 0.6,
+      },
+      {
+        url: `${baseUrl}/leagues/${slug}/markets/total-goals`,
+        lastModified: lastmodStats,
+        changeFrequency: "daily",
+        priority: 0.6,
+      },
+      {
+        url: `${baseUrl}/leagues/${slug}/markets/corners`,
+        lastModified: lastmodStats,
+        changeFrequency: "daily",
+        priority: 0.6,
+      },
+      {
+        url: `${baseUrl}/leagues/${slug}/markets/cards`,
+        lastModified: lastmodStats,
+        changeFrequency: "daily",
+        priority: 0.6,
+      },
+    );
   }
 
   // Team pages for top leagues only (teams with season stats in our tracked competitions).
@@ -229,6 +256,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           changeFrequency: "daily",
           priority: 0.7,
         });
+        // Team market pages (BTTS, total goals, corners, cards) for teams we have season stats for.
+        entries.push(
+          {
+            url: `${baseUrl}/teams/${slug}/markets/btts`,
+            lastModified: lastmod,
+            changeFrequency: "daily",
+            priority: 0.6,
+          },
+          {
+            url: `${baseUrl}/teams/${slug}/markets/total-goals`,
+            lastModified: lastmod,
+            changeFrequency: "daily",
+            priority: 0.6,
+          },
+          {
+            url: `${baseUrl}/teams/${slug}/markets/corners`,
+            lastModified: lastmod,
+            changeFrequency: "daily",
+            priority: 0.6,
+          },
+          {
+            url: `${baseUrl}/teams/${slug}/markets/cards`,
+            lastModified: lastmod,
+            changeFrequency: "daily",
+            priority: 0.6,
+          },
+        );
       }
     }
   } catch (err) {
