@@ -150,11 +150,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   entries.push(
     { url: `${baseUrl}/fixtures/past`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${baseUrl}/fixtures/upcoming`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${baseUrl}/fixtures/live`, lastModified: now, changeFrequency: "hourly", priority: 0.7 },
   );
 
-  // About page.
+  // About & contact pages.
   entries.push({
     url: `${baseUrl}/about`,
+    lastModified: now,
+    changeFrequency: "monthly",
+    priority: 0.4,
+  });
+  entries.push({
+    url: `${baseUrl}/contact`,
     lastModified: now,
     changeFrequency: "monthly",
     priority: 0.4,

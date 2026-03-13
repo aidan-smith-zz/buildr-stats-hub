@@ -422,9 +422,12 @@ export function TodayFixturesList({
         </section>
 
         <section className="mt-14 border-t border-neutral-200 pt-12 dark:border-neutral-800">
-          <h2 className="mb-6 text-center text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
-            Explore more
+          <h2 className="mb-2 text-center text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+            Explore more with <span className="font-semibold">stats</span>Buildr
           </h2>
+          <p className="mb-6 text-center text-xs text-neutral-500 dark:text-neutral-400 sm:text-[13px]">
+            Go beyond the fixture list: see today&apos;s leaders, form, league tables and deeper stats to support your bet builder ideas.
+          </p>
           <div className="grid gap-6 sm:grid-cols-2">
             <NavLinkWithOverlay
               href={`/fixtures/${todayKey}/ai-insights`}
@@ -450,7 +453,7 @@ export function TodayFixturesList({
                 Matchday insights
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-                Which players average the most yellow cards? Which teams have the highest xG or corners per match? Data leaders across today&apos;s fixtures.
+                Which players average the most yellow cards? Which teams have the highest xG or corners per match? See today&apos;s leaders across key stats.
               </p>
               <span className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200">
                 View matchday insights →
@@ -464,7 +467,7 @@ export function TodayFixturesList({
                 Form table
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-                Last 5, last 10 and season form for all teams playing today. Sortable by goals, corners, cards and more.
+                Last 5, last 10 and season form for all teams playing today. Quickly compare goals, corners, cards and more between sides.
               </p>
               <span className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200">
                 View form table →
@@ -477,14 +480,46 @@ export function TodayFixturesList({
               italic={false}
             >
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                League tables &amp; standings
+                League tables &amp; stats hubs
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-                Premier League, Championship, Scottish Premiership, League One, League Two, Champions League and Europa League. Current season points, goal difference and next fixtures.
+                Premier League, Championship, Scottish Premiership, League One, League Two, Champions League and Europa League. Standings, stats hubs and links to league markets.
               </p>
               <span className="mt-4 inline-block rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-500 dark:bg-sky-500 dark:hover:bg-sky-400">
-                View all league tables →
+                View league stats &amp; tables →
               </span>
+            </NavLinkWithOverlay>
+          </div>
+        </section>
+
+        <section className="mt-10 space-y-3 text-xs text-neutral-600 dark:text-neutral-400 sm:text-sm">
+          <h3 className="text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+            More from <span className="font-semibold">stats</span>Buildr
+          </h3>
+          <div className="flex flex-wrap justify-center gap-2">
+            <NavLinkWithOverlay
+              href="/teams/all"
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm transition hover:border-sky-400 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-emerald-400 sm:text-sm"
+            >
+              Team stats &amp; markets
+            </NavLinkWithOverlay>
+            <NavLinkWithOverlay
+              href="/leagues/all"
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm transition hover:border-sky-400 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-emerald-400 sm:text-sm"
+            >
+              League stats &amp; markets
+            </NavLinkWithOverlay>
+            <NavLinkWithOverlay
+              href="/about"
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm transition hover:border-sky-400 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-emerald-400 sm:text-sm"
+            >
+              About <span className="font-semibold">stats</span>Buildr
+            </NavLinkWithOverlay>
+            <NavLinkWithOverlay
+              href="/contact"
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm transition hover:border-sky-400 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-emerald-400 sm:text-sm"
+            >
+              Contact <span className="font-semibold">stats</span>Buildr
             </NavLinkWithOverlay>
           </div>
         </section>

@@ -144,7 +144,10 @@ export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
 
           <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
           <Link href="/about" onClick={closeMenu} className={linkClass} role="menuitem">
-            About statsBuildr
+            About <span className="font-semibold">stats</span>Buildr
+          </Link>
+          <Link href="/contact" onClick={closeMenu} className={linkClass} role="menuitem">
+            Contact <span className="font-semibold">stats</span>Buildr
           </Link>
         </nav>
       )}
