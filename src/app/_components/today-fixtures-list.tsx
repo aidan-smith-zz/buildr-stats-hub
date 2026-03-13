@@ -293,6 +293,12 @@ export function TodayFixturesList({
                     >
                       ← Past fixtures (14 days)
                     </NavLinkWithOverlay>
+                    <NavLinkWithOverlay
+                      href="/fixtures/live"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 shadow-sm transition hover:border-emerald-400 hover:text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900 dark:text-emerald-200 dark:hover:border-emerald-500 sm:text-sm"
+                    >
+                      Live scores &amp; in-play stats →
+                    </NavLinkWithOverlay>
                   </div>
                 </div>
               </div>
