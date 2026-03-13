@@ -60,7 +60,13 @@ export async function GET(_request: Request, { params }: RouteParams) {
   const kickoff = typeof stats.fixture.date === "string" ? new Date(stats.fixture.date) : stats.fixture.date;
   const inLineupWindow = isWithinLineupFetchWindow(kickoff, new Date());
 
-  if (inLineupWindow && !stats.hasLineup) {
+  // Always merge any existing lineup into stats so /live and match pages see it,
+  // even if it was fetched earlier or outside the current lineup window.
+  let lineupByTeam = await getLineupForFixture(id);
+
+  // If we're within the safe fetch window, there is no lineup yet in DB, and stats
+  // still report hasLineup=false, trigger a one-off fetch + store.
+  if (inLineupWindow && !stats.hasLineup && lineupByTeam.size === 0) {
     const fixture = await prisma.fixture.findUnique({
       where: { id },
       include: { homeTeam: true, awayTeam: true },
@@ -75,11 +81,12 @@ export async function GET(_request: Request, { params }: RouteParams) {
         fixture.homeTeam.apiId,
         fixture.awayTeam.apiId,
       );
-      const lineupByTeam = await getLineupForFixture(id);
-      if (lineupByTeam.size > 0) {
-        stats = await mergeLineupIntoStats(stats, lineupByTeam);
-      }
+      lineupByTeam = await getLineupForFixture(id);
     }
+  }
+
+  if (lineupByTeam.size > 0 && !stats.hasLineup) {
+    stats = await mergeLineupIntoStats(stats, lineupByTeam);
   }
 
   const cacheControl =

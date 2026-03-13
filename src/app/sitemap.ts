@@ -101,10 +101,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const home = f.homeTeam.shortName ?? f.homeTeam.name;
       const away = f.awayTeam.shortName ?? f.awayTeam.name;
       const match = matchSlug(home, away);
+      const fixtureLastmod = fixtureLastmodById.get(f.id) ?? todayLastmod;
       entries.push({
         url: `${baseUrl}/fixtures/${dateKey}/${leagueSlug}/${match}`,
-        lastModified: fixtureLastmodById.get(f.id) ?? todayLastmod,
+        lastModified: fixtureLastmod,
         changeFrequency: "daily",
+        priority: 0.8,
+      });
+      // Live match URL: helps Google discover "X vs Y live" pages during matches.
+      entries.push({
+        url: `${baseUrl}/fixtures/${dateKey}/${leagueSlug}/${match}/live`,
+        lastModified: fixtureLastmod,
+        changeFrequency: "hourly",
         priority: 0.8,
       });
     }
@@ -146,33 +154,39 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] Failed to fetch upcoming fixtures:", err);
   }
 
-  // Static fixture hub pages.
+  // Fixture hub pages (high value for "live scores", "upcoming fixtures", "past results").
   entries.push(
-    { url: `${baseUrl}/fixtures/past`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
-    { url: `${baseUrl}/fixtures/upcoming`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
-    { url: `${baseUrl}/fixtures/live`, lastModified: now, changeFrequency: "hourly", priority: 0.7 },
+    { url: `${baseUrl}/fixtures/past`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
+    { url: `${baseUrl}/fixtures/upcoming`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
+    { url: `${baseUrl}/fixtures/live`, lastModified: now, changeFrequency: "hourly", priority: 0.8 },
   );
 
-  // About & contact pages.
+  // About & contact (trust and discovery).
   entries.push({
     url: `${baseUrl}/about`,
     lastModified: now,
     changeFrequency: "monthly",
-    priority: 0.4,
+    priority: 0.5,
   });
   entries.push({
     url: `${baseUrl}/contact`,
     lastModified: now,
     changeFrequency: "monthly",
-    priority: 0.4,
+    priority: 0.5,
   });
 
-  // Leagues landing page.
+  // Hub pages: leagues and teams index (strong internal linking targets).
   entries.push({
     url: `${baseUrl}/leagues/all`,
     lastModified: now,
     changeFrequency: "daily",
-    priority: 0.7,
+    priority: 0.8,
+  });
+  entries.push({
+    url: `${baseUrl}/teams/all`,
+    lastModified: now,
+    changeFrequency: "daily",
+    priority: 0.8,
   });
 
   // League standings and stats hub pages (one per standings league).
