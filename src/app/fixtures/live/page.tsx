@@ -11,11 +11,11 @@ export const dynamic = "force-dynamic";
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 const FIXTURES_TZ = "Europe/London";
 
-/** statusShort values that mean the match has finished (don't treat as live). */
+/** statusShort values that mean the match has finished (don't treat as live list candidates).
+ * Extra time (AET) and penalties (PEN) are kept in the live list.
+ */
 const LIVE_FINISHED_STATUSES = new Set([
   "FT",
-  "AET",
-  "PEN",
   "ABD",
   "AWD",
   "WO",
@@ -119,6 +119,16 @@ export default async function LiveFixturesPage() {
         elapsedMinutes?: number | null;
         statusShort?: string;
       };
+      const statusUpper = (json.statusShort ?? "").toUpperCase();
+      const isEnded =
+        statusUpper.length > 0 && LIVE_FINISHED_STATUSES.has(statusUpper);
+
+      // If the live endpoint reports a finished status (FT, AET, PEN, etc.),
+      // do not show this fixture on the live dashboard.
+      if (isEnded) {
+        continue;
+      }
+
       if (json.live && json.homeGoals != null && json.awayGoals != null) {
         liveWithScores.push({
           fixture,
