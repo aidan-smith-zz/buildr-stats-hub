@@ -11,6 +11,9 @@ export const dynamic = "force-dynamic";
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 const FIXTURES_TZ = "Europe/London";
 
+/** Max concurrent /api/fixtures/[id]/live requests per page load to stay under external API rate limits (300/min) with 90s TTL. */
+const LIVE_FETCH_BATCH_SIZE = 50;
+
 /** statusShort values that mean the match has finished (don't treat as live list candidates).
  * Extra time (AET) and penalties (PEN) are kept in the live list.
  */
@@ -98,52 +101,59 @@ export default async function LiveFixturesPage() {
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
 
-  // For any live fixture, ensure the live score cache is warm and up to date
-  // by calling the existing live API endpoint (which manages TTL and DB updates).
+  // Fetch live scores in batches of LIVE_FETCH_BATCH_SIZE to avoid bursting
+  // external API rate limit when many fixtures are live and cache is cold.
+  type LiveJson = {
+    live?: boolean;
+    homeGoals?: number | null;
+    awayGoals?: number | null;
+    elapsedMinutes?: number | null;
+    statusShort?: string;
+  } | null;
+  const liveResults: { fixture: FixtureSummary; json: LiveJson }[] = [];
+  for (let i = 0; i < baseLiveCandidates.length; i += LIVE_FETCH_BATCH_SIZE) {
+    const batch = baseLiveCandidates.slice(i, i + LIVE_FETCH_BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map(async (fixture) => {
+        try {
+          const res = await fetch(`${BASE_URL}/api/fixtures/${fixture.id}/live`, {
+            cache: "no-store",
+          });
+          if (!res.ok) return { fixture, json: null };
+          const json = (await res.json()) as LiveJson;
+          return { fixture, json: json ?? null };
+        } catch {
+          return { fixture, json: null };
+        }
+      }),
+    );
+    liveResults.push(...batchResults);
+  }
+
   const liveWithScores: { fixture: FixtureSummary; liveScore: LiveScore | null }[] =
     [];
+  for (const { fixture, json } of liveResults) {
+    if (!json) {
+      liveWithScores.push({ fixture, liveScore: null });
+      continue;
+    }
+    const statusUpper = (json.statusShort ?? "").toUpperCase();
+    const isEnded =
+      statusUpper.length > 0 && LIVE_FINISHED_STATUSES.has(statusUpper);
+    if (isEnded) continue;
 
-  for (const fixture of baseLiveCandidates) {
-    try {
-      const res = await fetch(`${BASE_URL}/api/fixtures/${fixture.id}/live`, {
-        cache: "no-store",
+    if (json.live && json.homeGoals != null && json.awayGoals != null) {
+      liveWithScores.push({
+        fixture,
+        liveScore: {
+          homeGoals: Number(json.homeGoals),
+          awayGoals: Number(json.awayGoals),
+          elapsedMinutes:
+            json.elapsedMinutes != null ? Number(json.elapsedMinutes) : null,
+          statusShort: json.statusShort ?? "?",
+        },
       });
-      if (!res.ok) {
-        liveWithScores.push({ fixture, liveScore: null });
-        continue;
-      }
-      const json = (await res.json()) as {
-        live?: boolean;
-        homeGoals?: number | null;
-        awayGoals?: number | null;
-        elapsedMinutes?: number | null;
-        statusShort?: string;
-      };
-      const statusUpper = (json.statusShort ?? "").toUpperCase();
-      const isEnded =
-        statusUpper.length > 0 && LIVE_FINISHED_STATUSES.has(statusUpper);
-
-      // If the live endpoint reports a finished status (FT, AET, PEN, etc.),
-      // do not show this fixture on the live dashboard.
-      if (isEnded) {
-        continue;
-      }
-
-      if (json.live && json.homeGoals != null && json.awayGoals != null) {
-        liveWithScores.push({
-          fixture,
-          liveScore: {
-            homeGoals: Number(json.homeGoals),
-            awayGoals: Number(json.awayGoals),
-            elapsedMinutes:
-              json.elapsedMinutes != null ? Number(json.elapsedMinutes) : null,
-            statusShort: json.statusShort ?? "?",
-          },
-        });
-      } else {
-        liveWithScores.push({ fixture, liveScore: null });
-      }
-    } catch {
+    } else {
       liveWithScores.push({ fixture, liveScore: null });
     }
   }
