@@ -1610,11 +1610,18 @@ export async function getFixtureStats(
   };
 }
 
-/** Cached fixture stats (7h). Used by GET /api/fixtures/[id]/stats so repeat requests avoid full recompute. */
+/** Cached fixture stats (7h). Used when outside the lineup/short-cache window. */
 export const getFixtureStatsCached = unstable_cache(
   (fixtureId: number) => getFixtureStats(fixtureId, { sequential: true }),
   ["fixture-stats"],
   { revalidate: 25200 },
+);
+
+/** Short TTL (90s) for use only when in lineup window (30 min before → 30 min after kickoff). Lineup can then appear; after 30 min into game we use long cache again. */
+export const getFixtureStatsCachedShort = unstable_cache(
+  (fixtureId: number) => getFixtureStats(fixtureId, { sequential: true }),
+  ["fixture-stats-short"],
+  { revalidate: 90 },
 );
 
 type LineupByTeam = Map<number, Map<number, "starting" | "substitute">>;

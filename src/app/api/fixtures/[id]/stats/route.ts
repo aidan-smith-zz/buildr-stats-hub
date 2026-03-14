@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { withPoolRetry } from "@/lib/poolRetry";
 import {
   getFixtureStatsCached,
+  getFixtureStatsCachedShort,
   mergeLineupIntoStats,
 } from "@/lib/statsService";
-import { ensureLineupIfWithinWindow, getLineupForFixture, isWithinLineupFetchWindow } from "@/lib/lineupService";
+import { ensureLineupIfWithinWindow, getLineupForFixture, isWithinLineupFetchWindow, isWithinLineupShortCacheWindow } from "@/lib/lineupService";
 import { prisma } from "@/lib/prisma";
 
 const DEBUG_FIXTURE = process.env.DEBUG_FIXTURE === "1" || process.env.DEBUG_FIXTURE === "true";
@@ -35,7 +36,20 @@ export async function GET(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Invalid fixture id" }, { status: 400 });
   }
 
-  let stats = await withPoolRetry(() => getFixtureStatsCached(id));
+  const now = new Date();
+  const fixtureForDate = await prisma.fixture.findUnique({
+    where: { id },
+    select: { date: true },
+  });
+  const kickoffForCache = fixtureForDate?.date ? new Date(fixtureForDate.date) : null;
+  const useShortCache =
+    kickoffForCache != null &&
+    !Number.isNaN(kickoffForCache.getTime()) &&
+    isWithinLineupShortCacheWindow(kickoffForCache, now);
+
+  let stats = await withPoolRetry(() =>
+    useShortCache ? getFixtureStatsCachedShort(id) : getFixtureStatsCached(id),
+  );
 
   if (!stats) {
     const fixtureCount = await prisma.fixture.count();

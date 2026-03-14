@@ -17,6 +17,15 @@ export function isWithinLineupFetchWindow(kickoffTime: Date, now: Date = new Dat
   return (now >= start && now <= kickoffTime) || (now >= kickoffTime && now <= end);
 }
 
+/** 30 min before kickoff → 30 min after. Use short stats cache in this window so lineup can appear; after that use long cache. */
+const SHORT_CACHE_MINUTES_AFTER_KICKOFF = 30;
+
+export function isWithinLineupShortCacheWindow(kickoffTime: Date, now: Date = new Date()): boolean {
+  const start = new Date(kickoffTime.getTime() - WINDOW_MINUTES_BEFORE_KICKOFF * 60 * 1000);
+  const end = new Date(kickoffTime.getTime() + SHORT_CACHE_MINUTES_AFTER_KICKOFF * 60 * 1000);
+  return now >= start && now <= end;
+}
+
 /**
  * If lineup already exists in DB for this fixture, do nothing.
  * If lineup does NOT exist and we're within the fetch window (30 min before kickoff, or up to 2h after kickoff), fetch once from API and store.
