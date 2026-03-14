@@ -124,3 +124,13 @@ So under load you get: several requests in flight, some of them using many conne
    - Add short logging (e.g. route name + “pool retry” or “pool error”) to see which paths hit P2024 most. That will confirm whether it’s the live endpoint, stats, or something else, and prioritize batching/sequential work there.
 
 Implementing (2) and (3) – pooler + batching/sequential in `getLiveScoresForToday` (and any other bulk parallel Prisma usage) – will address the main drivers of the error when busy.
+
+---
+
+## 8. If the site is down after pool-related changes
+
+1. **Check deployment logs** (Vercel → Project → Logs / Functions) for the real error: P2024, 500, timeout, or something else.
+2. **Revert retries on the critical path** – `withPoolRetry` was removed from `getOrRefreshTodayFixturesUncached`, `getFixturesForDateFromDbOnly`, and `getTodayFixturesFromDbOnly` so the home/fixture pages don’t depend on retries. Retries remain only on API routes. If you re-added them to the fixture service and the site went down, remove them from those three again.
+3. **Increase pool size** – In production `DATABASE_URL`, add `&connection_limit=10` (or higher) if your pooler/plan allows (e.g. Supabase). No code change; just the URL.
+4. **Confirm DATABASE_URL** – Correct pooler URL (e.g. Supabase port 6543), `?pgbouncer=true`, no `connection_limit=1`, password URL-encoded.
+5. **Keep efficiency changes** – Sequential DB calls (one at a time in hot paths) and batched live-score upserts stay; they reduce concurrent connection use and don’t cause timeouts by themselves.

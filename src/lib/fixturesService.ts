@@ -9,7 +9,6 @@ import {
   getTeamExternalId,
   type RawFixture,
 } from "@/lib/footballApi";
-import { withPoolRetry } from "@/lib/poolRetry";
 import { leagueToSlug, matchSlug, nextDateKeys, pastDateKeys, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
 import type { Fixture, Team } from "@prisma/client";
@@ -410,13 +409,11 @@ export async function clearTodayFixturesCacheAndData(now: Date = new Date()): Pr
 export async function getTodayFixturesFromDbOnly(now: Date = new Date()): Promise<FixtureSummary[]> {
   const dateKey = getTodayDateKey(now);
   const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
-  const rows = await withPoolRetry(() =>
-    prisma.fixture.findMany({
-      where: { date: { gte: dayStart, lte: spilloverEnd } },
-      orderBy: { date: "asc" },
-      include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
-    }),
-  );
+  const rows = await prisma.fixture.findMany({
+    where: { date: { gte: dayStart, lte: spilloverEnd } },
+    orderBy: { date: "asc" },
+    include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
+  });
   return rows.map(mapFixtureToSummary);
 }
 
@@ -429,15 +426,13 @@ export async function getFixturesForDateFromDbOnly(dateKey: string): Promise<Fix
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return [];
   return unstable_cache(
     async () => {
-      return withPoolRetry(async () => {
-        const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
-        const rows = await prisma.fixture.findMany({
-          where: { date: { gte: dayStart, lte: spilloverEnd } },
-          orderBy: { date: "asc" },
-          include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
-        });
-        return rows.map(mapFixtureToSummary);
+      const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
+      const rows = await prisma.fixture.findMany({
+        where: { date: { gte: dayStart, lte: spilloverEnd } },
+        orderBy: { date: "asc" },
+        include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
       });
+      return rows.map(mapFixtureToSummary);
     },
     ["fixtures-date", dateKey],
     { revalidate: 60 }
@@ -574,7 +569,6 @@ export async function getOrRefreshTodayFixtures(now: Date = new Date()): Promise
 }
 
 async function getOrRefreshTodayFixturesUncached(now: Date): Promise<FixtureSummary[]> {
-  return withPoolRetry(async () => {
   const dateKey = getTodayDateKey(now);
   const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
 
@@ -753,7 +747,6 @@ async function getOrRefreshTodayFixturesUncached(now: Date): Promise<FixtureSumm
   });
 
   return refreshPromise;
-  });
 }
 
 type FixtureWithTeams = Fixture & {
