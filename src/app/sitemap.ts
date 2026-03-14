@@ -7,6 +7,7 @@ import {
   LEAGUE_DISPLAY_NAMES,
   REQUIRED_LEAGUE_IDS,
   STANDINGS_LEAGUE_SLUG_BY_ID,
+  TOP_LEAGUE_IDS,
 } from "@/lib/leagues";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import { prisma } from "@/lib/prisma";
@@ -15,9 +16,7 @@ import { makeTeamSlug } from "@/lib/teamSlugs";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
-// Top leagues we create dedicated team pages for (must stay in sync with teamPageService).
-const TOP_TEAM_LEAGUE_IDS = [39, 40, 179, 2, 3] as const;
-const TOP_TEAM_LEAGUE_KEYS = TOP_TEAM_LEAGUE_IDS.map((id) => LEAGUE_DISPLAY_NAMES[id]);
+const TOP_TEAM_LEAGUE_KEYS = TOP_LEAGUE_IDS.map((id) => LEAGUE_DISPLAY_NAMES[id]);
 
 export const dynamic = "force-dynamic";
 /** Prevent sitemap from being cached so it reflects latest fixtures after warm-today. */
@@ -243,7 +242,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         season: API_SEASON,
         OR: [
           { league: { in: TOP_TEAM_LEAGUE_KEYS } },
-          { leagueId: { in: TOP_TEAM_LEAGUE_IDS as unknown as number[] } },
+          { leagueId: { in: TOP_LEAGUE_IDS as unknown as number[] } },
         ],
       },
       select: { teamId: true, updatedAt: true },

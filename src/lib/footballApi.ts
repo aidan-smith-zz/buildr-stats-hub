@@ -355,6 +355,8 @@ export async function fetchTodayFixtures(
   const leagueNameToId: Record<string, number> = {
     "Premier League": 39,
     "Championship": 40,
+    "La Liga": 140,
+    "Spanish La Liga": 140,
     "English League Championship": 40,
     "EFL Championship": 40,
     "The Championship": 40,
@@ -772,6 +774,39 @@ export async function fetchLiveFixture(
     elapsedMinutes,
     statusShort: status?.short ?? "?",
   };
+}
+
+/**
+ * Fetch all currently live fixtures in one API call. Use for the live dashboard instead of N calls.
+ * GET /fixtures?live=all
+ */
+export async function fetchAllLiveFixtures(): Promise<
+  { apiId: number; homeGoals: number; awayGoals: number; elapsedMinutes: number | null; statusShort: string }[]
+> {
+  const path = "/fixtures";
+  const raw = await request<ApiFootballFixtureById>(path, { live: "all" });
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object" && Array.isArray((raw as { live?: unknown[] }).live)
+      ? ((raw as { live: ApiFootballFixtureById[] }).live)
+      : [];
+  if (list.length === 0) return [];
+  return list.map((data) => {
+    const goals = data.goals;
+    const status = data.fixture?.status;
+    const homeGoals = goals?.home != null ? Number(goals.home) : 0;
+    const awayGoals = goals?.away != null ? Number(goals.away) : 0;
+    const elapsedMinutes = status?.elapsed != null ? Number(status.elapsed) : null;
+    const idRaw = data.fixture?.id ?? (data as { id?: number }).id;
+    const apiId = idRaw != null ? Number(idRaw) : 0;
+    return {
+      apiId,
+      homeGoals,
+      awayGoals,
+      elapsedMinutes,
+      statusShort: status?.short ?? "?",
+    };
+  });
 }
 
 /**

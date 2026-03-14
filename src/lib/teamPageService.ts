@@ -1,12 +1,10 @@
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { API_SEASON } from "@/lib/footballApi";
-import { LEAGUE_DISPLAY_NAMES } from "@/lib/leagues";
+import { LEAGUE_DISPLAY_NAMES, TOP_LEAGUE_IDS } from "@/lib/leagues";
 import { makeTeamSlug, normalizeTeamSlug } from "@/lib/teamSlugs";
 import { todayDateKey } from "@/lib/slugs";
 
-// Top leagues: English Premier League (39), Championship (40), Scottish Premiership (179), Champions League (2), Europa League (3)
-const TOP_LEAGUE_IDS = [39, 40, 179, 2, 3] as const;
 const TOP_LEAGUE_KEYS = TOP_LEAGUE_IDS.map((id) => LEAGUE_DISPLAY_NAMES[id]);
 /** TeamFixtureCache stores league as String(leagueId); use for recent fixtures from warm data. */
 const TOP_LEAGUE_CACHE_KEYS = TOP_LEAGUE_IDS.map((id) => String(id));

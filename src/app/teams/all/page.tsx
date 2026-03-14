@@ -4,6 +4,7 @@ import { unstable_cache } from "next/cache";
 import {
   LEAGUE_DISPLAY_NAMES,
   LEAGUE_GROUP_ORDER,
+  TOP_LEAGUE_IDS,
 } from "@/lib/leagues";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
@@ -15,8 +16,6 @@ export const dynamic = "force-dynamic";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
-/** Leagues we create dedicated team pages for (must stay in sync with teamPageService / sitemap). */
-const TOP_TEAM_LEAGUE_IDS = [39, 40, 179, 2, 3] as const;
 
 export type TeamAllEntry = {
   id: number;
@@ -52,7 +51,7 @@ const getTeamsAllPageData = unstable_cache(
         .filter(
           (r) =>
             r.leagueId != null &&
-            (TOP_TEAM_LEAGUE_IDS as readonly number[]).includes(r.leagueId),
+            (TOP_LEAGUE_IDS as readonly number[]).includes(r.leagueId),
         )
         .map((r) => r.teamId),
     );

@@ -849,6 +849,8 @@ async function fetchAndStorePlayerStats(
 const LEAGUE_ID_MAP: Record<string, number> = {
   "Premier League": 39,
   "Championship": 40,
+  "La Liga": 140,
+  "Spanish La Liga": 140,
   "English League Championship": 40,
   "EFL Championship": 40,
   "The Championship": 40,

@@ -1,3 +1,4 @@
+import { isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { decodeHtmlEntities } from "@/lib/text";
 import type { FixtureSummary } from "@/lib/statsService";
 import type { FixtureStatsResponse } from "@/lib/statsService";
@@ -77,7 +78,9 @@ export function PastFixtureView({ fixture, score, stats }: Props) {
   const awayName = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
   const homeCrest = fixture.homeTeam.crestUrl ?? null;
   const awayCrest = fixture.awayTeam.crestUrl ?? null;
-  const hasLineup = Boolean(stats?.hasLineup && stats?.teams?.length >= 2);
+  const hasLineup =
+    Boolean(stats?.hasLineup && stats?.teams?.length >= 2) &&
+    !isTeamStatsOnlyLeague(fixture.leagueId ?? null);
 
   return (
     <div className="space-y-6">

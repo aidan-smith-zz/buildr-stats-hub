@@ -126,6 +126,18 @@ export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
           <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
           <p className={sectionLabelClass}>Fixtures</p>
           <Link
+            href="/fixtures/live"
+            onClick={closeMenu}
+            className="flex items-center gap-2 px-4 py-2 text-left text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/40"
+            role="menuitem"
+          >
+            <span
+              className="h-2 w-2 flex-shrink-0 rounded-full bg-emerald-500 animate-pulse"
+              aria-hidden
+            />
+            Live
+          </Link>
+          <Link
             href="/fixtures/upcoming"
             onClick={closeMenu}
             className={linkClass}

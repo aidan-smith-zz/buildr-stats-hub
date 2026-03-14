@@ -13,7 +13,7 @@ import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import { makeTeamSlug } from "@/lib/teamSlugs";
 import type { RawFixture } from "@/lib/footballApi";
 import type { FixtureSummary } from "@/lib/statsService";
-import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID, isTeamStatsOnlyLeague } from "@/lib/leagues";
+import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID, TOP_LEAGUE_IDS, isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { TodayFixturesDashboard } from "@/app/_components/today-fixtures-dashboard";
 import { Last5MatchesTile } from "@/app/_components/last5-matches-tile";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
@@ -409,7 +409,7 @@ export default async function FixtureMatchPage({
                     {league ?? "Football"} · {displayDate}
                   </p>
                   <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-                    {fixture.leagueId != null && [39, 40, 179, 2, 3].includes(fixture.leagueId) ? (
+                    {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) ? (
                       <NavLinkWithOverlay
                         href={`/teams/${makeTeamSlug(home ?? fixture.homeTeam.name)}`}
                         className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
@@ -421,7 +421,7 @@ export default async function FixtureMatchPage({
                       home
                     )}
                     <span className="mx-2 text-neutral-400 dark:text-neutral-500">vs</span>
-                    {fixture.leagueId != null && [39, 40, 179, 2, 3].includes(fixture.leagueId) ? (
+                    {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) ? (
                       <NavLinkWithOverlay
                         href={`/teams/${makeTeamSlug(away ?? fixture.awayTeam.name)}`}
                         className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
@@ -433,7 +433,7 @@ export default async function FixtureMatchPage({
                       away
                     )}
                   </h1>
-                  {fixture.leagueId != null && [39, 40, 179, 2, 3].includes(fixture.leagueId) && (
+                  {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) && (
                     <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
                       Tap or click a team name to see their season stats and form.
                     </p>
@@ -803,7 +803,7 @@ export default async function FixtureMatchPage({
                 {league} · {displayDate}
               </p>
               <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-                {warmedFixture.leagueId != null && [39, 40, 179, 2, 3].includes(warmedFixture.leagueId) ? (
+                {warmedFixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(warmedFixture.leagueId) ? (
                   <NavLinkWithOverlay
                     href={`/teams/${makeTeamSlug(home ?? warmedFixture.homeTeam.name)}`}
                     className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
@@ -815,7 +815,7 @@ export default async function FixtureMatchPage({
                   home
                 )}
                 <span className="mx-2 text-neutral-400 dark:text-neutral-500">vs</span>
-                {warmedFixture.leagueId != null && [39, 40, 179, 2, 3].includes(warmedFixture.leagueId) ? (
+                {warmedFixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(warmedFixture.leagueId) ? (
                   <NavLinkWithOverlay
                     href={`/teams/${makeTeamSlug(away ?? warmedFixture.awayTeam.name)}`}
                     className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
@@ -827,7 +827,7 @@ export default async function FixtureMatchPage({
                   away
                 )}
               </h1>
-              {warmedFixture.leagueId != null && [39, 40, 179, 2, 3].includes(warmedFixture.leagueId) && (
+              {warmedFixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(warmedFixture.leagueId) && (
                 <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
                   Tap or click a team name to see their season stats and form.
                 </p>
@@ -1065,7 +1065,7 @@ export default async function FixtureMatchPage({
                     {league ?? "Football"} · {displayDate}
                   </p>
                   <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-                    {fixture.leagueId != null && [39, 40, 179, 2, 3].includes(fixture.leagueId) ? (
+                    {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) ? (
                       <NavLinkWithOverlay
                         href={`/teams/${makeTeamSlug(home ?? fixture.homeTeam.name)}`}
                         className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
@@ -1077,7 +1077,7 @@ export default async function FixtureMatchPage({
                       home
                     )}
                     <span className="mx-2 text-neutral-400 dark:text-neutral-500">vs</span>
-                    {fixture.leagueId != null && [39, 40, 179, 2, 3].includes(fixture.leagueId) ? (
+                    {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) ? (
                       <NavLinkWithOverlay
                         href={`/teams/${makeTeamSlug(away ?? fixture.awayTeam.name)}`}
                         className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
@@ -1089,7 +1089,7 @@ export default async function FixtureMatchPage({
                       away
                     )}
                   </h1>
-              {fixture.leagueId != null && [39, 40, 179, 2, 3].includes(fixture.leagueId) && (
+              {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) && (
                     <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
                       Tap or click a team name to see their season stats and form.
                     </p>
@@ -1515,7 +1515,7 @@ function TeamAndLeagueStatsSection({
     leagueId != null && STANDINGS_LEAGUE_SLUG_BY_ID[leagueId]
       ? STANDINGS_LEAGUE_SLUG_BY_ID[leagueId]
       : leagueSlug;
-  const hasTeamPages = leagueId != null && [39, 40, 179, 2, 3].includes(leagueId);
+  const hasTeamPages = leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(leagueId);
   const hasLeagueMarkets = leagueId != null && STANDINGS_LEAGUE_SLUG_BY_ID[leagueId] != null;
   const linkClass =
     "inline-flex items-center gap-1 text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300";

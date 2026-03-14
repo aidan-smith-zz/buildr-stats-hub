@@ -5,7 +5,7 @@
  * here and everything else (home page, upcoming, form edge, sitemap, crests,
  * matchday insights) will pick it up automatically.
  */
-export const BASE_REQUIRED_LEAGUE_IDS = [39, 40, 2, 3, 179, 45, 41, 42, 181] as const;
+export const BASE_REQUIRED_LEAGUE_IDS = [39, 40, 140, 2, 3, 179, 45, 41, 42, 181] as const;
 
 /** All competitions the site brings in fixtures for. */
 export const REQUIRED_LEAGUE_IDS: readonly number[] = [...BASE_REQUIRED_LEAGUE_IDS];
@@ -16,7 +16,10 @@ export const SCOTTISH_CUP_LEAGUE_ID = 181;
 export const SCOTTISH_PREMIERSHIP_LEAGUE_ID = 179;
 
 /** League IDs that have a standings table (excludes cups: FA Cup 45, Scottish Cup 181). */
-export const STANDINGS_LEAGUE_IDS: readonly number[] = [39, 40, 2, 3, 179, 41, 42];
+export const STANDINGS_LEAGUE_IDS: readonly number[] = [39, 40, 140, 2, 3, 179, 41, 42];
+
+/** Leagues that get full treatment: team pages, player stats, warming like EPL. Used for hasTeamPages, sitemap, teamPageService, teams/all. */
+export const TOP_LEAGUE_IDS = [39, 40, 140, 179, 2, 3] as const;
 
 /** Leagues that only have team stats (no player stats or lineups). */
 export const LEAGUES_WITHOUT_PLAYER_STATS: readonly number[] = [41, 42];
@@ -26,6 +29,7 @@ export const LEAGUE_ORDER: readonly number[] = [
   179, // Scottish Premiership
   39, // Premier League
   40, // Championship
+  140, // La Liga
   41, // League One
   42, // League Two
   2, // Champions League
@@ -38,6 +42,7 @@ export const LEAGUE_ORDER: readonly number[] = [
 export const LEAGUE_GROUP_ORDER: readonly number[] = [
   39, // Premier League
   40, // Championship
+  140, // La Liga
   179, // Scottish Premiership
   41, // League One
   42, // League Two
@@ -52,6 +57,7 @@ export const LEAGUE_DISPLAY_NAMES: Record<number, string> = (() => {
   const base: Record<number, string> = {
     39: "Premier League",
     40: "Championship",
+    140: "La Liga",
     41: "League One",
     42: "League Two",
     2: "Champions League",
@@ -91,6 +97,8 @@ const LEAGUE_NAME_TO_ID: Record<string, number> = (() => {
     "English League Two": 42,
     "EFL League Two": 42,
     "Scottish Cup": 181,
+    "La Liga": 140,
+    "Spanish La Liga": 140,
   };
 })();
 

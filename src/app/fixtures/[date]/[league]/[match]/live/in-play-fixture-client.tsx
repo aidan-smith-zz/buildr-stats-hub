@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
+import { isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { copyToClipboard } from "@/app/_components/share-url-button";
 import type { FixtureSummary } from "@/lib/statsService";
 import type { FixtureStatsResponse } from "@/lib/statsService";
@@ -124,10 +125,20 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
     );
   }
 
+  const kickoffDate = fixture.date ? new Date(fixture.date) : null;
+  const kickoffTime =
+    kickoffDate && !Number.isNaN(kickoffDate.getTime())
+      ? kickoffDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: FIXTURES_TZ })
+      : null;
+  // If we have no live score but kickoff is in the past (e.g. fetch failed at HT), show "Started" not "Kick-off"
+  const matchHasStarted = kickoffDate != null && !Number.isNaN(kickoffDate.getTime()) && kickoffDate.getTime() <= Date.now();
+
   const scoreLabel =
     liveScore != null
       ? `${liveScore.homeGoals} – ${liveScore.awayGoals}`
-      : null;
+      : matchHasStarted
+        ? "–"
+        : null;
   const timeLabel =
     liveScore != null
       ? liveScore.elapsedMinutes != null
@@ -138,14 +149,9 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
   const homeCrest = stats?.fixture?.homeTeam?.crestUrl ?? null;
   const awayCrest = stats?.fixture?.awayTeam?.crestUrl ?? null;
 
-  const kickoffDate = fixture.date ? new Date(fixture.date) : null;
-  const kickoffTime =
-    kickoffDate && !Number.isNaN(kickoffDate.getTime())
-      ? kickoffDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: FIXTURES_TZ })
-      : null;
   const kickoffLabel =
     kickoffTime != null
-      ? isInPlay || isEnded
+      ? isInPlay || isEnded || matchHasStarted
         ? `Started ${kickoffTime}`
         : `Kick-off ${kickoffTime}`
       : null;
@@ -213,7 +219,7 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
             <span>{fixture.league ?? "League"}</span>
             <span className="text-neutral-300 dark:text-neutral-600" aria-hidden> | </span>
             <span className={isInPlay ? "font-medium text-green-500 dark:text-green-400" : "font-medium text-neutral-500 dark:text-neutral-400"}>
-              {isEnded ? "Full time" : isInPlay ? "Live" : "Not in play"}
+              {isEnded ? "Full time" : isInPlay ? "Live" : matchHasStarted ? "Score updating…" : "Not in play"}
             </span>
             <span className="text-neutral-300 dark:text-neutral-600" aria-hidden> | </span>
             <button
@@ -229,8 +235,8 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
         </div>
       </header>
 
-      {/* Lineup tile – same as dashboard with tabs; flashes when in play */}
-      {stats?.hasLineup && stats.teams?.length >= 2 && (
+      {/* Lineup tile – hidden for team-stats-only leagues (e.g. League One/Two) */}
+      {!isTeamStatsOnlyLeague(fixture.leagueId ?? null) && stats?.hasLineup && stats.teams?.length >= 2 && (
         <section className={`rounded-b-xl border border-t-0 border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-6 p-4 ${flashClass}`}>
           <header className="border-b border-neutral-200 pb-4 dark:border-neutral-800">
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
@@ -330,7 +336,7 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
         </section>
       )}
 
-      {!stats?.hasLineup && !loading && (
+      {!isTeamStatsOnlyLeague(fixture.leagueId ?? null) && !stats?.hasLineup && !loading && (
         <section className="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
             Lineup data is not available for this fixture yet.

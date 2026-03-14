@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
-import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { isTeamStatsOnlyLeague, REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { decodeHtmlEntities } from "@/lib/text";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import type { FixtureSummary, FixtureStatsResponse } from "@/lib/statsService";
@@ -118,6 +118,10 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<PlayerSortKey>("goals");
   const [activeTab, setActiveTab] = useState<"home" | "away">("home");
+
+  const leagueIdForLineups =
+    stats?.fixture?.leagueId ?? filteredFixtures.find((f) => String(f.id) === selectedId)?.leagueId ?? null;
+  const showLineupsSection = !isTeamStatsOnlyLeague(leagueIdForLineups);
   const [lineupTab, setLineupTab] = useState<"home" | "away">("home");
   const DETAIL_HASHES = { team: "team-stats", players: "player-stats", lineups: "lineups" } as const;
   const [detailTab, setDetailTab] = useState<"team" | "players" | "lineups">("team");
@@ -259,13 +263,23 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
     const sync = () => {
       const hash = typeof window === "undefined" ? "" : window.location.hash;
       const tab = hashToTab(hash);
-      if (tab === "lineups" && (!stats?.hasLineup || !(stats?.teams?.length >= 2))) return; // don't switch to lineups if unavailable
+      if (tab === "lineups" && (!showLineupsSection || !stats?.hasLineup || !(stats?.teams?.length >= 2))) return; // don't switch to lineups if disabled or unavailable
       if (tab) setDetailTab(tab);
     };
     sync();
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
-  }, [stats?.hasLineup, stats?.teams?.length]);
+  }, [showLineupsSection, stats?.hasLineup, stats?.teams?.length]);
+
+  // When lineups are disabled for this league, leave the lineups tab and sync hash
+  useEffect(() => {
+    if (!showLineupsSection && detailTab === "lineups") {
+      setDetailTab("team");
+      if (typeof window !== "undefined" && window.location.hash === "#lineups") {
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#team-stats`);
+      }
+    }
+  }, [showLineupsSection, detailTab]);
 
   const setDetailTabWithHash = (tab: "team" | "players" | "lineups") => {
     setDetailTab(tab);
@@ -591,6 +605,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
               >
                 Player stats
               </button>
+              {showLineupsSection && (
               <button
                 type="button"
                 role="tab"
@@ -607,6 +622,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
               >
                 Line-ups
               </button>
+              )}
             </div>
           </header>
           )}
@@ -791,7 +807,7 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
               hidden={detailTab !== "lineups"}
               className={detailTab !== "lineups" ? "sr-only" : undefined}
             >
-            {detailTab === "lineups" && stats && stats.hasLineup && stats.teams?.length >= 2 && (
+            {detailTab === "lineups" && showLineupsSection && stats && stats.hasLineup && stats.teams?.length >= 2 && (
               <section aria-label="Team lineups">
                 <header className="border-b border-neutral-200 pb-4 dark:border-neutral-800">
                   <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">

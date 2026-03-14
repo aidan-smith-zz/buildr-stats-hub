@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { getFixturesForDateFromDbOnly } from "@/lib/fixturesService";
+import { getLiveScoresForToday } from "@/lib/liveScoresService";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
-import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { LEAGUE_DISPLAY_NAMES, LEAGUE_GROUP_ORDER, REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { FixtureRowLink, NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 
@@ -10,9 +11,6 @@ export const dynamic = "force-dynamic";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 const FIXTURES_TZ = "Europe/London";
-
-/** Max concurrent /api/fixtures/[id]/live requests per page load to stay under external API rate limits (300/min) with 90s TTL. */
-const LIVE_FETCH_BATCH_SIZE = 50;
 
 /** statusShort values that mean the match has finished (don't treat as live list candidates).
  * Extra time (AET) and penalties (PEN) are kept in the live list.
@@ -101,62 +99,51 @@ export default async function LiveFixturesPage() {
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
 
-  // Fetch live scores in batches of LIVE_FETCH_BATCH_SIZE to avoid bursting
-  // external API rate limit when many fixtures are live and cache is cold.
-  type LiveJson = {
-    live?: boolean;
-    homeGoals?: number | null;
-    awayGoals?: number | null;
-    elapsedMinutes?: number | null;
-    statusShort?: string;
-  } | null;
-  const liveResults: { fixture: FixtureSummary; json: LiveJson }[] = [];
-  for (let i = 0; i < baseLiveCandidates.length; i += LIVE_FETCH_BATCH_SIZE) {
-    const batch = baseLiveCandidates.slice(i, i + LIVE_FETCH_BATCH_SIZE);
-    const batchResults = await Promise.all(
-      batch.map(async (fixture) => {
-        try {
-          const res = await fetch(`${BASE_URL}/api/fixtures/${fixture.id}/live`, {
-            cache: "no-store",
-          });
-          if (!res.ok) return { fixture, json: null };
-          const json = (await res.json()) as LiveJson;
-          return { fixture, json: json ?? null };
-        } catch {
-          return { fixture, json: null };
-        }
-      }),
-    );
-    liveResults.push(...batchResults);
+  // Call live scores logic directly (no self-fetch) so it works in dev and prod.
+  const { scores: liveScoresList } = await getLiveScoresForToday();
+  const scoresByFixtureId = new Map<number, LiveScore>();
+  for (const s of liveScoresList) {
+    scoresByFixtureId.set(s.fixtureId, {
+      homeGoals: s.homeGoals,
+      awayGoals: s.awayGoals,
+      elapsedMinutes: s.elapsedMinutes,
+      statusShort: s.statusShort,
+    });
   }
 
   const liveWithScores: { fixture: FixtureSummary; liveScore: LiveScore | null }[] =
     [];
-  for (const { fixture, json } of liveResults) {
-    if (!json) {
-      liveWithScores.push({ fixture, liveScore: null });
-      continue;
-    }
-    const statusUpper = (json.statusShort ?? "").toUpperCase();
+  for (const fixture of baseLiveCandidates) {
+    const liveScore = scoresByFixtureId.get(fixture.id) ?? null;
+    const statusUpper = (liveScore?.statusShort ?? "").toUpperCase();
     const isEnded =
       statusUpper.length > 0 && LIVE_FINISHED_STATUSES.has(statusUpper);
     if (isEnded) continue;
 
-    if (json.live && json.homeGoals != null && json.awayGoals != null) {
-      liveWithScores.push({
-        fixture,
-        liveScore: {
-          homeGoals: Number(json.homeGoals),
-          awayGoals: Number(json.awayGoals),
-          elapsedMinutes:
-            json.elapsedMinutes != null ? Number(json.elapsedMinutes) : null,
-          statusShort: json.statusShort ?? "?",
-        },
-      });
-    } else {
-      liveWithScores.push({ fixture, liveScore: null });
-    }
+    liveWithScores.push({
+      fixture,
+      liveScore: liveScore ?? null,
+    });
   }
+
+  // Group by league and sort by homepage priority (LEAGUE_GROUP_ORDER).
+  const leagueOrderIndex = (leagueId: number | null) => {
+    if (leagueId == null) return LEAGUE_GROUP_ORDER.length;
+    const i = LEAGUE_GROUP_ORDER.indexOf(leagueId);
+    return i === -1 ? LEAGUE_GROUP_ORDER.length : i;
+  };
+  const byLeague = new Map<number | null, { fixture: FixtureSummary; liveScore: LiveScore | null }[]>();
+  for (const entry of liveWithScores) {
+    const id = entry.fixture.leagueId ?? null;
+    if (!byLeague.has(id)) byLeague.set(id, []);
+    byLeague.get(id)!.push(entry);
+  }
+  for (const arr of byLeague.values()) {
+    arr.sort((a, b) => new Date(a.fixture.date).getTime() - new Date(b.fixture.date).getTime());
+  }
+  const sortedLeagueIds = Array.from(byLeague.keys()).sort(
+    (a, b) => leagueOrderIndex(a) - leagueOrderIndex(b),
+  );
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -225,72 +212,88 @@ export default async function LiveFixturesPage() {
             </div>
           </section>
         ) : (
-          <section className="mt-4 space-y-4">
-            <ul className="space-y-3">
-              {liveWithScores.map(({ fixture, liveScore }) => {
-                const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
-                const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
-                const leagueSlug = leagueToSlug(fixture.league);
-                const match = matchSlug(home, away);
-                const href = `/fixtures/${todayKey}/${leagueSlug}/${match}/live`;
-                const koTime = formatKoTime(new Date(fixture.date));
-                const leagueName = fixture.league ?? "Football";
-                const scoreLabel =
-                  liveScore != null
-                    ? `${liveScore.homeGoals} – ${liveScore.awayGoals}`
-                    : null;
-                const timeLabel =
-                  liveScore != null
-                    ? liveScore.elapsedMinutes != null
-                      ? `${liveScore.elapsedMinutes}'`
-                      : liveScore.statusShort
-                    : null;
+          <section className="mt-4 space-y-8">
+            {sortedLeagueIds.map((leagueId) => {
+              const entries = byLeague.get(leagueId)!;
+              const leagueName =
+                leagueId != null
+                  ? (LEAGUE_DISPLAY_NAMES[leagueId] ?? entries[0]?.fixture.league ?? "Football")
+                  : entries[0]?.fixture.league ?? "Football";
+              return (
+                <div key={leagueId ?? "other"} className="space-y-3">
+                  <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+                    {leagueName}
+                  </h2>
+                  <ul className="space-y-3">
+                    {entries.map(({ fixture, liveScore }) => {
+                      const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
+                      const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
+                      const leagueSlug = leagueToSlug(fixture.league);
+                      const match = matchSlug(home, away);
+                      const href = `/fixtures/${todayKey}/${leagueSlug}/${match}/live`;
+                      const kickoff = new Date(fixture.date);
+                      const koTime = formatKoTime(kickoff);
+                      const matchHasStarted = !Number.isNaN(kickoff.getTime()) && kickoff.getTime() <= Date.now();
+                      const scoreLabel =
+                        liveScore != null
+                          ? `${liveScore.homeGoals} – ${liveScore.awayGoals}`
+                          : null;
+                      const timeLabel =
+                        liveScore != null
+                          ? liveScore.elapsedMinutes != null
+                            ? `${liveScore.elapsedMinutes}'`
+                            : liveScore.statusShort
+                          : null;
+                      const scoreTimeDisplay =
+                        scoreLabel != null && timeLabel != null
+                          ? `${scoreLabel} · ${timeLabel}`
+                          : matchHasStarted
+                            ? `Started ${koTime} · –`
+                            : `Kick-off ${koTime}`;
 
-                return (
-                  <FixtureRowLink
-                    key={fixture.id}
-                    href={href}
-                    className="group flex flex-col gap-1.5 rounded-2xl border border-emerald-200 bg-white px-3 py-3 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md dark:border-emerald-800/60 dark:bg-neutral-900 dark:hover:border-emerald-600/80 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-3"
-                  >
-                    <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-3">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.35)]" />
-                        Live now
-                      </span>
-                      <span className="text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400 sm:text-xs">
-                        {leagueName}
-                      </span>
-                      <span className="hidden text-xs text-neutral-500 dark:text-neutral-400 sm:inline">
-                        {koTime}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
-                      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-                        <span className="min-w-0 truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm">
-                          {home}
-                        </span>
-                        <span className="shrink-0 text-[10px] font-medium text-neutral-400 dark:text-neutral-500 sm:text-xs">
-                          vs
-                        </span>
-                        <span className="min-w-0 truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm">
-                          {away}
-                        </span>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-                        <span className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 sm:px-2.5 sm:py-1 sm:text-xs">
-                          {scoreLabel && timeLabel
-                            ? `${scoreLabel} · ${timeLabel}`
-                            : `Kick-off ${koTime}`}
-                        </span>
-                        <span className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white transition-colors group-hover:bg-emerald-500 sm:px-3 sm:py-1.5 sm:text-sm">
-                          View live stats →
-                        </span>
-                      </div>
-                    </div>
-                  </FixtureRowLink>
-                );
-              })}
-            </ul>
+                      return (
+                        <FixtureRowLink
+                          key={fixture.id}
+                          href={href}
+                          className="group flex flex-col gap-1.5 rounded-2xl border border-emerald-200 bg-white px-3 py-3 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md dark:border-emerald-800/60 dark:bg-neutral-900 dark:hover:border-emerald-600/80 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-3"
+                        >
+                          <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-3">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.35)]" />
+                              Live now
+                            </span>
+                            <span className="hidden text-xs text-neutral-500 dark:text-neutral-400 sm:inline">
+                              {koTime}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+                            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+                              <span className="min-w-0 truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm">
+                                {home}
+                              </span>
+                              <span className="shrink-0 text-[10px] font-medium text-neutral-400 dark:text-neutral-500 sm:text-xs">
+                                vs
+                              </span>
+                              <span className="min-w-0 truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm">
+                                {away}
+                              </span>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                              <span className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 sm:px-2.5 sm:py-1 sm:text-xs">
+                                {scoreTimeDisplay}
+                              </span>
+                              <span className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white transition-colors group-hover:bg-emerald-500 sm:px-3 sm:py-1.5 sm:text-sm">
+                                View live stats →
+                              </span>
+                            </div>
+                          </div>
+                        </FixtureRowLink>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
           </section>
         )}
       </main>
