@@ -22,15 +22,14 @@ export async function refreshTeamCrests(options?: {
 }> {
   const leagueIds = [...REQUIRED_LEAGUE_IDS];
 
-  const [fixtureTeams, upcomingRows] = await Promise.all([
-    prisma.fixture.findMany({
-      where: { leagueId: { in: leagueIds } },
-      select: { homeTeamId: true, awayTeamId: true },
-    }),
-    prisma.upcomingFixture.findMany({
-      select: { homeTeamApiId: true, awayTeamApiId: true },
-    }),
-  ]);
+  // Sequential to avoid holding 2 connections (reduces pool pressure)
+  const fixtureTeams = await prisma.fixture.findMany({
+    where: { leagueId: { in: leagueIds } },
+    select: { homeTeamId: true, awayTeamId: true },
+  });
+  const upcomingRows = await prisma.upcomingFixture.findMany({
+    select: { homeTeamApiId: true, awayTeamApiId: true },
+  });
 
   const uniqueTeamIds = [...new Set(fixtureTeams.flatMap((f) => [f.homeTeamId, f.awayTeamId]))];
   const upcomingApiIds = [

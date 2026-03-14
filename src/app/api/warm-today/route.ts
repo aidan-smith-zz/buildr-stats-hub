@@ -64,39 +64,38 @@ export async function GET(request: Request) {
         { teamId: f.awayTeam.id, season: API_SEASON, league: leagueKey },
       ];
     });
-    const [playerCounts, teamStatsExisting] = await Promise.all([
-      prisma.playerSeasonStats.groupBy({
-        by: ["teamId", "season", "league"],
-        where: {
-          OR: keys.map((k) => ({
-            teamId: k.teamId,
-            season: k.season,
-            league: k.league,
-          })),
-        },
-        _count: { id: true },
-      }),
-      prisma.teamSeasonStats.findMany({
-        where: {
-          OR: keys.map((k) => ({
-            teamId: k.teamId,
-            season: k.season,
-            league: k.league,
-          })),
-        },
-        select: {
-          teamId: true,
-          season: true,
-          league: true,
-          minutesPlayed: true,
-          goalsFor: true,
-          goalsAgainst: true,
-          corners: true,
-          yellowCards: true,
-          redCards: true,
-        },
-      }),
-    ]);
+    // Sequential to avoid holding 2 connections (reduces pool pressure)
+    const playerCounts = await prisma.playerSeasonStats.groupBy({
+      by: ["teamId", "season", "league"],
+      where: {
+        OR: keys.map((k) => ({
+          teamId: k.teamId,
+          season: k.season,
+          league: k.league,
+        })),
+      },
+      _count: { id: true },
+    });
+    const teamStatsExisting = await prisma.teamSeasonStats.findMany({
+      where: {
+        OR: keys.map((k) => ({
+          teamId: k.teamId,
+          season: k.season,
+          league: k.league,
+        })),
+      },
+      select: {
+        teamId: true,
+        season: true,
+        league: true,
+        minutesPlayed: true,
+        goalsFor: true,
+        goalsAgainst: true,
+        corners: true,
+        yellowCards: true,
+        redCards: true,
+      },
+    });
 
     const playerCountMap = new Map(
       playerCounts.map((c) => [`${c.teamId}:${c.season}:${c.league}`, c._count.id])

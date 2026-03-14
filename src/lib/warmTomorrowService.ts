@@ -45,9 +45,11 @@ export async function getFixturesNeedingWarm(options?: {
   const dateKeys = nextDateKeys(days);
   const tomorrowDateKey = dateKeys[0];
 
-  const fixturesArrays = await Promise.all(
-    dateKeys.map((dateKey) => getTomorrowFixturesForWarming(dateKey)),
-  );
+  // Sequential per date to avoid exhausting the connection pool (each date does many upserts)
+  const fixturesArrays: Awaited<ReturnType<typeof getTomorrowFixturesForWarming>>[] = [];
+  for (const dateKey of dateKeys) {
+    fixturesArrays.push(await getTomorrowFixturesForWarming(dateKey));
+  }
   const fixtures = fixturesArrays.flat();
 
   if (fixtures.length === 0) {
@@ -76,41 +78,40 @@ export async function getFixturesNeedingWarm(options?: {
     ];
   });
 
-  const [playerCountsAndMaxUpdated, teamStatsExisting] = await Promise.all([
-    prisma.playerSeasonStats.groupBy({
-      by: ["teamId", "season", "league"],
-      where: {
-        OR: keys.map((k) => ({
-          teamId: k.teamId,
-          season: k.season,
-          league: k.league,
-        })),
-      },
-      _count: { id: true },
-      _max: { updatedAt: true },
-    }),
-    prisma.teamSeasonStats.findMany({
-      where: {
-        OR: keys.map((k) => ({
-          teamId: k.teamId,
-          season: k.season,
-          league: k.league,
-        })),
-      },
-      select: {
-        teamId: true,
-        season: true,
-        league: true,
-        minutesPlayed: true,
-        goalsFor: true,
-        goalsAgainst: true,
-        corners: true,
-        yellowCards: true,
-        redCards: true,
-        updatedAt: true,
-      },
-    }),
-  ]);
+  // Sequential to avoid holding 2 connections (reduces pool pressure)
+  const playerCountsAndMaxUpdated = await prisma.playerSeasonStats.groupBy({
+    by: ["teamId", "season", "league"],
+    where: {
+      OR: keys.map((k) => ({
+        teamId: k.teamId,
+        season: k.season,
+        league: k.league,
+      })),
+    },
+    _count: { id: true },
+    _max: { updatedAt: true },
+  });
+  const teamStatsExisting = await prisma.teamSeasonStats.findMany({
+    where: {
+      OR: keys.map((k) => ({
+        teamId: k.teamId,
+        season: k.season,
+        league: k.league,
+      })),
+    },
+    select: {
+      teamId: true,
+      season: true,
+      league: true,
+      minutesPlayed: true,
+      goalsFor: true,
+      goalsAgainst: true,
+      corners: true,
+      yellowCards: true,
+      redCards: true,
+      updatedAt: true,
+    },
+  });
 
   const playerCountMap = new Map(
     playerCountsAndMaxUpdated.map((c) => [

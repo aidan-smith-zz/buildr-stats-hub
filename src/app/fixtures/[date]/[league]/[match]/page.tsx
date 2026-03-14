@@ -680,22 +680,23 @@ export default async function FixtureMatchPage({
   if (warmedFixture && isPast) {
     if (DEBUG_FIXTURE) console.log("[fixture-debug] branch=past fixtureId=" + warmedFixture.id + " (result + lineups, lightweight server path)");
     // Past fixture: final result + lineups. Lightweight path: findUnique + lineup-only query (no full getFixtureStats).
-    const [fixtureWithScore, lineupOnly] = await withPoolRetry(() =>
-      Promise.all([
-        prisma.fixture.findUnique({
-          where: { id: warmedFixture.id },
-          include: { liveScoreCache: true },
-        }),
-        getPastFixtureLineupOnly(
-          warmedFixture.id,
-          warmedFixture.homeTeam.id,
-          warmedFixture.awayTeam.id,
-          warmedFixture.homeTeam.name,
-          warmedFixture.homeTeam.shortName ?? null,
-          warmedFixture.awayTeam.name,
-          warmedFixture.awayTeam.shortName ?? null,
-        ),
-      ])
+    // Sequential to avoid holding 2 connections (reduces pool pressure)
+    const fixtureWithScore = await withPoolRetry(() =>
+      prisma.fixture.findUnique({
+        where: { id: warmedFixture.id },
+        include: { liveScoreCache: true },
+      }),
+    );
+    const lineupOnly = await withPoolRetry(() =>
+      getPastFixtureLineupOnly(
+        warmedFixture.id,
+        warmedFixture.homeTeam.id,
+        warmedFixture.awayTeam.id,
+        warmedFixture.homeTeam.name,
+        warmedFixture.homeTeam.shortName ?? null,
+        warmedFixture.awayTeam.name,
+        warmedFixture.awayTeam.shortName ?? null,
+      ),
     );
     const stats = { fixture: warmedFixture, hasLineup: lineupOnly.hasLineup, teams: lineupOnly.teams };
     let score: PastFixtureScore | null =
