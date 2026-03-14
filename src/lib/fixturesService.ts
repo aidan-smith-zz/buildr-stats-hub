@@ -376,14 +376,13 @@ export async function pruneDataOlderThanToday(now: Date = new Date()): Promise<v
   if (!cutoffDateKey) return;
   const { dayStart: cutoffDayStart } = dayBoundsUtc(cutoffDateKey);
 
-  await prisma.$transaction(async (tx) => {
-    const fixturesResult = await tx.fixture.deleteMany({
-      where: { date: { lt: cutoffDayStart } },
-    });
-    const logsResult = await tx.apiFetchLog.deleteMany({
-      where: { resource: { not: `fixtures:${dateKey}` } },
-    });
-    return [fixturesResult.count, logsResult.count];
+  // Sequential deletes (no $transaction) so we don't need a second connection or transaction
+  // timeout (P2028) when using connection_limit=1 with a transaction-mode pooler.
+  await prisma.fixture.deleteMany({
+    where: { date: { lt: cutoffDayStart } },
+  });
+  await prisma.apiFetchLog.deleteMany({
+    where: { resource: { not: `fixtures:${dateKey}` } },
   });
 }
 
@@ -397,11 +396,9 @@ export async function clearTodayFixturesCacheAndData(now: Date = new Date()): Pr
 
   globalForFixtures.todayFixturesPromise = undefined;
 
-  await prisma.$transaction([
-    prisma.fixture.deleteMany({ where: { date: { gte: dayStart, lte: spilloverEnd } } }),
-    prisma.apiFetchLog.deleteMany({ where: { resource: `fixtures:${dateKey}` } }),
-  ]);
-
+  // Sequential deletes (no $transaction) to avoid P2028 when using connection_limit=1.
+  await prisma.fixture.deleteMany({ where: { date: { gte: dayStart, lte: spilloverEnd } } });
+  await prisma.apiFetchLog.deleteMany({ where: { resource: `fixtures:${dateKey}` } });
 }
 
 /**
