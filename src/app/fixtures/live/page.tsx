@@ -64,6 +64,40 @@ function formatKoTime(date: Date): string {
   });
 }
 
+function TeamCrest({
+  crestUrl,
+  alt,
+  className = "",
+}: {
+  crestUrl: string | null;
+  alt: string;
+  className?: string;
+}) {
+  const sizeClass = "h-6 w-6 flex-shrink-0 object-contain sm:h-7 sm:w-7";
+  if (crestUrl) {
+    return (
+      <img
+        src={crestUrl}
+        alt=""
+        width={28}
+        height={28}
+        className={`${sizeClass} ${className}`}
+        aria-hidden
+      />
+    );
+  }
+  return (
+    <span
+      className={`${sizeClass} inline-flex items-center justify-center rounded bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400 ${className}`}
+      aria-hidden
+    >
+      <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M12 2.5a1.5 1.5 0 0 0-1.5 1.5v1.2L8 6.5v2l-2 1.5v11h12v-11l-2-1.5v-2l-2.5-2.5V4a1.5 1.5 0 0 0-1.5-1.5zM6 8h2v11H6V8zm10 0h2v11h-2V8z" />
+      </svg>
+    </span>
+  );
+}
+
 function isFixtureLive(fixture: FixtureSummary, now: Date): boolean {
   const kickoff = new Date(fixture.date);
   if (Number.isNaN(kickoff.getTime())) return false;
@@ -268,12 +302,14 @@ export default async function LiveFixturesPage() {
                           </div>
                           <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
                             <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+                              <TeamCrest crestUrl={fixture.homeTeam.crestUrl ?? null} alt={home} />
                               <span className="min-w-0 truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm">
                                 {home}
                               </span>
                               <span className="shrink-0 text-[10px] font-medium text-neutral-400 dark:text-neutral-500 sm:text-xs">
                                 vs
                               </span>
+                              <TeamCrest crestUrl={fixture.awayTeam.crestUrl ?? null} alt={away} />
                               <span className="min-w-0 truncate text-left text-xs font-semibold text-neutral-900 dark:text-neutral-50 sm:text-sm">
                                 {away}
                               </span>

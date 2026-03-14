@@ -13,6 +13,7 @@ import {
   SCOTTISH_CUP_LEAGUE_ID,
 } from "@/lib/leagues";
 import { prisma } from "@/lib/prisma";
+import { withPoolRetry } from "@/lib/poolRetry";
 import { todayDateKey } from "@/lib/slugs";
 
 const MIN_PLAYERS_PER_TEAM = 11;
@@ -31,6 +32,7 @@ export async function GET(request: Request) {
   const skipRefresh = url.searchParams.get("skipRefresh") === "1";
   const forceWarm = url.searchParams.get("forceWarm") === "1";
   try {
+    const response = await withPoolRetry(async () => {
     if (!skipRefresh) {
       await refreshUpcomingFixturesTable(now);
       // Bust the upcoming page cache so the refreshed UpcomingFixture table shows up immediately.
@@ -175,6 +177,8 @@ export async function GET(request: Request) {
         ? { hint: "Using DB-only fixture list (--resume). Only listed fixtures need warming; no list refetch." }
         : {}),
     });
+    });
+    return response;
   } catch (err) {
     console.error("[warm-today] Fatal:", err);
     return NextResponse.json(

@@ -86,28 +86,32 @@ export async function getLiveScoresForToday(): Promise<{
     });
   }
 
-  await Promise.all(
-    toUpsert.map(({ fixtureId, data }) =>
-      prisma.liveScoreCache.upsert({
-        where: { fixtureId },
-        create: {
-          fixtureId,
-          homeGoals: data.homeGoals,
-          awayGoals: data.awayGoals,
-          elapsedMinutes: data.elapsedMinutes,
-          statusShort: data.statusShort,
-          cachedAt: nowDate,
-        },
-        update: {
-          homeGoals: data.homeGoals,
-          awayGoals: data.awayGoals,
-          elapsedMinutes: data.elapsedMinutes,
-          statusShort: data.statusShort,
-          cachedAt: nowDate,
-        },
-      }),
-    ),
-  );
+  const BATCH_SIZE = 5;
+  for (let i = 0; i < toUpsert.length; i += BATCH_SIZE) {
+    const batch = toUpsert.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(({ fixtureId, data }) =>
+        prisma.liveScoreCache.upsert({
+          where: { fixtureId },
+          create: {
+            fixtureId,
+            homeGoals: data.homeGoals,
+            awayGoals: data.awayGoals,
+            elapsedMinutes: data.elapsedMinutes,
+            statusShort: data.statusShort,
+            cachedAt: nowDate,
+          },
+          update: {
+            homeGoals: data.homeGoals,
+            awayGoals: data.awayGoals,
+            elapsedMinutes: data.elapsedMinutes,
+            statusShort: data.statusShort,
+            cachedAt: nowDate,
+          },
+        }),
+      ),
+    );
+  }
 
   return { scores };
 }

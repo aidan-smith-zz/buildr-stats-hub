@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fetchLiveFixture } from "@/lib/footballApi";
+import { withPoolRetry } from "@/lib/poolRetry";
 
 const LIVE_CACHE_TTL_MS = 90 * 1000; // 90 seconds
 const PRE_MATCH_WINDOW_MS = 10 * 60 * 1000; // show 0-0 from 10 min before kickoff
@@ -24,6 +25,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Invalid fixture id" }, { status: 400 });
   }
 
+  return withPoolRetry(async () => {
   const fixture = await prisma.fixture.findUnique({
     where: { id: fixtureId },
     select: { id: true, apiId: true, date: true },
@@ -248,4 +250,5 @@ export async function GET(_request: Request, { params }: RouteParams) {
       { status: 200, headers: { "Cache-Control": "public, max-age=30" } },
     );
   }
+  });
 }

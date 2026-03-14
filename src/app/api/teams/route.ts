@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { withPoolRetry } from "@/lib/poolRetry";
 
 export async function GET() {
   try {
-    const teams = await prisma.team.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const teams = await withPoolRetry(() =>
+      prisma.team.findMany({
+        orderBy: { createdAt: "desc" },
+      }),
+    );
 
     return NextResponse.json({ teams });
   } catch (error) {
