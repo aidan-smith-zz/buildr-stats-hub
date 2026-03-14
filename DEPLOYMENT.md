@@ -135,13 +135,13 @@ You can run a custom script in a one-off job (e.g. “Run Command” or a deploy
 - **“PrismaClient is unable to run in the browser”**  
   All Prisma usage is in server code (API routes, server components, `server-only` modules). Do not import `prisma` or `PrismaClient` in client components.
 
-- **Site breaks or build fails after adding `connection_limit=1`**  
-  This app runs **concurrent** DB queries per request (e.g. home page loads today + tomorrow in parallel; matchday insights runs many stats in parallel). With `connection_limit=1` only one query runs at a time per instance, so the rest block and time out. **Remove `connection_limit=1`** from `DATABASE_URL`; use only `?pgbouncer=true`. The app retries on transient pool timeouts (P2024/P2028).
+- **“Unable to check out connection from the pool due to timeout” (pooler)**  
+  The database pooler (e.g. Supabase) is refusing connections because its limit is reached. The app now loads today/tomorrow fixtures **sequentially** on the home and fixture pages so each request uses at most one connection at a time. If it still happens, add **`&connection_limit=1`** to `DATABASE_URL` so each serverless instance uses a single connection (reduces total connections to the pooler). If you previously had to remove `connection_limit=1` because the site broke, the codebase has since been updated for single-connection-friendly loading.
 
 - **DB connection errors in production**  
   - Use the **Supabase pooler** URL (port **6543**) as `DATABASE_URL` on Vercel; append **`?pgbouncer=true`** only (do not add `connection_limit=1`; see above).  
   - Check no extra spaces and that the password is URL-encoded in `DATABASE_URL`.  
-  - If you hit connection limits, switch to a **connection pooler** URL (e.g. Supabase “Transaction” pooler or Neon pooler) and use that as `DATABASE_URL`. You can also add **`&connection_limit=10`** (or higher) to `DATABASE_URL` if your pooler/plan allows, to reduce P2024 pool timeouts.
+  - If you hit connection limits, use a **connection pooler** URL (e.g. Supabase “Transaction” pooler or Neon pooler) as `DATABASE_URL`. To **reduce** connections to the pooler, add **`&connection_limit=1`** (one connection per instance). To **increase** headroom per instance if your plan allows, add **`&connection_limit=10`** (or higher).
 
 - **Migrations out of sync**  
   Run `npx prisma migrate deploy` with the production `DATABASE_URL` and redeploy the app.

@@ -77,12 +77,9 @@ export default async function Home() {
     const now = new Date();
     const todayKey = todayDateKey();
     const tomorrowKey = tomorrowDateKey();
-    const [fixtures, tomorrowFixtures] = await withPoolRetry(() =>
-      Promise.all([
-        getOrRefreshTodayFixtures(now),
-        getFixturesForDateFromDbOnly(tomorrowKey),
-      ]),
-    );
+    // Sequential to avoid holding 2 connections (prevents pooler "Unable to check out connection" timeout)
+    const fixtures = await withPoolRetry(() => getOrRefreshTodayFixtures(now));
+    const tomorrowFixtures = await withPoolRetry(() => getFixturesForDateFromDbOnly(tomorrowKey));
 
     const todayOnly = fixtures?.filter((f) => fixtureDateKey(f.date) === todayKey) ?? [];
     const tomorrowOnly = tomorrowFixtures?.filter((f) => fixtureDateKey(f.date) === tomorrowKey) ?? [];

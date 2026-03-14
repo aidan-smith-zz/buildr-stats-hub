@@ -84,12 +84,9 @@ export default async function FixturesDatePage({
   // Today: behave like the homepage – show hero, today + tomorrow tabs.
   if (dateKey === todayKey) {
     const tomorrowKey = tomorrowDateKey();
-    const [fixtures, tomorrowFixtures] = await withPoolRetry(() =>
-      Promise.all([
-        getOrRefreshTodayFixturesRequestCached(todayKey),
-        getFixturesForDateRequestCached(tomorrowKey),
-      ])
-    );
+    // Sequential to avoid holding 2 connections (prevents pooler "Unable to check out connection" timeout)
+    const fixtures = await withPoolRetry(() => getOrRefreshTodayFixturesRequestCached(todayKey));
+    const tomorrowFixtures = await withPoolRetry(() => getFixturesForDateRequestCached(tomorrowKey));
     const todayOnly = fixtures.filter((f) => fixtureDateKey(f.date) === todayKey);
     const tomorrowOnly = (tomorrowFixtures ?? []).filter((f) => fixtureDateKey(f.date) === tomorrowKey);
     const useLeagueGroupsForToday = todayOnly.length > 15;

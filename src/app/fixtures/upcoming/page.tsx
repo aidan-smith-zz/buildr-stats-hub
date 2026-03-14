@@ -63,21 +63,20 @@ export default async function UpcomingPage() {
       // Build a lookup of "warmed" fixtures (i.e. present in the main Fixture table with stats)
       // keyed by date + leagueSlug + matchSlug so we can show "View stats" and live badges.
       const warmedByKey = new Map<string, FixtureSummary>();
-      await Promise.all(
-        byDate.map(async ({ dateKey }) => {
-          const warmed = await getFixturesForDateFromDbOnly(dateKey);
-          for (const fixture of warmed) {
-            const leagueSlug = leagueToSlug(fixture.league);
-            const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
-            const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
-            const m = matchSlug(home, away);
-            const key = `${dateKey}:${leagueSlug}:${m}`;
-            if (!warmedByKey.has(key)) {
-              warmedByKey.set(key, fixture);
-            }
+      // Sequential per date to avoid exhausting the pooler (one connection at a time)
+      for (const { dateKey } of byDate) {
+        const warmed = await getFixturesForDateFromDbOnly(dateKey);
+        for (const fixture of warmed) {
+          const leagueSlug = leagueToSlug(fixture.league);
+          const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
+          const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
+          const m = matchSlug(home, away);
+          const key = `${dateKey}:${leagueSlug}:${m}`;
+          if (!warmedByKey.has(key)) {
+            warmedByKey.set(key, fixture);
           }
-        }),
-      );
+        }
+      }
 
       const warmedByKeySerialized: Record<string, WarmedFixtureSnapshot> = {};
       for (const [k, v] of warmedByKey) {
