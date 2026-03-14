@@ -57,7 +57,7 @@ npm run build
 
    | Name                   | Value                                      | Environments   |
    |------------------------|--------------------------------------------|----------------|
-   | `DATABASE_URL`         | Pooler URL, e.g. `postgresql://...@HOST:6543/postgres?pgbouncer=true` (Supabase: port 6543). Do not add `connection_limit=1`. To reduce pool timeouts under load, add `&connection_limit=10` (or higher) if your pooler/plan allows. | Production, Preview |
+   | `DATABASE_URL`         | Pooler URL, e.g. `postgresql://...@HOST:6543/postgres?pgbouncer=true` (Supabase: port 6543). The app **automatically** adds `connection_limit=1` if not set (prevents "Unable to check out connection from the pool"). To allow more connections per instance, add `&connection_limit=N` to the URL. | Production, Preview |
    | `FOOTBALL_API_BASE_URL` | `https://v3.football.api-sports.io`      | Production, Preview |
    | `FOOTBALL_API_KEY`    | Your API-Football key                      | Production, Preview |
 
@@ -136,10 +136,10 @@ You can run a custom script in a one-off job (e.g. “Run Command” or a deploy
   All Prisma usage is in server code (API routes, server components, `server-only` modules). Do not import `prisma` or `PrismaClient` in client components.
 
 - **“Unable to check out connection from the pool due to timeout” (pooler)**  
-  The database pooler (e.g. Supabase) is refusing connections because its limit is reached. The app now loads today/tomorrow fixtures **sequentially** on the home and fixture pages so each request uses at most one connection at a time. If it still happens, add **`&connection_limit=1`** to `DATABASE_URL` so each serverless instance uses a single connection (reduces total connections to the pooler). If you previously had to remove `connection_limit=1` because the site broke, the codebase has since been updated for single-connection-friendly loading.
+  The app **sets `connection_limit=1`** in code when `DATABASE_URL` does not already specify it, so each serverless instance uses at most one connection and the pooler is not exhausted. Hot paths load data sequentially. To allow more connections per instance, add **`&connection_limit=N`** to `DATABASE_URL` to override.
 
 - **DB connection errors in production**  
-  - Use the **Supabase pooler** URL (port **6543**) as `DATABASE_URL` on Vercel; append **`?pgbouncer=true`** only (do not add `connection_limit=1`; see above).  
+  - Use the **Supabase pooler** URL (port **6543**) as `DATABASE_URL` on Vercel; append **`?pgbouncer=true`**. The app adds `connection_limit=1` automatically if not in the URL.  
   - Check no extra spaces and that the password is URL-encoded in `DATABASE_URL`.  
   - If you hit connection limits, use a **connection pooler** URL (e.g. Supabase “Transaction” pooler or Neon pooler) as `DATABASE_URL`. To **reduce** connections to the pooler, add **`&connection_limit=1`** (one connection per instance). To **increase** headroom per instance if your plan allows, add **`&connection_limit=10`** (or higher).
 

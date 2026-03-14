@@ -48,13 +48,29 @@ function ensurePrismaEngineForServerless(): void {
 
 ensurePrismaEngineForServerless();
 
+/**
+ * Use at most one connection per serverless instance so we never exceed the pooler's
+ * connection limit ("Unable to check out connection from the pool due to timeout").
+ * If DATABASE_URL already sets connection_limit, that value is kept; otherwise we set 1.
+ */
+function getDatasourceUrl(): string | undefined {
+  const url = process.env.DATABASE_URL ?? "";
+  if (!url) return undefined;
+  if (url.includes("connection_limit=")) return undefined; // use env as-is
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}connection_limit=1`;
+}
+
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
+const datasourceUrl = getDatasourceUrl();
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
+    ...(datasourceUrl && { datasources: { db: { url: datasourceUrl } } }),
     log:
       process.env.NODE_ENV === "development"
         ? ["query", "error", "warn"]
