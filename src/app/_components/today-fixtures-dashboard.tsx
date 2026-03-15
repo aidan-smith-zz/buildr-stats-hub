@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
-import { isTeamStatsOnlyLeague, REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { isFixtureInRequiredLeagues, isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { decodeHtmlEntities } from "@/lib/text";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import type { FixtureSummary, FixtureStatsResponse } from "@/lib/statsService";
@@ -100,9 +100,8 @@ function ShirtIcon({ className }: { className?: string }) {
 
 export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtureSelector }: Props) {
   const filteredFixtures = fixtures
-    .filter(
-      (fixture) =>
-        fixture.leagueId != null && (REQUIRED_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId),
+    .filter((fixture) =>
+      isFixtureInRequiredLeagues({ leagueId: fixture.leagueId ?? null, league: fixture.league }),
     )
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 

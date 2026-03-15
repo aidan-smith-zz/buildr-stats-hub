@@ -6,7 +6,7 @@ import {
 } from "@/lib/fixturesService";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
-import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { isFixtureInRequiredLeagues } from "@/lib/leagues";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { InPlayFixtureClient } from "./in-play-fixture-client";
@@ -27,10 +27,8 @@ function findFixture(
   leagueSlug: string,
   matchSlugParam: string
 ): FixtureSummary | null {
-  const filtered = fixtures.filter(
-    (f) =>
-      f.leagueId != null &&
-      (REQUIRED_LEAGUE_IDS as readonly number[]).includes(f.leagueId)
+  const filtered = fixtures.filter((f) =>
+    isFixtureInRequiredLeagues({ leagueId: f.leagueId ?? null, league: f.league }),
   );
   return (
     filtered.find((f) => {

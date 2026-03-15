@@ -13,7 +13,7 @@ import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import { makeTeamSlug } from "@/lib/teamSlugs";
 import type { RawFixture } from "@/lib/footballApi";
 import type { FixtureSummary } from "@/lib/statsService";
-import { REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID, TOP_LEAGUE_IDS, isTeamStatsOnlyLeague } from "@/lib/leagues";
+import { isFixtureInRequiredLeagues, REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID, TOP_LEAGUE_IDS, isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { TodayFixturesDashboard } from "@/app/_components/today-fixtures-dashboard";
 import { Last5MatchesTile } from "@/app/_components/last5-matches-tile";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
@@ -29,10 +29,8 @@ function findTodayFixture(
   leagueSlug: string,
   matchSlugParam: string
 ): FixtureSummary | null {
-  const filtered = fixtures.filter(
-    (f) =>
-      f.leagueId != null &&
-      (REQUIRED_LEAGUE_IDS as readonly number[]).includes(f.leagueId)
+  const filtered = fixtures.filter((f) =>
+    isFixtureInRequiredLeagues({ leagueId: f.leagueId ?? null, league: f.league }),
   );
   return (
     filtered.find((f) => {

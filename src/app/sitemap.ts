@@ -5,7 +5,7 @@ import {
 } from "@/lib/fixturesService";
 import {
   LEAGUE_DISPLAY_NAMES,
-  REQUIRED_LEAGUE_IDS,
+  isFixtureInRequiredLeagues,
   STANDINGS_LEAGUE_SLUG_BY_ID,
   TOP_LEAGUE_IDS,
 } from "@/lib/leagues";
@@ -56,10 +56,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const dateKey = todayDateKey();
     const fixtures = await getFixturesForDateFromDbOnly(dateKey);
-    const filtered = fixtures.filter(
-      (f) =>
-        f.leagueId != null &&
-        (REQUIRED_LEAGUE_IDS as readonly number[]).includes(f.leagueId),
+    const filtered = fixtures.filter((f) =>
+      isFixtureInRequiredLeagues({ leagueId: f.leagueId ?? null, league: f.league }),
     );
 
     let todayLastmod = now;

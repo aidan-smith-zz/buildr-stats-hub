@@ -2,7 +2,7 @@ import { FixtureRowLink, NavLinkWithOverlay } from "@/app/_components/fixture-ro
 import { TodayTomorrowTabs } from "@/app/_components/today-tomorrow-tabs";
 import { fixtureDateKey, leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
-import { LEAGUE_DISPLAY_NAMES, LEAGUE_GROUP_ORDER, LEAGUE_ORDER, REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { isFixtureInRequiredLeagues, LEAGUE_DISPLAY_NAMES, LEAGUE_GROUP_ORDER, LEAGUE_ORDER } from "@/lib/leagues";
 
 const TIMEZONE = "Europe/London";
 
@@ -52,10 +52,10 @@ function fixtureOnDateKey(fixture: FixtureSummary, dateKey: string): boolean {
   return fixtureDateKey(fixture.date) === dateKey;
 }
 
-/** Filter to required leagues and sort by kick-off time (earliest first). */
+/** Filter to required leagues and sort by kick-off time (earliest first). Uses isFixtureInRequiredLeagues so La Liga and others show even when leagueId is null (API omitted id). */
 function fixturesByKickOff(fixtures: FixtureSummary[]): FixtureSummary[] {
-  const filtered = fixtures.filter(
-    (f) => f.leagueId != null && (REQUIRED_LEAGUE_IDS as readonly number[]).includes(f.leagueId)
+  const filtered = fixtures.filter((f) =>
+    isFixtureInRequiredLeagues({ leagueId: f.leagueId ?? null, league: f.league })
   );
   return filtered.slice().sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
@@ -324,32 +324,38 @@ export function TodayFixturesList({
                       No fixtures avaiable for tomorrow yet.
                     </p>
                   </div>
-                ) : tomorrowLeagueGroups ? (
-                  <div className="space-y-8">
-                    {tomorrowLeagueGroups.map(({ leagueId, leagueName, fixtures: groupFixtures }) => (
-                      <section key={leagueId ?? leagueName} className="space-y-3">
-                        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
-                          {leagueName}
-                        </h3>
-                        <ul className="space-y-2">
-                          {groupFixtures.map((f) => renderFixtureCard(f, tomorrowKey!))}
-                        </ul>
-                      </section>
-                    ))}
+                ) : (
+                  <div className="space-y-6">
+                    {tomorrowLeagueGroups ? (
+                      <div className="space-y-8">
+                        {tomorrowLeagueGroups.map(({ leagueId, leagueName, fixtures: groupFixtures }) => (
+                          <section key={leagueId ?? leagueName} className="space-y-3">
+                            <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+                              {leagueName}
+                            </h3>
+                            <ul className="space-y-2">
+                              {groupFixtures.map((f) => renderFixtureCard(f, tomorrowKey!))}
+                            </ul>
+                          </section>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {tomorrowTimeGroups.map(({ timeKey, fixtures: groupFixtures }) => (
+                          <section key={timeKey} className="space-y-3">
+                            <h3 className="sr-only">
+                              {groupFixtures[0]
+                                ? formatKoTime(new Date(groupFixtures[0].date))
+                                : timeKey}
+                            </h3>
+                            <ul className="space-y-2">
+                              {groupFixtures.map((f) => renderFixtureCard(f, tomorrowKey!))}
+                            </ul>
+                          </section>
+                        ))}
+                      </div>
+                    )}
                   </div>
-              ) : (
-                tomorrowTimeGroups.map(({ timeKey, fixtures: groupFixtures }) => (
-                  <section key={timeKey} className="space-y-3">
-                    <h3 className="sr-only">
-                      {groupFixtures[0]
-                        ? formatKoTime(new Date(groupFixtures[0].date))
-                        : timeKey}
-                    </h3>
-                    <ul className="space-y-2">
-                      {groupFixtures.map((f) => renderFixtureCard(f, tomorrowKey!))}
-                    </ul>
-                  </section>
-                ))
                 )}
               </section>
             }
@@ -366,34 +372,36 @@ export function TodayFixturesList({
                   </div>
                 ) : (
                   <div className="space-y-6">
-                  {useLeagueToday && leagueGroups ? (
-                    <div className="space-y-8">
-                      {leagueGroups.map(({ leagueId, leagueName, fixtures: groupFixtures }) => (
-                        <section key={leagueId ?? leagueName} className="space-y-3">
-                          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
-                            {leagueName}
-                          </h3>
-                          <ul className="space-y-2">
-                            {groupFixtures.map((f) => renderFixtureCard(f, todayKey))}
-                          </ul>
-                        </section>
-                      ))}
-                    </div>
-                  ) : (
-                    timeGroups.map(({ timeKey, fixtures: groupFixtures }) => (
-                      <section key={timeKey} className="space-y-3">
-                        <h3 className="sr-only">
-                          {groupFixtures[0]
-                            ? formatKoTime(new Date(groupFixtures[0].date))
-                            : timeKey}
-                        </h3>
-                        <ul className="space-y-2">
-                          {groupFixtures.map((f) => renderFixtureCard(f, todayKey))}
-                        </ul>
-                      </section>
-                    ))
-                  )}
-                </div>
+                    {useLeagueToday && leagueGroups ? (
+                      <div className="space-y-8">
+                        {leagueGroups.map(({ leagueId, leagueName, fixtures: groupFixtures }) => (
+                          <section key={leagueId ?? leagueName} className="space-y-3">
+                            <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+                              {leagueName}
+                            </h3>
+                            <ul className="space-y-2">
+                              {groupFixtures.map((f) => renderFixtureCard(f, todayKey))}
+                            </ul>
+                          </section>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {timeGroups.map(({ timeKey, fixtures: groupFixtures }) => (
+                          <section key={timeKey} className="space-y-3">
+                            <h3 className="sr-only">
+                              {groupFixtures[0]
+                                ? formatKoTime(new Date(groupFixtures[0].date))
+                                : timeKey}
+                            </h3>
+                            <ul className="space-y-2">
+                              {groupFixtures.map((f) => renderFixtureCard(f, todayKey))}
+                            </ul>
+                          </section>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </>
             }

@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import { REQUIRED_LEAGUE_IDS, isFixtureInRequiredLeagues } from "@/lib/leagues";
+import { getStatsLeagueForFixture, REQUIRED_LEAGUE_IDS, isFixtureInRequiredLeagues } from "@/lib/leagues";
 import { prisma } from "@/lib/prisma";
 import {
   API_SEASON,
@@ -15,6 +15,12 @@ import type { FixtureSummary } from "@/lib/statsService";
 import type { Fixture, Team } from "@prisma/client";
 
 export { REQUIRED_LEAGUE_IDS };
+
+/** Resolve leagueId from API raw (use league name when API omits id so we always persist e.g. La Liga = 140). */
+function resolveLeagueId(raw: { leagueId?: number | null; league?: string | null }): number | null {
+  const resolved = getStatsLeagueForFixture({ leagueId: raw.leagueId ?? null, league: raw.league });
+  return resolved.leagueId ?? null;
+}
 
 /**
  * Global in-memory cache to prevent duplicate API calls per day
@@ -320,6 +326,7 @@ export async function refreshUpcomingFixturesTable(now: Date = new Date()): Prom
         const homeTeamApiId = getTeamExternalId(raw.homeTeam);
         const awayTeamApiId = getTeamExternalId(raw.awayTeam);
         const kickoff = new Date(raw.date);
+        const leagueId = resolveLeagueId(raw);
         await prisma.upcomingFixture.upsert({
           where: {
             dateKey_apiFixtureId: { dateKey, apiFixtureId: apiId },
@@ -327,7 +334,7 @@ export async function refreshUpcomingFixturesTable(now: Date = new Date()): Prom
           update: {
             kickoff,
             league: raw.league ?? null,
-            leagueId: raw.leagueId ?? null,
+            leagueId,
             homeTeamName: raw.homeTeam.name,
             homeTeamShortName: raw.homeTeam.shortName ?? null,
             awayTeamName: raw.awayTeam.name,
@@ -339,7 +346,7 @@ export async function refreshUpcomingFixturesTable(now: Date = new Date()): Prom
             dateKey,
             kickoff,
             league: raw.league ?? null,
-            leagueId: raw.leagueId ?? null,
+            leagueId,
             homeTeamName: raw.homeTeam.name,
             homeTeamShortName: raw.homeTeam.shortName ?? null,
             awayTeamName: raw.awayTeam.name,
@@ -682,12 +689,13 @@ async function getOrRefreshTodayFixturesUncached(now: Date): Promise<FixtureSumm
                 }),
               ]);
               
-              // Then upsert fixture
+              // Then upsert fixture (resolve leagueId from name when API omits it so La Liga etc. get correct id e.g. 140)
+              const leagueId = resolveLeagueId(raw);
               const fixtureData = {
                 date: new Date(raw.date),
                 season: API_SEASON,
                 league: raw.league ?? null,
-                leagueId: raw.leagueId ?? null,
+                leagueId,
                 status: raw.status ?? "UNKNOWN",
                 homeTeamId: homeTeam.id,
                 awayTeamId: awayTeam.id,

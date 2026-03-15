@@ -3,7 +3,7 @@ import { getFixturesForDateFromDbOnly } from "@/lib/fixturesService";
 import { getLiveScoresForToday } from "@/lib/liveScoresService";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
-import { LEAGUE_DISPLAY_NAMES, LEAGUE_GROUP_ORDER, REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { isFixtureInRequiredLeagues, LEAGUE_DISPLAY_NAMES, LEAGUE_GROUP_ORDER } from "@/lib/leagues";
 import { FixtureRowLink, NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 
@@ -123,10 +123,8 @@ export default async function LiveFixturesPage() {
   const now = new Date();
 
   const baseLiveCandidates = fixtures
-    .filter(
-      (f) =>
-        f.leagueId != null &&
-        (REQUIRED_LEAGUE_IDS as readonly number[]).includes(f.leagueId),
+    .filter((f) =>
+      isFixtureInRequiredLeagues({ leagueId: f.leagueId ?? null, league: f.league }),
     )
     .filter((f) => isFixtureLive(f, now))
     .sort(

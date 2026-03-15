@@ -102,8 +102,12 @@ const LEAGUE_NAME_TO_ID: Record<string, number> = (() => {
   };
 })();
 
-/** League names that count as "required" when leagueId is null (e.g. API omits id for League 41/42). */
+/** League names that count as "required" when leagueId is null (e.g. API omits id). Includes all required leagues by display name plus common variants. */
 const REQUIRED_LEAGUE_NAMES = [
+  "Premier League",
+  "Championship",
+  "La Liga",
+  "Spanish La Liga",
   "League 41",
   "League 42",
   "League One",
@@ -114,6 +118,13 @@ const REQUIRED_LEAGUE_NAMES = [
   "EFL League Two",
   "League 1",
   "League 2",
+  "Champions League",
+  "UEFA Champions League",
+  "Europa League",
+  "UEFA Europa League",
+  "Scottish Premiership",
+  "FA Cup",
+  "Scottish Cup",
 ];
 
 export function isFixtureInRequiredLeagues(fixture: {
@@ -127,6 +138,7 @@ export function isFixtureInRequiredLeagues(fixture: {
     const name = fixture.league.trim().toLowerCase();
     if (REQUIRED_LEAGUE_NAMES.some((n) => name === n.toLowerCase())) return true;
     if (name.includes("league one") || name.includes("league two")) return true;
+    if (name.includes("la liga") || name.includes("champions league") || name.includes("europa league")) return true;
   }
   return false;
 }
