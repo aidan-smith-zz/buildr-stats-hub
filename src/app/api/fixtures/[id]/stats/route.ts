@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withPoolRetry } from "@/lib/poolRetry";
 import {
+  getFixtureStats,
   getFixtureStatsCached,
   getFixtureStatsCachedShort,
   mergeLineupIntoStats,
@@ -37,18 +38,28 @@ export async function GET(_request: Request, { params }: RouteParams) {
   }
 
   const now = new Date();
-  const fixtureForDate = await prisma.fixture.findUnique({
+  const fixtureMeta = await prisma.fixture.findUnique({
     where: { id },
-    select: { date: true },
+    select: { date: true, _count: { select: { lineups: true } } },
   });
-  const kickoffForCache = fixtureForDate?.date ? new Date(fixtureForDate.date) : null;
+  const kickoffForCache = fixtureMeta?.date ? new Date(fixtureMeta.date) : null;
   const useShortCache =
     kickoffForCache != null &&
     !Number.isNaN(kickoffForCache.getTime()) &&
     isWithinLineupShortCacheWindow(kickoffForCache, now);
+  const inLineupWindowEarly = kickoffForCache != null && !Number.isNaN(kickoffForCache.getTime()) && isWithinLineupFetchWindow(kickoffForCache, now);
+  const hasLineupInDb = (fixtureMeta?._count?.lineups ?? 0) > 0;
+
+  // When we're in the lineup window and don't have a lineup yet, bypass cache so we run
+  // getFixtureStats (and thus ensureLineupIfWithinWindow) on every request until lineups appear.
+  const bypassCacheForLineup = inLineupWindowEarly && !hasLineupInDb;
 
   let stats = await withPoolRetry(() =>
-    useShortCache ? getFixtureStatsCachedShort(id) : getFixtureStatsCached(id),
+    bypassCacheForLineup
+      ? getFixtureStats(id, { sequential: true })
+      : useShortCache
+        ? getFixtureStatsCachedShort(id)
+        : getFixtureStatsCached(id),
   );
 
   if (!stats) {
@@ -96,6 +107,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
         fixture.awayTeam.apiId,
       );
       lineupByTeam = await getLineupForFixture(id);
+    } else if (fixture) {
+      console.warn("[API stats] Lineup not fetched: fixture has no apiId", { fixtureId: id });
     }
   }
 

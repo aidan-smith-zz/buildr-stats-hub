@@ -13,7 +13,7 @@ import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import { makeTeamSlug } from "@/lib/teamSlugs";
 import type { RawFixture } from "@/lib/footballApi";
 import type { FixtureSummary } from "@/lib/statsService";
-import { isFixtureInRequiredLeagues, REQUIRED_LEAGUE_IDS, STANDINGS_LEAGUE_SLUG_BY_ID, TOP_LEAGUE_IDS, isTeamStatsOnlyLeague } from "@/lib/leagues";
+import { isFixtureInRequiredLeagues, REQUIRED_LEAGUE_IDS, getStandingsSlug, STANDINGS_LEAGUE_SLUG_BY_ID, TOP_LEAGUE_IDS, isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { TodayFixturesDashboard } from "@/app/_components/today-fixtures-dashboard";
 import { Last5MatchesTile } from "@/app/_components/last5-matches-tile";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
@@ -383,6 +383,8 @@ export default async function FixtureMatchPage({
     const awayCrest =
       (fixture.awayTeam as { crestUrl?: string | null }).crestUrl ?? null;
 
+    const standingsSlug = getStandingsSlug(fixture.leagueId ?? null, leagueSlug);
+
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <script
@@ -404,7 +406,20 @@ export default async function FixtureMatchPage({
               <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                    {league ?? "Football"} · {displayDate}
+                    {standingsSlug ? (
+                      <>
+                        <NavLinkWithOverlay
+                          href={`/leagues/${standingsSlug}/standings`}
+                          className="hover:underline focus:underline"
+                          message="Loading league table…"
+                        >
+                          {league ?? "Football"}
+                        </NavLinkWithOverlay>
+                        {" · "}{displayDate}
+                      </>
+                    ) : (
+                      <>{league ?? "Football"} · {displayDate}</>
+                    )}
                   </p>
                   <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
                     {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) ? (
@@ -458,13 +473,13 @@ export default async function FixtureMatchPage({
               </li>
             )}
               </ul>
-              {Object.values(STANDINGS_LEAGUE_SLUG_BY_ID).includes(leagueSlug) && (
+              {standingsSlug && (
                 <nav
                   className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-700"
                   aria-label="League table"
                 >
                   <NavLinkWithOverlay
-                    href={`/leagues/${leagueSlug}/standings`}
+                    href={`/leagues/${standingsSlug}/standings`}
                     className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
                     message="Loading league table…"
                   >
@@ -792,6 +807,8 @@ export default async function FixtureMatchPage({
       mainEntity: faqEntitiesPast,
     };
 
+    const standingsSlugPast = getStandingsSlug(warmedFixture.leagueId ?? null, leagueSlug);
+
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
@@ -799,7 +816,20 @@ export default async function FixtureMatchPage({
             <Breadcrumbs items={breadcrumbItems} className="mb-3" />
             <header className="mb-5 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
               <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                {league} · {displayDate}
+                {standingsSlugPast ? (
+                  <>
+                    <NavLinkWithOverlay
+                      href={`/leagues/${standingsSlugPast}/standings`}
+                      className="hover:underline focus:underline"
+                      message="Loading league table…"
+                    >
+                      {league}
+                    </NavLinkWithOverlay>
+                    {" · "}{displayDate}
+                  </>
+                ) : (
+                  <>{league} · {displayDate}</>
+                )}
               </p>
               <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
                 {warmedFixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(warmedFixture.leagueId) ? (
@@ -830,6 +860,20 @@ export default async function FixtureMatchPage({
                 <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
                   Tap or click a team name to see their season stats and form.
                 </p>
+              )}
+              {standingsSlugPast && (
+                <nav
+                  className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-700"
+                  aria-label="League table"
+                >
+                  <NavLinkWithOverlay
+                    href={`/leagues/${standingsSlugPast}/standings`}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+                    message="Loading league table…"
+                  >
+                    View {league} league table →
+                  </NavLinkWithOverlay>
+                </nav>
               )}
               <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
                 {pastDescription}
@@ -1040,6 +1084,8 @@ export default async function FixtureMatchPage({
     const awayCrestUpcoming =
       (fixture.awayTeam as { crestUrl?: string | null }).crestUrl ?? null;
 
+    const standingsSlugUpcoming = getStandingsSlug(fixture.leagueId ?? null, leagueSlug);
+
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <script
@@ -1061,7 +1107,20 @@ export default async function FixtureMatchPage({
               <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                    {league ?? "Football"} · {displayDate}
+                    {standingsSlugUpcoming ? (
+                      <>
+                        <NavLinkWithOverlay
+                          href={`/leagues/${standingsSlugUpcoming}/standings`}
+                          className="hover:underline focus:underline"
+                          message="Loading league table…"
+                        >
+                          {league ?? "Football"}
+                        </NavLinkWithOverlay>
+                        {" · "}{displayDate}
+                      </>
+                    ) : (
+                      <>{league ?? "Football"} · {displayDate}</>
+                    )}
                   </p>
                   <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
                     {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) ? (
@@ -1113,13 +1172,13 @@ export default async function FixtureMatchPage({
                   • Build more informed bet builders with data on shots, cards and set-piece threat.
                 </li>
               </ul>
-              {Object.values(STANDINGS_LEAGUE_SLUG_BY_ID).includes(leagueSlug) && (
+              {standingsSlugUpcoming && (
                 <nav
                   className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-700"
                   aria-label="League table"
                 >
                   <NavLinkWithOverlay
-                    href={`/leagues/${leagueSlug}/standings`}
+                    href={`/leagues/${standingsSlugUpcoming}/standings`}
                     className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
                     message="Loading league table…"
                   >
@@ -1611,7 +1670,17 @@ function TeamAndLeagueStatsSection({
         </div>
         <div className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-3 dark:border-neutral-800 dark:bg-neutral-800/40 sm:p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{league}</span>
+            {hasLeagueMarkets ? (
+              <NavLinkWithOverlay
+                href={`/leagues/${leagueSlugForLinks}/standings`}
+                className="text-sm font-medium text-neutral-800 hover:underline dark:text-neutral-100 dark:hover:underline"
+                message="Loading league table…"
+              >
+                {league}
+              </NavLinkWithOverlay>
+            ) : (
+              <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{league}</span>
+            )}
           </div>
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-neutral-200 pt-2 text-xs dark:border-neutral-700">
             {hasLeagueMarkets ? (
@@ -1689,6 +1758,8 @@ function FixturePreviewContent({
   const league = fixture.league ?? "Football";
   const kickoff = formatKickoff(fixture.date);
   const displayDate = formatDisplayDate(dateKey);
+  const leagueId = typeof fixture.leagueId === "number" ? fixture.leagueId : null;
+  const standingsSlugPreview = getStandingsSlug(leagueId, leagueSlug);
 
   const breadcrumbItems = [
     { href: "/", label: "Home" },
@@ -1704,7 +1775,20 @@ function FixturePreviewContent({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-              {league} · {displayDate}
+              {standingsSlugPreview ? (
+                <>
+                  <NavLinkWithOverlay
+                    href={`/leagues/${standingsSlugPreview}/standings`}
+                    className="hover:underline focus:underline"
+                    message="Loading league table…"
+                  >
+                    {league}
+                  </NavLinkWithOverlay>
+                  {" · "}{displayDate}
+                </>
+              ) : (
+                <>{league} · {displayDate}</>
+              )}
             </p>
             <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
               {home}
@@ -1720,28 +1804,20 @@ function FixturePreviewContent({
           On {displayDate}, {home} face {away} in the {league}. This page will show match stats,
           confirmed lineups, xG, corners, cards and player performance once the fixture is loaded – check back closer to kick-off{kickoff ? ` (${kickoff})` : ""}.
         </p>
-        {(() => {
-          const standingsSlug =
-            fixture.leagueId != null && STANDINGS_LEAGUE_SLUG_BY_ID[fixture.leagueId]
-              ? STANDINGS_LEAGUE_SLUG_BY_ID[fixture.leagueId]
-              : Object.values(STANDINGS_LEAGUE_SLUG_BY_ID).includes(leagueSlug)
-                ? leagueSlug
-                : null;
-          return standingsSlug ? (
-            <nav
-              className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-700"
-              aria-label="League table"
+        {standingsSlugPreview && (
+          <nav
+            className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-700"
+            aria-label="League table"
+          >
+            <NavLinkWithOverlay
+              href={`/leagues/${standingsSlugPreview}/standings`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+              message="Loading league table…"
             >
-              <NavLinkWithOverlay
-                href={`/leagues/${standingsSlug}/standings`}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
-                message="Loading league table…"
-              >
-                View {league} league table →
-              </NavLinkWithOverlay>
-            </nav>
-          ) : null;
-        })()}
+              View {league} league table →
+            </NavLinkWithOverlay>
+          </nav>
+        )}
       </header>
 
       <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">

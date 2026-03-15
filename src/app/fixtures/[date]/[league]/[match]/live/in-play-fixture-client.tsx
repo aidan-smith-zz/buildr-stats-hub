@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
-import { isTeamStatsOnlyLeague } from "@/lib/leagues";
+import { isTeamStatsOnlyLeague, getStandingsSlug } from "@/lib/leagues";
 import { copyToClipboard } from "@/app/_components/share-url-button";
 import type { FixtureSummary } from "@/lib/statsService";
 import type { FixtureStatsResponse } from "@/lib/statsService";
@@ -181,6 +181,7 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
   };
 
   const fullStatsHref = `/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
+  const standingsSlug = getStandingsSlug(fixture.leagueId ?? null, leagueSlug);
 
   return (
     <div className="space-y-6">
@@ -216,7 +217,17 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
               {timeLabel}
             </span>
             <span className="text-neutral-300 dark:text-neutral-600" aria-hidden> | </span>
-            <span>{fixture.league ?? "League"}</span>
+            {standingsSlug ? (
+              <NavLinkWithOverlay
+                href={`/leagues/${standingsSlug}/standings`}
+                className="hover:underline focus:underline"
+                message="Loading league table…"
+              >
+                {fixture.league ?? "League"}
+              </NavLinkWithOverlay>
+            ) : (
+              <span>{fixture.league ?? "League"}</span>
+            )}
             <span className="text-neutral-300 dark:text-neutral-600" aria-hidden> | </span>
             <span className={isInPlay ? "font-medium text-green-500 dark:text-green-400" : "font-medium text-neutral-500 dark:text-neutral-400"}>
               {isEnded ? "Full time" : isInPlay ? "Live" : matchHasStarted ? "Score updating…" : "Not in play"}

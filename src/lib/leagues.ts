@@ -184,6 +184,12 @@ export const STANDINGS_LEAGUE_SLUG_BY_ID: Record<number, string> = (() => {
   return out;
 })();
 
+/** Resolve canonical standings URL slug from fixture leagueId and/or URL leagueSlug (so Scottish/Cinch Premiership etc. all link to the same table). */
+export function getStandingsSlug(leagueId: number | null, leagueSlug: string): string | null {
+  if (leagueId != null && STANDINGS_LEAGUE_SLUG_BY_ID[leagueId]) return STANDINGS_LEAGUE_SLUG_BY_ID[leagueId];
+  return Object.values(STANDINGS_LEAGUE_SLUG_BY_ID).includes(leagueSlug) ? leagueSlug : null;
+}
+
 /** Map URL slug -> league id for standings pages. Returns undefined if slug not found. */
 export function standingsSlugToLeagueId(slug: string): number | undefined {
   const normalized = slug.toLowerCase().trim();
