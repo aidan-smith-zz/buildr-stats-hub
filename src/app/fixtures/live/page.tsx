@@ -312,7 +312,7 @@ export default async function LiveFixturesPage() {
                                 {away}
                               </span>
                             </div>
-                            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                            <div className="flex shrink-0 flex-col items-end gap-1.5 sm:gap-2">
                               <span className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 sm:px-2.5 sm:py-1 sm:text-xs">
                                 {scoreTimeDisplay}
                               </span>
