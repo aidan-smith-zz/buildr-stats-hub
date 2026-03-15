@@ -15,16 +15,41 @@ export const API_SEASON = "2025";
 /** Min ms between outgoing requests to stay under rate limit (e.g. 3000 = ~20/min). Set FOOTBALL_API_MIN_INTERVAL_MS to override. */
 const MIN_INTERVAL_MS = Number(process.env.FOOTBALL_API_MIN_INTERVAL_MS) || 1000;
 
+/** Max ms to wait for the external API before aborting (avoids holding DB connection for 30–60s on slow/429). */
+const REQUEST_TIMEOUT_MS = Number(process.env.FOOTBALL_API_TIMEOUT_MS) || 12000;
+
 const rateLimitState = { lastRequestAt: 0 };
 
-async function rateLimitedFetch(url: string, init: RequestInit): Promise<Response> {
+/** True if the error is from our API request timeout (callers can fall back to cache). */
+export function isFootballApiTimeout(err: unknown): boolean {
+  return err instanceof Error && err.message.includes("[footballApi] Request timed out");
+}
+
+async function rateLimitedFetch(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
+): Promise<Response> {
   const now = Date.now();
   const elapsed = now - rateLimitState.lastRequestAt;
   if (elapsed < MIN_INTERVAL_MS) {
     await new Promise((r) => setTimeout(r, MIN_INTERVAL_MS - elapsed));
   }
   rateLimitState.lastRequestAt = Date.now();
-  return fetch(url, init);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    return res;
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("[footballApi] Request timed out");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 if (!FOOTBALL_API_BASE_URL) {

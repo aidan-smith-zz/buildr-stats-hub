@@ -4,6 +4,8 @@ import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 
 const FIXTURES_TZ = "Europe/London";
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+/** If all in-window fixtures have cache this fresh, skip external API and serve from DB only (avoids holding connection). */
+const LIVE_CACHE_FRESH_MS = 90 * 1000;
 
 export type LiveScoreEntry = {
   fixtureId: number;
@@ -55,11 +57,55 @@ export async function getLiveScoresForToday(): Promise<{
     return { scores: [] };
   }
 
+  const liveFixtureIds = liveWindowFixtures.map((f) => f.id);
+  const cacheCutoff = new Date(now.getTime() - LIVE_CACHE_FRESH_MS);
+
+  // If we already have fresh cache for every in-window fixture, serve from DB only (no external API).
+  const existingCache = await prisma.liveScoreCache.findMany({
+    where: { fixtureId: { in: liveFixtureIds } },
+    select: { fixtureId: true, homeGoals: true, awayGoals: true, elapsedMinutes: true, statusShort: true, cachedAt: true },
+  });
+  const cacheByFixtureId = new Map(existingCache.map((r) => [r.fixtureId, r]));
+  const allHaveFreshCache =
+    liveFixtureIds.length > 0 &&
+    liveFixtureIds.every((id) => {
+      const row = cacheByFixtureId.get(id);
+      return row != null && row.cachedAt >= cacheCutoff;
+    });
+
+  if (allHaveFreshCache) {
+    const scores: LiveScoreEntry[] = liveFixtureIds
+      .map((fixtureId) => {
+        const row = cacheByFixtureId.get(fixtureId);
+        if (!row) return null;
+        return {
+          fixtureId,
+          homeGoals: row.homeGoals,
+          awayGoals: row.awayGoals,
+          elapsedMinutes: row.elapsedMinutes,
+          statusShort: row.statusShort,
+        };
+      })
+      .filter((s): s is LiveScoreEntry => s != null);
+    return { scores };
+  }
+
   let apiLive: { apiId: number; homeGoals: number; awayGoals: number; elapsedMinutes: number | null; statusShort: string }[] = [];
   try {
     apiLive = await fetchAllLiveFixtures();
   } catch (err) {
     console.error("[liveScoresService] Failed to fetch all live fixtures", err);
+    // On timeout or error, serve from cache if we have any (so page still renders).
+    if (existingCache.length > 0) {
+      const scores: LiveScoreEntry[] = existingCache.map((r) => ({
+        fixtureId: r.fixtureId,
+        homeGoals: r.homeGoals,
+        awayGoals: r.awayGoals,
+        elapsedMinutes: r.elapsedMinutes,
+        statusShort: r.statusShort,
+      }));
+      return { scores, error: "Live data temporarily unavailable; showing cached scores" };
+    }
     return { scores: [], error: "Failed to fetch live data" };
   }
 
