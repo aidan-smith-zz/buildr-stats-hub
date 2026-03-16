@@ -12,6 +12,7 @@ import {
 import {
   getStatsLeagueForFixture,
   isTeamStatsOnlyLeague,
+  ENGLISH_LEAGUE_CUP_LEAGUE_ID,
   SCOTTISH_CUP_LEAGUE_ID,
 } from "@/lib/leagues";
 import { ensureLineupIfWithinWindow, getLineupForFixture } from "@/lib/lineupService";
@@ -873,6 +874,9 @@ const LEAGUE_ID_MAP: Record<string, number> = {
   "English League Two": 42,
   "EFL League Two": 42,
   "Scottish Cup": 181,
+  "English League Cup": 48,
+  "Carabao Cup": 48,
+  "League Cup": 48,
 };
 
 export type WarmPartResult =
@@ -1078,11 +1082,16 @@ export async function getFixtureStats(
   const scottishCupPartiallyWarmed =
     fixtureWithLeagueId.leagueId === SCOTTISH_CUP_LEAGUE_ID &&
     (homeTeamStatsExisting != null || awayTeamStatsExisting != null);
+  /** English League Cup: same as Scottish Cup — EPL teams get stats; others may not. Treat as warmed when at least one side has stats. */
+  const englishLeagueCupPartiallyWarmed =
+    fixtureWithLeagueId.leagueId === ENGLISH_LEAGUE_CUP_LEAGUE_ID &&
+    (homeTeamStatsExisting != null || awayTeamStatsExisting != null);
   const effectiveDbOnly =
     dbOnly ||
     lineupCount > 0 ||
     bothTeamsHaveStats ||
-    scottishCupPartiallyWarmed;
+    scottishCupPartiallyWarmed ||
+    englishLeagueCupPartiallyWarmed;
 
   if (DEBUG_FIXTURE) {
     const reason = dbOnly
@@ -1093,7 +1102,9 @@ export async function getFixtureStats(
           ? "both team stats exist"
           : scottishCupPartiallyWarmed
             ? "Scottish Cup: one team warmed (serve from DB)"
-            : "not warmed";
+            : englishLeagueCupPartiallyWarmed
+              ? "English League Cup: one team warmed (serve from DB)"
+              : "not warmed";
     console.log("[fixture-debug] getFixtureStats effectiveDbOnly=" + effectiveDbOnly, {
       lineupCount,
       hasHomeTeamStats: homeTeamStatsExisting != null,

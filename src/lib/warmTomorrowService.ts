@@ -204,6 +204,26 @@ export async function getFixturesNeedingWarm(options?: {
             (homeInPremiership && homeNeeds) || (awayInPremiership && awayNeeds)
           );
         }
+        if (f.leagueId === leagues.ENGLISH_LEAGUE_CUP_LEAGUE_ID) {
+          const homeInPremierLeague = homePlayer.count > 0;
+          const awayInPremierLeague = awayPlayer.count > 0;
+          if (!homeInPremierLeague && !awayInPremierLeague) return false;
+          const homeNeeds =
+            (!isTeamStatsOnly &&
+              (homePlayer.count < MIN_PLAYERS_PER_TEAM ||
+                (staleCutoffMs != null && homePlayerStale))) ||
+            !homeHasFreshTeamStats ||
+            homeHasStaleTeamStats;
+          const awayNeeds =
+            (!isTeamStatsOnly &&
+              (awayPlayer.count < MIN_PLAYERS_PER_TEAM ||
+                (staleCutoffMs != null && awayPlayerStale))) ||
+            !awayHasFreshTeamStats ||
+            awayHasStaleTeamStats;
+          return (
+            (homeInPremierLeague && homeNeeds) || (awayInPremierLeague && awayNeeds)
+          );
+        }
 
         return needsPlayerStats || needsTeamStats;
       });

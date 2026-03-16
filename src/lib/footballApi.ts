@@ -408,6 +408,9 @@ export async function fetchTodayFixtures(
     "English League Two": 42,
     "EFL League Two": 42,
     "Scottish Cup": 181,
+    "English League Cup": 48,
+    "Carabao Cup": 48,
+    "League Cup": 48,
   };
 
   return fixtures.map((f) => {

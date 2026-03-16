@@ -10,6 +10,7 @@ import {
   getStatsLeagueForFixture,
   isFixtureInRequiredLeagues,
   isTeamStatsOnlyLeague,
+  ENGLISH_LEAGUE_CUP_LEAGUE_ID,
   SCOTTISH_CUP_LEAGUE_ID,
 } from "@/lib/leagues";
 import { prisma } from "@/lib/prisma";
@@ -146,6 +147,20 @@ export async function GET(request: Request) {
               !awayHasTeamStats;
             return (
               (homeInPremiership && homeNeeds) || (awayInPremiership && awayNeeds)
+            );
+          }
+          if (f.leagueId === ENGLISH_LEAGUE_CUP_LEAGUE_ID) {
+            const homeInPremierLeague = homePlayerCount > 0;
+            const awayInPremierLeague = awayPlayerCount > 0;
+            if (!homeInPremierLeague && !awayInPremierLeague) return false;
+            const homeNeeds =
+              (!isTeamStatsOnly && homePlayerCount < MIN_PLAYERS_PER_TEAM) ||
+              !homeHasTeamStats;
+            const awayNeeds =
+              (!isTeamStatsOnly && awayPlayerCount < MIN_PLAYERS_PER_TEAM) ||
+              !awayHasTeamStats;
+            return (
+              (homeInPremierLeague && homeNeeds) || (awayInPremierLeague && awayNeeds)
             );
           }
 

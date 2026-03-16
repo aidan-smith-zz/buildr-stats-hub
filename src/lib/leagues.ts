@@ -5,7 +5,7 @@
  * here and everything else (home page, upcoming, form edge, sitemap, crests,
  * matchday insights) will pick it up automatically.
  */
-export const BASE_REQUIRED_LEAGUE_IDS = [39, 135, 40, 140, 2, 3, 179, 45, 41, 42, 181] as const;
+export const BASE_REQUIRED_LEAGUE_IDS = [39, 135, 40, 140, 2, 3, 179, 45, 41, 42, 181, 48] as const;
 
 /** All competitions the site brings in fixtures for. */
 export const REQUIRED_LEAGUE_IDS: readonly number[] = [...BASE_REQUIRED_LEAGUE_IDS];
@@ -14,6 +14,10 @@ export const REQUIRED_LEAGUE_IDS: readonly number[] = [...BASE_REQUIRED_LEAGUE_I
 export const SCOTTISH_CUP_LEAGUE_ID = 181;
 /** Scottish Premiership: used for warming and reading stats when the fixture is Scottish Cup. */
 export const SCOTTISH_PREMIERSHIP_LEAGUE_ID = 179;
+/** English League Cup (Carabao Cup): we detect by this id but warm/read stats using Premier League (39). */
+export const ENGLISH_LEAGUE_CUP_LEAGUE_ID = 48;
+/** Premier League: used for warming and reading stats when the fixture is English League Cup. */
+export const PREMIER_LEAGUE_LEAGUE_ID = 39;
 
 /** League IDs that have a standings table (excludes cups: FA Cup 45, Scottish Cup 181). */
 export const STANDINGS_LEAGUE_IDS: readonly number[] = [39, 135, 40, 140, 2, 3, 179, 41, 42];
@@ -36,6 +40,7 @@ export const LEAGUE_ORDER: readonly number[] = [
   2, // Champions League
   3, // Europa League
   45, // FA Cup
+  48, // English League Cup
   181, // Scottish Cup
 ];
 
@@ -51,6 +56,7 @@ export const LEAGUE_GROUP_ORDER: readonly number[] = [
   2, // Champions League
   3, // Europa League
   45, // FA Cup
+  48, // English League Cup
   181, // Scottish Cup
 ];
 
@@ -67,6 +73,7 @@ export const LEAGUE_DISPLAY_NAMES: Record<number, string> = (() => {
     3: "Europa League",
     179: "Scottish Premiership",
     45: "FA Cup",
+    48: "English League Cup",
     181: "Scottish Cup",
   };
   return base;
@@ -100,6 +107,9 @@ const LEAGUE_NAME_TO_ID: Record<string, number> = (() => {
     "English League Two": 42,
     "EFL League Two": 42,
     "Scottish Cup": 181,
+    "English League Cup": 48,
+    "Carabao Cup": 48,
+    "League Cup": 48,
     "La Liga": 140,
     "Spanish La Liga": 140,
     "Serie A": 135,
@@ -129,6 +139,9 @@ const REQUIRED_LEAGUE_NAMES = [
   "UEFA Europa League",
   "Scottish Premiership",
   "FA Cup",
+  "English League Cup",
+  "Carabao Cup",
+  "League Cup",
   "Scottish Cup",
 ];
 
@@ -163,6 +176,9 @@ export function getStatsLeagueForFixture(fixture: {
 }): { leagueId: number | undefined; leagueKey: string } {
   if (fixture.leagueId === SCOTTISH_CUP_LEAGUE_ID) {
     return { leagueId: SCOTTISH_PREMIERSHIP_LEAGUE_ID, leagueKey: "Scottish Premiership" };
+  }
+  if (fixture.leagueId === ENGLISH_LEAGUE_CUP_LEAGUE_ID) {
+    return { leagueId: PREMIER_LEAGUE_LEAGUE_ID, leagueKey: "Premier League" };
   }
   const leagueId =
     fixture.leagueId ?? (fixture.league ? LEAGUE_NAME_TO_ID[fixture.league] : undefined);
