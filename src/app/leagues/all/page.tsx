@@ -98,7 +98,9 @@ const getLeaguesAllPageData = unstable_cache(
     ]);
     return { byDate, crestUrls };
   },
-  ["leagues-all-page-data"],
+  // Include standings league ids in the cache key so if we add/remove leagues
+  // (e.g. add Serie A), the crestUrls array is regenerated in the same order.
+  ["leagues-all-page-data", STANDINGS_LEAGUE_IDS.join(",")],
   { revalidate: 60 * 60 * 12 }, // 12 hours
 );
 

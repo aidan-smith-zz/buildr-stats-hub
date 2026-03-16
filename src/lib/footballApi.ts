@@ -372,13 +372,19 @@ export async function fetchTodayFixtures(
 
   const fixtures = allFixtures;
   if (!fixtures.length) {
-    console.log("[footballApi] fetchTodayFixtures returned 0", { date: params.date, league: params.leagueId, timezone: params.timezone, season: API_SEASON });
+    console.log("[footballApi] fetchTodayFixtures returned 0", {
+      date: params.date,
+      league: params.leagueId,
+      timezone: params.timezone,
+      season: API_SEASON,
+    });
     return [];
   }
 
   // Fallback: API-Football league name -> id for our filtered leagues (in case API omits league.id)
   const leagueNameToId: Record<string, number> = {
     "Premier League": 39,
+    "Serie A": 135,
     "Championship": 40,
     "La Liga": 140,
     "Spanish La Liga": 140,
