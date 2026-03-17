@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "dev:webpack": "next dev --webpack",
-    "build": "npx prisma generate && next build --webpack",
+    "validate-leagues": "npx tsx scripts/validate-league-config.ts",
+    "build": "npm run validate-leagues && npx prisma generate && next build --webpack",
     "start": "next start",
     "postinstall": "npx prisma generate",
     "lint": "eslint",

@@ -1,84 +1,68 @@
-# Adding a new league
+# Adding a new league (fixtures, upcoming, warm)
 
-When you add a new league (e.g. Bundesliga, Serie A), follow this checklist so fixtures, team pages, markets, standings, and warming all work. Have the **API-Football league ID** and the **league name(s)** the API returns before you start.
-
----
-
-## 1. Why La Liga (or any new league) teams don’t show on /teams/all
-
-/teams/all only lists teams that have **TeamSeasonStats** rows with `leagueId` in **TOP_LEAGUE_IDS**. Those rows are created when you **warm** fixture stats (each warmed fixture writes stats for its home/away teams). So for a new league:
-
-- Add the league to config (see below).
-- Run the **warm flow** so today’s (and optionally tomorrow’s) fixtures for that league get warmed. After that, those teams will have TeamSeasonStats and will appear on /teams/all and have team + market pages.
-
-La Liga (140) is already in TOP_LEAGUE_IDS and LEAGUE_GROUP_ORDER; if its teams still don’t appear, run the warm commands at the end of this doc so their fixtures are warmed and TeamSeasonStats are created.
+Goal: add one **API-Football league id** so its fixtures appear on **today**, **upcoming (14 days)**, **live**, and are **warmed** like everything else — including showing up as **tomorrow** after `warm-tomorrow`, then **today** on matchday.
 
 ---
 
-## 2. Config: `src/lib/leagues.ts`
+## 1. Minimum checklist (copy when adding league `XXX`)
 
-Do all of the following for the new league ID (e.g. `123`):
+| Step | File / action |
+|------|----------------|
+| 1 | **`src/lib/leagues.ts`** → add `XXX` to **`BASE_REQUIRED_LEAGUE_IDS`** (this drives fixtures everywhere). |
+| 2 | **`src/lib/leagues.ts`** → add **`LEAGUE_DISPLAY_NAMES[XXX]`** (e.g. `"Bundesliga"`). **Required** — build fails without it (`npm run validate-leagues`). |
+| 3 | **`src/lib/leagues.ts`** → add **`LEAGUE_NAME_TO_ID`** entries for every API name variant (e.g. `"Bundesliga"`, `"1. Bundesliga"`). So `leagueId: null` responses still match. |
+| 4 | **`src/lib/leagues.ts`** → add **`REQUIRED_LEAGUE_NAMES`** if the API uses a name not already in `LEAGUE_NAME_TO_ID`. (Names in `LEAGUE_NAME_TO_ID` are now auto-accepted.) |
+| 5 | **`src/lib/leagues.ts`** → add **`LEAGUE_ORDER`** and **`LEAGUE_GROUP_ORDER`** (warnings if missing; lists order wrong until you do). |
+| 6 | **`src/lib/footballApi.ts`** → add the same name → `XXX` mappings in **`leagueNameToId`** (fixture mapping when API omits id). |
+| 7 | **`src/lib/statsService.ts`** → add any new **`LEAGUE_ID_MAP`** string keys if the API uses odd labels. |
+| 8 | Run **`npm run validate-leagues`** (also runs automatically on **`npm run build`**). |
+| 9 | Deploy, then **`curl "https://SITE/api/warm-today"`** (no `skipRefresh`) so **upcoming** refetches all 14 days with all leagues, then run your usual warm script + **`warm-tomorrow`** as needed. |
 
-| What | Action |
+---
+
+## 2. How it flows (no extra code per league)
+
+| Area | Behaviour |
+|------|-----------|
+| **Upcoming** | `refreshUpcomingFixturesTable` (on **warm-today** / **warm-tomorrow**) refetches **every** of the next **14 days** and **every** league in **`REQUIRED_LEAGUE_IDS`**. New id in `BASE_REQUIRED_LEAGUE_IDS` → included on next full warm. |
+| **Today** | `getOrRefreshTodayFixtures` loops **`REQUIRED_LEAGUE_IDS`** → new league’s games are stored on first fetch for that date. |
+| **Warm-today** | Lists today’s fixtures filtered by **`isFixtureInRequiredLeagues`** → new league included. |
+| **Warm-tomorrow** | Reads **`UpcomingFixture`** (filled above) → tomorrow’s games for the new league are warmed like others. |
+
+So after you add the id + names and run **warm-today** once, the new competition is in **upcoming**; **warm-tomorrow** then covers the next day; on matchday it’s on **today** and in the warm list as normal.
+
+---
+
+## 3. Optional: standings, team pages, “League One style”
+
+| Goal | Add to |
 |------|--------|
-| **BASE_REQUIRED_LEAGUE_IDS** | Add the ID so fixtures are fetched and shown on today/upcoming/live. |
-| **STANDINGS_LEAGUE_IDS** | Add the ID only if the league has a standings table (e.g. for standings page + league crest). |
-| **TOP_LEAGUE_IDS** | Add the ID so teams get **team pages** (`/teams/[slug]`), **market pages** (`/teams/[slug]/markets/...`), and appear on **/teams/all** once they have TeamSeasonStats. |
-| **LEAGUES_WITHOUT_PLAYER_STATS** | Add the ID only if the league has **team stats only** (no player stats or lineups), e.g. some lower tiers. |
-| **LEAGUE_ORDER** | Add the ID in the order you want (e.g. after Premier League). |
-| **LEAGUE_GROUP_ORDER** | Add the ID in the same order (used for /teams/all and grouping). |
-| **LEAGUE_DISPLAY_NAMES** | Add `[id]: "Display Name"` (e.g. `123: "Bundesliga"`). |
-| **LEAGUE_NAME_TO_ID** | Add the display name and every **API name variant** (e.g. "Bundesliga", "German Bundesliga") so when the API omits `league.id`, we still store the correct ID. |
-| **REQUIRED_LEAGUE_NAMES** | Add the display name (and any important variants) so fixtures with `leagueId: null` but matching name are still treated as required. |
+| Standings + league crest + league market URLs | **`STANDINGS_LEAGUE_IDS`** (skip for cups with no table). |
+| Full team pages, player stats, **/teams/all**, team markets | **`TOP_LEAGUE_IDS`**. |
+| Team stats only (no player table) | **`LEAGUES_WITHOUT_PLAYER_STATS`**. |
 
-Fixture persistence uses `resolveLeagueId()` and `getStatsLeagueForFixture()`, so once the league is in LEAGUE_DISPLAY_NAMES and LEAGUE_NAME_TO_ID, new fixtures will get the correct `leagueId`. No extra code in fixturesService is needed.
+Cups that use another league for stats (e.g. League Cup → EPL) → extend **`getStatsLeagueForFixture`** like Scottish Cup / English League Cup.
 
 ---
 
-## 3. API mapping: `src/lib/footballApi.ts`
-
-In the **leagueNameToId** (or equivalent) object used when mapping fixtures (e.g. in `fetchTodayFixtures`), add the same display name and API name variants → league ID so raw fixtures get the correct `leagueId` when the API only sends the name.
-
----
-
-## 4. Warm commands (no per-league changes needed)
-
-Warming already includes **all** leagues in **REQUIRED_LEAGUE_IDS**:
-
-- **warm-today** (without `?skipRefresh=1`) uses fixtures from today filtered by `isFixtureInRequiredLeagues` and returns every fixture that needs warming (player/team stats). That includes any new league you added to REQUIRED_LEAGUE_IDS.
-- **warm-tomorrow** materializes tomorrow (and optional extra days) from UpcomingFixture into Fixture; those rows come from the same REQUIRED_LEAGUE_IDS via `refreshUpcomingFixturesTable`.
-
-So you do **not** need to change warm-today or warm-tomorrow when adding a league. Just add the league to the config above; the warm scripts will then include its fixtures and warm team/player stats for them. That populates TeamSeasonStats and (for TOP_LEAGUE_IDS) makes teams show on /teams/all and their team + market pages work.
-
----
-
-## 5. After adding a new league: run these once
-
-Run in this order (replace `https://YOUR_SITE` with your site URL):
+## 4. After deploy — run once
 
 ```bash
-# Clear today so next load refetches (and stores new league with correct leagueId)
-curl -X POST https://YOUR_SITE/api/fixtures/refresh
+npm run validate-leagues   # locally before push
 
-# Refresh upcoming + today; today will refetch
-curl "https://YOUR_SITE/api/warm-today"
-
-# Materialize tomorrow (and optional extra days) from upcoming
-curl "https://YOUR_SITE/api/warm-tomorrow"
-
-# Warm fixture stats (so TeamSeasonStats exist and teams appear on /teams/all and have team/market pages)
-# Your warm script should call GET /api/fixtures/{id}/stats for each fixture ID returned by warm-today.
-# After that, refresh team crests:
-curl -X POST "https://YOUR_SITE/api/teams/crests/refresh/teams"
+# Production (replace SITE)
+curl "https://SITE/api/warm-today"          # refreshes upcoming + today; then run your fixture warm script
+curl "https://SITE/api/warm-tomorrow"       # optional: tomorrow’s list
+curl -X POST "https://SITE/api/teams/crests/refresh/teams"
 ```
 
-If you use a script that calls warm-today and then warms each returned fixture ID via `/api/fixtures/[id]/stats`, run that script after the first three commands so the new league’s fixtures are warmed. Then run the crest refresh.
+If today was already cached without the new league: **`POST /api/fixtures/refresh`** (or clear today’s fixtures per your ops doc) then **warm-today** again.
 
 ---
 
-## 6. Summary
+## 5. Summary
 
-- **Fixtures (today/upcoming/live):** Add league to BASE_REQUIRED_LEAGUE_IDS (+ names in LEAGUE_NAME_TO_ID and REQUIRED_LEAGUE_NAMES). Warm commands already include it.
-- **Team pages + markets + /teams/all:** Add league to TOP_LEAGUE_IDS and LEAGUE_GROUP_ORDER. Run the warm flow so TeamSeasonStats exist for that league’s teams.
-- **Standings (if applicable):** Add league to STANDINGS_LEAGUE_IDS.
-- **Warm:** No code changes to warm commands; add league to config and run the usual warm + crest refresh.
+- **Single source for “which fixtures we pull”:** **`BASE_REQUIRED_LEAGUE_IDS`** → **`REQUIRED_LEAGUE_IDS`**.
+- **Build safety:** **`npm run validate-leagues`** ensures every required id has **`LEAGUE_DISPLAY_NAMES`**.
+- **Name matching:** **`LEAGUE_NAME_TO_ID`** + **`isFixtureInRequiredLeagues`** (plus **`footballApi`** mapping) so API quirks don’t drop fixtures.
+- **No per-league changes** to warm-today / warm-tomorrow / upcoming refresh logic — add config + run warm.

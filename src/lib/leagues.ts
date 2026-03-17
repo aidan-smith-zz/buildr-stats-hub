@@ -116,6 +116,45 @@ const LEAGUE_NAME_TO_ID: Record<string, number> = (() => {
   };
 })();
 
+/** Resolve API league name string to id (exact match, then case-insensitive). */
+function leagueNameToRequiredId(leagueName: string): number | null {
+  const t = leagueName.trim();
+  if (!t) return null;
+  const direct = LEAGUE_NAME_TO_ID[t];
+  if (direct != null) return direct;
+  const lower = t.toLowerCase();
+  for (const [k, v] of Object.entries(LEAGUE_NAME_TO_ID)) {
+    if (k.toLowerCase() === lower) return v;
+  }
+  return null;
+}
+
+/**
+ * Run after editing league config: `npm run validate-leagues`.
+ * Fails CI if any required league id is missing a display name.
+ */
+export function validateRequiredLeaguesConfig(): { errors: string[]; warnings: string[] } {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  for (const id of REQUIRED_LEAGUE_IDS) {
+    const name = LEAGUE_DISPLAY_NAMES[id];
+    if (name == null || String(name).trim() === "") {
+      errors.push(
+        `League id ${id}: set LEAGUE_DISPLAY_NAMES[${id}] — required for DB, URLs, upcoming refresh, and warming.`,
+      );
+    }
+  }
+  for (const id of BASE_REQUIRED_LEAGUE_IDS) {
+    if (!LEAGUE_ORDER.includes(id)) {
+      warnings.push(`League ${id}: add to LEAGUE_ORDER so today/upcoming lists order correctly.`);
+    }
+    if (!LEAGUE_GROUP_ORDER.includes(id)) {
+      warnings.push(`League ${id}: add to LEAGUE_GROUP_ORDER (home page / form grouping).`);
+    }
+  }
+  return { errors, warnings };
+}
+
 /** League names that count as "required" when leagueId is null (e.g. API omits id). Includes all required leagues by display name plus common variants. */
 const REQUIRED_LEAGUE_NAMES = [
   "Premier League",
@@ -153,6 +192,10 @@ export function isFixtureInRequiredLeagues(fixture: {
     return true;
   }
   if (fixture.leagueId === null && fixture.league) {
+    const mapped = leagueNameToRequiredId(fixture.league);
+    if (mapped != null && (REQUIRED_LEAGUE_IDS as readonly number[]).includes(mapped)) {
+      return true;
+    }
     const name = fixture.league.trim().toLowerCase();
     if (REQUIRED_LEAGUE_NAMES.some((n) => name === n.toLowerCase())) return true;
     if (name.includes("league one") || name.includes("league two")) return true;
