@@ -257,34 +257,25 @@ export async function clearOutdatedUpcomingFixtures(now: Date = new Date()): Pro
 
 /**
  * Refresh the UpcomingFixture table: clear out-of-date rows, then fetch next 14 days from API and upsert.
- * Call from warm-today so the table stays populated and clean.
+ * Call from warm-today / warm-tomorrow.
+ *
+ * Always re-fetches **every** day in the window and **every** required league for that day. That way:
+ * - Cups (League Cup, FA Cup, etc.) show on any date they play, not only when the calendar day was empty
+ *   or the league had zero rows elsewhere in the window.
+ * - New leagues added to REQUIRED_LEAGUE_IDS appear on the next warm without getting "stuck".
+ *
+ * Cost: one API round-trip per day × ~len(REQUIRED_LEAGUE_IDS) leagues (parallel per day), then 14 days sequential.
  */
 export async function refreshUpcomingFixturesTable(now: Date = new Date()): Promise<void> {
   await clearOutdatedUpcomingFixtures(now);
   const todayKey = now.toLocaleDateString("en-CA", { timeZone: FIXTURES_TIMEZONE });
 
-  // Target window: approximately the next 14 days from "today" (Europe/London).
   const windowKeys = nextDateKeys(14).filter((k) => k > todayKey);
   if (windowKeys.length === 0) return;
 
-  // Existing upcoming dates in the current window.
-  const existingDates = await prisma.upcomingFixture.findMany({
-    where: { dateKey: { gte: todayKey } },
-    select: { dateKey: true },
-    distinct: ["dateKey"],
-    orderBy: { dateKey: "asc" },
-  });
-  const existingSet = new Set(existingDates.map((r) => r.dateKey));
-
-  // Backfill any missing dates in the 14‑day window.
-  // This avoids getting "stuck" when the last-day fetch fails (previously we only tried the last day).
-  const targetKeys = windowKeys.filter((k) => !existingSet.has(k));
-  if (targetKeys.length === 0) return;
-
-  for (const dateKey of targetKeys) {
+  for (const dateKey of windowKeys) {
     try {
       const fixtures = await getFixturesForDatePreview(dateKey);
-      // Extra guard: only persist fixtures in required leagues (e.g. exclude National League 43).
       const filteredFixtures = fixtures.filter((raw) =>
         isFixtureInRequiredLeagues({ leagueId: raw.leagueId ?? null, league: raw.league ?? null }),
       );

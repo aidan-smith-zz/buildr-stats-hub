@@ -25,7 +25,7 @@ So once warmed, this data stays and is reused.
 | Data | Table / log | When we use cache |
 |------|-------------|--------------------|
 | Today’s fixtures | `Fixture` (today’s date) | If we have fixtures for today **and** a successful `ApiFetchLog` for `fixtures:YYYY-MM-DD` with `fetchedAt >= dayStart`, we return from DB and **do not** call the API. |
-| Upcoming (next 14 days) | `UpcomingFixture` | Filled by warm-today’s refresh; used for preview/sitemap. |
+| Upcoming (next 14 days) | `UpcomingFixture` | Filled by warm-today’s refresh: **every** day in the window is re-fetched with **all** required leagues (so cups appear on any matchday). Used for preview/sitemap. |
 
 ---
 
