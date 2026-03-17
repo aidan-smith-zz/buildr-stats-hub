@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { isFixtureInRequiredLeagues, isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { decodeHtmlEntities } from "@/lib/text";
@@ -14,6 +14,13 @@ type Props = {
   initialSelectedId?: string | null;
   /** When true, hide the fixture dropdown and show match details as a header (single-match page) */
   hideFixtureSelector?: boolean;
+  /** Optional: share load state with siblings (e.g. Last5MatchesTile) to avoid duplicate /stats fetches */
+  onFixtureStatsUpdate?: (state: {
+    fixtureId: string;
+    loading: boolean;
+    error: boolean;
+    stats: FixtureStatsResponse | null;
+  }) => void;
 };
 
 type PlayerSortKey = keyof FixtureStatsResponse["teams"][number]["players"][number];
@@ -98,7 +105,12 @@ function ShirtIcon({ className }: { className?: string }) {
   );
 }
 
-export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtureSelector }: Props) {
+export function TodayFixturesDashboard({
+  fixtures,
+  initialSelectedId,
+  hideFixtureSelector,
+  onFixtureStatsUpdate,
+}: Props) {
   const filteredFixtures = fixtures
     .filter((fixture) =>
       isFixtureInRequiredLeagues({ leagueId: fixture.leagueId ?? null, league: fixture.league }),
@@ -132,6 +144,9 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
     statusShort: string;
   } | null>(null);
 
+  const onFixtureStatsUpdateRef = useRef(onFixtureStatsUpdate);
+  onFixtureStatsUpdateRef.current = onFixtureStatsUpdate;
+
   useEffect(() => {
     if (hideFixtureSelector && typeof window !== "undefined") {
       window.scrollTo(0, 0);
@@ -162,10 +177,24 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
   useEffect(() => {
     if (!selectedId) {
       setStats(null);
+      setError(null);
+      setLoading(false);
+      onFixtureStatsUpdateRef.current?.({
+        fixtureId: "",
+        loading: false,
+        error: false,
+        stats: null,
+      });
       return;
     }
 
     let cancelled = false;
+    onFixtureStatsUpdateRef.current?.({
+      fixtureId: selectedId,
+      loading: true,
+      error: false,
+      stats: null,
+    });
 
     async function loadStats() {
       try {
@@ -185,11 +214,23 @@ export function TodayFixturesDashboard({ fixtures, initialSelectedId, hideFixtur
 
         if (!cancelled) {
           setStats(data);
+          onFixtureStatsUpdateRef.current?.({
+            fixtureId: selectedId,
+            loading: false,
+            error: false,
+            stats: data,
+          });
         }
       } catch (err) {
         if (!cancelled) {
           setStats(null);
           setError(err instanceof Error ? err.message : "Failed to load stats");
+          onFixtureStatsUpdateRef.current?.({
+            fixtureId: selectedId,
+            loading: false,
+            error: true,
+            stats: null,
+          });
         }
       } finally {
         if (!cancelled) {

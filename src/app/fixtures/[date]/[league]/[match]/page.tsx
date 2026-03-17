@@ -14,8 +14,7 @@ import { makeTeamSlug } from "@/lib/teamSlugs";
 import type { RawFixture } from "@/lib/footballApi";
 import type { FixtureSummary } from "@/lib/statsService";
 import { isFixtureInRequiredLeagues, REQUIRED_LEAGUE_IDS, getStandingsSlug, STANDINGS_LEAGUE_SLUG_BY_ID, TOP_LEAGUE_IDS, isTeamStatsOnlyLeague } from "@/lib/leagues";
-import { TodayFixturesDashboard } from "@/app/_components/today-fixtures-dashboard";
-import { Last5MatchesTile } from "@/app/_components/last5-matches-tile";
+import { MatchPageStatsSection } from "@/app/_components/match-page-stats-section";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
@@ -488,17 +487,15 @@ export default async function FixtureMatchPage({
                 </nav>
               )}
             </header>
-            <TodayFixturesDashboard
+            <MatchPageStatsSection
               fixtures={fixtures}
               initialSelectedId={String(fixture.id)}
-              hideFixtureSelector
-            />
-            <Last5MatchesTile
-              fixtureId={String(fixture.id)}
-              homeName={home ?? fixture.homeTeam.name}
-              awayName={away ?? fixture.awayTeam.name}
-              homeCrest={homeCrest}
-              awayCrest={awayCrest}
+              last5={{
+                homeName: home ?? fixture.homeTeam.name,
+                awayName: away ?? fixture.awayTeam.name,
+                homeCrest,
+                awayCrest,
+              }}
             />
             {showHomeAwayProfile && (
               <section className="mt-6 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/60 p-3 text-xs dark:border-neutral-700 dark:bg-neutral-900/70 sm:p-4">
@@ -1187,17 +1184,15 @@ export default async function FixtureMatchPage({
                 </nav>
               )}
             </header>
-            <TodayFixturesDashboard
+            <MatchPageStatsSection
               fixtures={fixtures}
               initialSelectedId={String(fixture.id)}
-              hideFixtureSelector
-            />
-            <Last5MatchesTile
-              fixtureId={String(fixture.id)}
-              homeName={home ?? fixture.homeTeam.name}
-              awayName={away ?? fixture.awayTeam.name}
-              homeCrest={homeCrestUpcoming}
-              awayCrest={awayCrestUpcoming}
+              last5={{
+                homeName: home ?? fixture.homeTeam.name,
+                awayName: away ?? fixture.awayTeam.name,
+                homeCrest: homeCrestUpcoming,
+                awayCrest: awayCrestUpcoming,
+              }}
             />
             {showHomeAwayProfileUpcoming && (
               <section className="mt-6 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/60 p-3 text-xs dark:border-neutral-700 dark:bg-neutral-900/70 sm:p-4">

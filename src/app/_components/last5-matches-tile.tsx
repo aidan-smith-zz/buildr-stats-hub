@@ -5,12 +5,32 @@ import type { FixtureStatsResponse } from "@/lib/statsService";
 
 type BetFilter = "over15" | "over25" | "btts";
 
+export type Last5FixtureStatsGate = {
+  fixtureId: string;
+  loading: boolean;
+  error: boolean;
+  stats: FixtureStatsResponse | null;
+};
+
+function shouldFetchLast5Local(
+  fixtureId: string,
+  gate: Last5FixtureStatsGate | undefined,
+): boolean {
+  if (!gate) return true;
+  if (gate.fixtureId !== fixtureId) return true;
+  if (gate.loading) return false;
+  if (gate.error) return true;
+  return false;
+}
+
 type Props = {
   fixtureId: string;
   homeName: string;
   awayName: string;
   homeCrest: string | null;
   awayCrest: string | null;
+  /** When set (same fixtureId, dashboard loaded OK), reuse stats — avoids a second /stats request */
+  fixtureStatsFromDashboard?: Last5FixtureStatsGate;
 };
 
 function CrestOrPlaceholder({
@@ -47,32 +67,49 @@ export function Last5MatchesTile({
   awayName,
   homeCrest,
   awayCrest,
+  fixtureStatsFromDashboard: gate,
 }: Props) {
-  const [stats, setStats] = useState<FixtureStatsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [localStats, setLocalStats] = useState<FixtureStatsResponse | null>(null);
+  const [localLoading, setLocalLoading] = useState(false);
   const [betFilter, setBetFilter] = useState<BetFilter>("over15");
 
+  const aligned = Boolean(gate && gate.fixtureId === fixtureId);
+  const fetchLocal = shouldFetchLast5Local(fixtureId, gate);
+
   useEffect(() => {
+    if (!fetchLocal) {
+      setLocalStats(null);
+      setLocalLoading(false);
+      return;
+    }
     let cancelled = false;
-    setLoading(true);
-    setStats(null);
+    setLocalLoading(true);
+    setLocalStats(null);
     fetch(`/api/fixtures/${fixtureId}/stats`, { cache: "force-cache" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data: FixtureStatsResponse | null) => {
-        if (!cancelled) setStats(data ?? null);
+        if (!cancelled) setLocalStats(data ?? null);
       })
       .catch(() => {
-        if (!cancelled) setStats(null);
+        if (!cancelled) setLocalStats(null);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setLocalLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [fixtureId]);
+  }, [fixtureId, fetchLocal]);
 
-  if (loading || !stats?.last5Goals) return null;
+  if (aligned && gate!.loading) return null;
+  if (fetchLocal && localLoading) return null;
+
+  const stats =
+    !fetchLocal && aligned && gate!.stats?.last5Goals
+      ? gate!.stats
+      : localStats;
+
+  if (!stats?.last5Goals) return null;
   const { home: homeMatches, away: awayMatches } = stats.last5Goals;
   if (homeMatches.length === 0 && awayMatches.length === 0) return null;
 
