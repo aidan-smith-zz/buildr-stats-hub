@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getTeamPageData, getTeamIdBySlug } from "@/lib/teamPageService";
+import { getTeamIdBySlug, getTeamPageData, getTeamUpcomingFixtures } from "@/lib/teamPageService";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { LEAGUE_DISPLAY_NAMES, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
 import { makeTeamSlug } from "@/lib/teamSlugs";
@@ -9,6 +9,23 @@ import { makeTeamSlug } from "@/lib/teamSlugs";
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
 type RouteParams = { params: Promise<{ slug: string }> };
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatKickoff(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true });
+}
 
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { slug } = await params;
@@ -53,6 +70,11 @@ export default async function TeamCardsPage({ params }: RouteParams) {
   const leagueId = leagueIdEntry ? Number(leagueIdEntry[0]) : undefined;
   const leagueSlug = leagueId != null ? STANDINGS_LEAGUE_SLUG_BY_ID[leagueId] : null;
 
+  const upcoming = await getTeamUpcomingFixtures(teamId);
+  const likelihoodOutOf10 = (pct: number | null): number | null => (pct == null ? null : Math.round((pct / 100) * 10));
+  // Simple bookings likelihood based on the team's overall over-2.5 cards rate.
+  const over25Likelihood = likelihoodOutOf10(over25Pct);
+
   const breadcrumbItems = [
     { href: "/", label: "Home" },
     leagueSlug ? { href: `/leagues/${leagueSlug}/standings`, label: `${data.leagueName} table` } : null,
@@ -69,7 +91,15 @@ export default async function TeamCardsPage({ params }: RouteParams) {
         name: "What are team cards bookings markets?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Team cards markets look at how many cards (bookings) one side will receive in a match. Markets like over 1.5 or over 2.5 team cards are often used in bet builders and cards specials.",
+          text: "Team cards markets estimate how many cards one team is booked for in a match (for example, over 2.5 team cards).",
+        },
+      },
+      {
+        "@type": "Question",
+        name: `What does over 2.5 cards likelihood out of 10 mean for ${displayName}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `It&apos;s a 1–10 guide based mainly on ${displayName}&apos;s season over-2.5 cards rate, with home/away context where available.`,
         },
       },
       {
@@ -77,7 +107,15 @@ export default async function TeamCardsPage({ params }: RouteParams) {
         name: `How can I use ${displayName}'s cards stats for betting?`,
         acceptedAnswer: {
           "@type": "Answer",
-          text: `This page estimates how often ${displayName} receive over 1.5, 2.5 and 3.5 cards in a match using their season averages, and shows home vs away card figures. You can use this to find likely team bookings legs in your bet builder and compare them to the available odds.`,
+          text: `Use the over 1.5/2.5/3.5 cards rates (plus home/away splits) to compare with odds and build bet builder cards legs.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `Where do these cards numbers come from?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `These rates are calculated from ${displayName}&apos;s recent games in tracked competitions for the current season.`,
         },
       },
     ],
@@ -106,6 +144,11 @@ export default async function TeamCardsPage({ params }: RouteParams) {
             Team cards track how often {displayName} are booked in a match. This page looks at roughly the last 10 games from their current
             season (in tracked competitions) to show how often they go over 1.5, 2.5 and 3.5 team cards and how their card counts differ
             at home vs away.
+          </p>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            At a glance: Over 1.5 cards {over15Pct != null ? `${over15Pct.toFixed(1)}%` : "—"} ({over15Count} of {sampleSize}),
+            Over 2.5 cards {over25Pct != null ? `${over25Pct.toFixed(1)}%` : "—"} ({over25Count} of {sampleSize}),
+            and Over 3.5 cards {over35Pct != null ? `${over35Pct.toFixed(1)}%` : "—"} ({over35Count} of {sampleSize}).
           </p>
         </header>
 
@@ -188,6 +231,47 @@ export default async function TeamCardsPage({ params }: RouteParams) {
           </section>
         ) : null}
 
+        {/* Upcoming + likelihood */}
+        <section
+          id="cards-upcoming"
+          className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        >
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+            Upcoming fixtures &amp; bookings likelihood
+          </h2>
+          <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+            Next fixtures and a simple “over 2.5 cards” likelihood score (1–10) based on {displayName}&apos;s overall over-2.5
+            team cards rate. This is a basic indicator, not betting advice.
+          </p>
+          {upcoming.length === 0 ? (
+            <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-500">No upcoming fixtures in the next 14 days.</p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-sm">
+              {upcoming.map((u, i) => (
+                <li
+                  key={`${u.dateKey}-${i}`}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-100 bg-neutral-50/50 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-800/50"
+                >
+                  <div>
+                    <p className="font-medium text-neutral-900 dark:text-neutral-50">
+                      {u.isHome ? `${displayName} vs ${u.opponentName}` : `${u.opponentName} vs ${displayName}`}
+                    </p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      {formatDate(u.kickoff)}
+                      {u.league ? ` · ${u.league}` : null} · {formatKickoff(u.kickoff)}
+                    </p>
+                  </div>
+                  {over25Likelihood != null && (
+                    <span className="rounded bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-800 dark:bg-violet-900/50 dark:text-violet-200">
+                      Over 2.5 cards {over25Likelihood}/10
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         <section
           id="cards-about"
           className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
@@ -203,6 +287,30 @@ export default async function TeamCardsPage({ params }: RouteParams) {
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
             Estimates are based on season averages and are provided for information only, not as a prediction model or betting advice.
           </p>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            Related markets:{" "}
+            <Link
+              href={`/teams/${canonicalSlug}/markets/btts`}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              BTTS
+            </Link>
+            ,{" "}
+            <Link
+              href={`/teams/${canonicalSlug}/markets/total-goals`}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              total goals
+            </Link>
+            , and{" "}
+            <Link
+              href={`/teams/${canonicalSlug}/markets/corners`}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              corners
+            </Link>
+            .
+          </p>
           <Link
             href={`/teams/${canonicalSlug}`}
             className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
@@ -211,6 +319,33 @@ export default async function TeamCardsPage({ params }: RouteParams) {
             <span aria-hidden>→</span>
           </Link>
         </section>
+
+        <section className="mt-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60">
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">FAQs</h2>
+          <dl className="mt-2 space-y-3 text-sm text-neutral-700 dark:text-neutral-200">
+            <div>
+              <dt className="font-medium">What are team cards markets?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">Team cards markets estimate how many cards one team is booked for in a match (for example, over 2.5 team cards).</dd>
+            </div>
+            <div>
+              <dt className="font-medium">What does over 2.5 likelihood out of 10 mean?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                It&apos;s a 1–10 guide based mainly on {displayName}&apos;s season over-2.5 cards rate, with home/away context where available.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium">How do I use the cards stats for betting?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">Use the over 1.5/2.5/3.5 cards rates (plus home/away splits) to compare with odds and build bet builder legs.</dd>
+            </div>
+            <div>
+              <dt className="font-medium">Where do these numbers come from?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                These rates are calculated from {displayName}&apos;s recent games in tracked competitions for the current season.
+              </dd>
+            </div>
+          </dl>
+        </section>
+
       </main>
     </div>
   );

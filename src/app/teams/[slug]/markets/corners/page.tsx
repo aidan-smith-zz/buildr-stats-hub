@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getTeamPageData, getTeamIdBySlug } from "@/lib/teamPageService";
+import { getTeamPageData, getTeamIdBySlug, getTeamUpcomingFixtures } from "@/lib/teamPageService";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { LEAGUE_DISPLAY_NAMES, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
 import { makeTeamSlug } from "@/lib/teamSlugs";
@@ -9,6 +9,23 @@ import { makeTeamSlug } from "@/lib/teamSlugs";
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
 type RouteParams = { params: Promise<{ slug: string }> };
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatKickoff(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true });
+}
 
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { slug } = await params;
@@ -49,6 +66,11 @@ export default async function TeamCornersPage({ params }: RouteParams) {
   const homeGames = data.homeAwayProfile?.homeGames ?? 0;
   const awayGames = data.homeAwayProfile?.awayGames ?? 0;
 
+  const upcoming = await getTeamUpcomingFixtures(teamId);
+  const likelihoodOutOf10 = (pct: number | null): number | null =>
+    pct == null ? null : Math.round((pct / 100) * 10);
+  const over45Likelihood = likelihoodOutOf10(over45Pct);
+
   const leagueIdEntry = Object.entries(LEAGUE_DISPLAY_NAMES).find(([, name]) => name === data.leagueName);
   const leagueId = leagueIdEntry ? Number(leagueIdEntry[0]) : undefined;
   const leagueSlug = leagueId != null ? STANDINGS_LEAGUE_SLUG_BY_ID[leagueId] : null;
@@ -69,7 +91,15 @@ export default async function TeamCornersPage({ params }: RouteParams) {
         name: "What are team corners markets?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Team corners markets focus on how many corners one specific team will win in a match, such as over 4.5 corners for the home side. They are popular in bet builders and stats-based betting.",
+          text: "Team corners markets focus on how many corners one team is expected to win (for example, over 4.5 corners).",
+        },
+      },
+      {
+        "@type": "Question",
+        name: `What does over 4.5 corners likelihood out of 10 mean for ${displayName}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `It&apos;s a 1–10 guide based mainly on ${displayName}&apos;s recent over-4.5 corners rate (with home/away context where available).`,
         },
       },
       {
@@ -77,7 +107,15 @@ export default async function TeamCornersPage({ params }: RouteParams) {
         name: `How can I use ${displayName}'s corners stats for betting?`,
         acceptedAnswer: {
           "@type": "Answer",
-          text: `This page estimates the chances of ${displayName} winning over 3.5, 4.5 and 5.5 corners in a match using their season averages, and shows home vs away corner figures. You can compare this to prices and use it to build team corners legs in your bet builder.`,
+          text: `Use the over-3.5/4.5/5.5 rates (plus home/away splits) to compare with odds and build team corners bets.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `Where do these corners numbers come from?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `The rates are calculated from ${displayName}&apos;s recent games in tracked competitions for the current season.`,
         },
       },
     ],
@@ -107,7 +145,53 @@ export default async function TeamCornersPage({ params }: RouteParams) {
             their current season (in tracked competitions) to show how often they go over 3.5, 4.5 and 5.5 team corners and how their
             corner output differs at home vs away.
           </p>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            At a glance: Over 3.5 corners {over35Pct != null ? `${over35Pct.toFixed(1)}%` : "—"} ({over35Count} of {sampleSize}),
+            Over 4.5 corners {over45Pct != null ? `${over45Pct.toFixed(1)}%` : "—"} ({over45Count} of {sampleSize}),
+            and Over 5.5 corners {over55Pct != null ? `${over55Pct.toFixed(1)}%` : "—"} ({over55Count} of {sampleSize}).
+          </p>
         </header>
+
+        {/* Upcoming + likelihood */}
+        <section
+          id="corners-upcoming"
+          className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        >
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+            Upcoming fixtures &amp; corners likelihood
+          </h2>
+          <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+            Next fixtures and a simple “over 4.5 corners” likelihood score (1–10) based on {displayName}&apos;s recent over 4.5
+            team corner rate. This is a basic indicator, not betting advice.
+          </p>
+          {upcoming.length === 0 ? (
+            <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-500">No upcoming fixtures in the next 14 days.</p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-sm">
+              {upcoming.map((u, i) => (
+                <li
+                  key={`${u.dateKey}-${i}`}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-100 bg-neutral-50/50 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-800/50"
+                >
+                  <div>
+                    <p className="font-medium text-neutral-900 dark:text-neutral-50">
+                      {u.isHome ? `${displayName} vs ${u.opponentName}` : `${u.opponentName} vs ${displayName}`}
+                    </p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      {formatDate(u.kickoff)}
+                      {u.league ? ` · ${u.league}` : null} · {formatKickoff(u.kickoff)}
+                    </p>
+                  </div>
+                  {over45Likelihood != null && (
+                    <span className="rounded bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-800 dark:bg-violet-900/50 dark:text-violet-200">
+                      Over 4.5 corners {over45Likelihood}/10
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
         {/* Over 3.5, 4.5, 5.5 team corners (last ~10 games) */}
         <section
@@ -203,6 +287,30 @@ export default async function TeamCornersPage({ params }: RouteParams) {
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
             Estimates are based on season averages and are for information only, not a prediction model or betting advice.
           </p>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            Related markets:{" "}
+            <Link
+              href={`/teams/${canonicalSlug}/markets/btts`}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              BTTS
+            </Link>
+            ,{" "}
+            <Link
+              href={`/teams/${canonicalSlug}/markets/total-goals`}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              total goals
+            </Link>
+            , and{" "}
+            <Link
+              href={`/teams/${canonicalSlug}/markets/cards`}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              cards
+            </Link>
+            .
+          </p>
           <Link
             href={`/teams/${canonicalSlug}`}
             className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
@@ -211,6 +319,33 @@ export default async function TeamCornersPage({ params }: RouteParams) {
             <span aria-hidden>→</span>
           </Link>
         </section>
+
+        <section className="mt-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60">
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">FAQs</h2>
+          <dl className="mt-2 space-y-3 text-sm text-neutral-700 dark:text-neutral-200">
+            <div>
+              <dt className="font-medium">What are team corners markets?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">Team corners markets focus on how many corners one team is expected to win (for example, over 4.5 corners).</dd>
+            </div>
+            <div>
+              <dt className="font-medium">What does the over 4.5 likelihood out of 10 mean?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                It&apos;s a 1–10 guide based mainly on {displayName}&apos;s recent over-4.5 corners rate (with home/away context where available).
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium">How do I use the corners stats for betting?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">Use the over-3.5/4.5/5.5 rates (plus home/away splits) to compare with odds and build team corners bets.</dd>
+            </div>
+            <div>
+              <dt className="font-medium">Where do these corners numbers come from?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                The rates are calculated from {displayName}&apos;s recent games in tracked competitions for the current season.
+              </dd>
+            </div>
+          </dl>
+        </section>
+
       </main>
     </div>
   );

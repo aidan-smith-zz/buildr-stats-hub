@@ -42,8 +42,14 @@ export async function generateMetadata({
   const { date: dateParam } = await params;
   const dateKey = normalizeDateKey(dateParam);
   const displayDate = formatDisplayDate(dateKey);
-  const title = `Form table for ${displayDate} | Last 5, last 10 & season form | Home & away stats | Football stats`;
-  const description = `Team form table for ${displayDate}: last 5, last 10 and season averages per 90 minutes with home and away splits. Goals, corners, cards, xG. Sortable form for bet builder stats and teams in action.`;
+  const isToday = dateKey === todayDateKey();
+  const isTomorrow = dateKey === tomorrowDateKey();
+  const title = isToday
+    ? "Today form table | GF/GA, corners & cards per 90"
+    : isTomorrow
+      ? "Tomorrow form table | GF/GA, corners & cards per 90"
+      : `Form table for ${displayDate} | GF/GA, corners & cards per 90`;
+  const description = `Team form table for ${displayDate} (${isToday ? "today" : isTomorrow ? "tomorrow" : "this date"}): goals for/against (GF/GA), corners and cards per 90 using Last 5, Last 10 and season averages, with home/away splits. Sortable for bet builder picks.`;
   const canonical = `${BASE_URL}/fixtures/${dateKey}/form`;
   return {
     title,
@@ -112,11 +118,46 @@ export default async function FormPage({
     })),
   };
 
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "What does the form table show?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "A football form table compares team averages from recent matches (Last 5, Last 10) and season form, using per-90 stats with home and away splits when available.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Which stats are shown?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "The table shows goals for/against per 90, corners per 90 and cards per 90. You can sort columns to compare teams for bet builder selections.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "How do I use it for betting?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Sort the teams by the stat you want (goals, corners or cards) for today or tomorrow, then open match previews to combine form with the latest fixture context.",
+        },
+      },
+    ],
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-3" />
@@ -135,17 +176,28 @@ export default async function FormPage({
                 </p>
               </div>
               <span className="inline-flex items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900">
-                Goals · Corners · Cards · xG (per 90)
+                GF/GA · Corners · Cards (per 90)
               </span>
             </div>
             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
               {dateContext === "today"
-                ? "Last 5, last 10 and season form for all teams in action today — goals, corners, cards and xG per 90 minutes, with home and away splits. Sortable table for bet builder stats."
+                ? "Last 5, last 10 and season form for all teams in action today — goals for/against, corners and cards per 90 minutes, with home and away splits. Sortable table for bet builder stats."
                 : dateContext === "tomorrow"
-                  ? "Last 5, last 10 and season form for all teams in action tomorrow — goals, corners, cards and xG per 90 minutes, with home and away splits. Sortable table for bet builder stats."
-                  : `Last 5, last 10 and season form for all teams in action on ${displayDate} — goals, corners, cards and xG per 90 minutes, with home and away splits. Sortable table for bet builder stats.`}
+                  ? "Last 5, last 10 and season form for all teams in action tomorrow — goals for/against, corners and cards per 90 minutes, with home and away splits. Sortable table for bet builder stats."
+                  : `Last 5, last 10 and season form for all teams in action on ${displayDate} — goals for/against, corners and cards per 90 minutes, with home and away splits. Sortable table for bet builder stats.`}
             </p>
           </header>
+
+          <section className="mt-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60">
+            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">At a glance</h2>
+            <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+              This {dateContext} form table ranks teams using <strong>Last 5</strong>, <strong>Last 10</strong> and <strong>season</strong> averages per 90 minutes.
+              The sortable table shows <strong>GF</strong> / <strong>GA</strong> per 90, <strong>corners</strong> per 90 and <strong>cards</strong> per 90, with home/away splits where available.
+            </p>
+            <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
+              Data availability: Last 5 ({last5.length} teams), Last 10 ({last10.length} teams), Season ({season.length} teams).
+            </p>
+          </section>
         </div>
 
         {!hasData && !hasFixtures ? (
@@ -177,7 +229,7 @@ export default async function FormPage({
             {hasData ? (
               <section className="mb-10">
                 <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
-                  Use the form table below to compare goals, corners, cards and xG (per 90) across last 5, last 10 and full season. Home and away columns show averages in home matches vs away matches for bet builder stats.
+                  Use the form table below to compare goals for/against, corners and cards (per 90) across last 5, last 10 and full season. Home and away columns show averages in home matches vs away matches for bet builder stats.
                 </p>
                 <FormTableClient last5={last5} last10={last10} season={season} />
               </section>
@@ -214,6 +266,30 @@ export default async function FormPage({
         <div className="mt-8 flex justify-center">
           <ShareUrlButton className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700" />
         </div>
+
+        <section className="mt-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60">
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">FAQs</h2>
+          <dl className="mt-2 space-y-3 text-sm text-neutral-700 dark:text-neutral-200">
+            <div>
+              <dt className="font-medium">What does the form table show?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                A football form table compares team averages from recent matches (Last 5, Last 10) and season form, using per-90 stats with home and away splits when available.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium">Which stats are shown?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                The table shows goals for/against per 90, corners per 90 and cards per 90. You can sort columns to compare teams for bet builder selections.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium">How do I use it for betting?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                Sort the teams by the stat you want (goals, corners or cards) for today or tomorrow, then open match previews to combine form with the latest fixture context.
+              </dd>
+            </div>
+          </dl>
+        </section>
       </main>
     </div>
   );

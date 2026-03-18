@@ -3,12 +3,12 @@ import { fetchFixtureLineups } from "@/lib/footballApi";
 import { decodeHtmlEntities } from "@/lib/text";
 import type { LineupStatus as PrismaLineupStatus } from "@prisma/client";
 
-const WINDOW_MINUTES_BEFORE_KICKOFF = 30;
+const WINDOW_MINUTES_BEFORE_KICKOFF = 45;
 /** After kickoff: still fetch lineup when someone hits /live and lineup wasn't fetched pre-kickoff. */
 const WINDOW_MINUTES_AFTER_KICKOFF = 120;
 
 /**
- * Fetch lineup when: (kickoff - 30min <= now <= kickoff) OR (kickoff <= now <= kickoff + 2h).
+ * Fetch lineup when: (kickoff - 45min <= now <= kickoff) OR (kickoff <= now <= kickoff + 2h).
  * Pre-kickoff: usual window. During/after match: so /live can trigger lineup fetch if missing.
  */
 export function isWithinLineupFetchWindow(kickoffTime: Date, now: Date = new Date()): boolean {
@@ -17,7 +17,7 @@ export function isWithinLineupFetchWindow(kickoffTime: Date, now: Date = new Dat
   return (now >= start && now <= kickoffTime) || (now >= kickoffTime && now <= end);
 }
 
-/** 30 min before kickoff → 30 min after. Use short stats cache in this window so lineup can appear; after that use long cache. */
+/** 45 min before kickoff → 30 min after. Use short stats cache in this window so lineup can appear; after that use long cache. */
 const SHORT_CACHE_MINUTES_AFTER_KICKOFF = 30;
 
 export function isWithinLineupShortCacheWindow(kickoffTime: Date, now: Date = new Date()): boolean {

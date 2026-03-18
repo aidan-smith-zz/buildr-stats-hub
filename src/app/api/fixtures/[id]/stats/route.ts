@@ -8,6 +8,7 @@ import {
 } from "@/lib/statsService";
 import { ensureLineupIfWithinWindow, getLineupForFixture, isWithinLineupFetchWindow, isWithinLineupShortCacheWindow } from "@/lib/lineupService";
 import { prisma } from "@/lib/prisma";
+import { isTeamStatsOnlyLeague } from "@/lib/leagues";
 
 const DEBUG_FIXTURE = process.env.DEBUG_FIXTURE === "1" || process.env.DEBUG_FIXTURE === "true";
 
@@ -40,7 +41,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
   const now = new Date();
   const fixtureMeta = await prisma.fixture.findUnique({
     where: { id },
-    select: { date: true, _count: { select: { lineups: true } } },
+    select: { date: true, leagueId: true, _count: { select: { lineups: true } } },
   });
   const kickoffForCache = fixtureMeta?.date ? new Date(fixtureMeta.date) : null;
   const useShortCache =
@@ -49,6 +50,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     isWithinLineupShortCacheWindow(kickoffForCache, now);
   const inLineupWindowEarly = kickoffForCache != null && !Number.isNaN(kickoffForCache.getTime()) && isWithinLineupFetchWindow(kickoffForCache, now);
   const hasLineupInDb = (fixtureMeta?._count?.lineups ?? 0) > 0;
+  const shouldHaveLineupsForFixture = !isTeamStatsOnlyLeague(fixtureMeta?.leagueId ?? null);
 
   // When we're in the lineup window and don't have a lineup yet, bypass cache so we run
   // getFixtureStats (and thus ensureLineupIfWithinWindow) on every request until lineups appear.
@@ -89,9 +91,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
   // even if it was fetched earlier or outside the current lineup window.
   let lineupByTeam = await getLineupForFixture(id);
 
-  // If we're within the safe fetch window, there is no lineup yet in DB, and stats
-  // still report hasLineup=false, trigger a one-off fetch + store.
-  if (inLineupWindow && !stats.hasLineup && lineupByTeam.size === 0) {
+  // If we're within KO-30 onwards, league should have lineups, and the response
+  // still says hasLineup=false, trigger a one-off fetch + store (prevents being
+  // stuck on an earlier negative cached payload).
+  if (inLineupWindowEarly && shouldHaveLineupsForFixture && !stats.hasLineup && lineupByTeam.size === 0) {
     const fixture = await prisma.fixture.findUnique({
       where: { id },
       include: { homeTeam: true, awayTeam: true },
@@ -116,14 +119,21 @@ export async function GET(_request: Request, { params }: RouteParams) {
     stats = await mergeLineupIntoStats(stats, lineupByTeam);
   }
 
+  // If we're within KO-30 onwards and the response still has no lineup (in a lineup-capable league),
+  // ensure the response is not cached so the next hit re-runs and can pick up lineups as they appear.
+  const shouldForceNoStoreForNegativeLineups = inLineupWindowEarly && shouldHaveLineupsForFixture && !stats.hasLineup;
+
   // Lineups can appear shortly after kickoff (or change as starters/subs are confirmed).
   // While we're inside the lineup fetch window, we must not allow edge/CDN caching of the response,
   // otherwise the UI can get stuck on an earlier "hasLineup=false" payload.
-  const cacheControl = inLineupWindow ? CACHE_CONTROL_NO_STORE : CACHE_CONTROL_LONG;
+  const cacheControl = shouldForceNoStoreForNegativeLineups || inLineupWindow ? CACHE_CONTROL_NO_STORE : CACHE_CONTROL_LONG;
 
   return NextResponse.json(stats, {
     headers: {
       "Cache-Control": cacheControl,
+      ...(shouldForceNoStoreForNegativeLineups
+        ? { Pragma: "no-cache", "Vercel-CDN-Cache-Control": "no-store, max-age=0" }
+        : {}),
     },
   });
 }

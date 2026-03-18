@@ -84,8 +84,15 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const data = await getTeamPageData(teamId);
   if (!data) return { title: "Team not found", robots: { index: false, follow: false } };
   const displayName = data.shortName ?? data.name;
-  const title = `${displayName} BTTS stats & predictions | Both teams to score | ${data.leagueName} ${data.season}`;
-  const description = `See ${displayName}'s both teams to score (BTTS) stats in ${data.leagueName} ${data.season}: BTTS percentage, last 10 games and home vs away splits. Use for BTTS tips, bet builders and accumulators.`;
+  const stats = computeBttsStats(data);
+  const bttsPct = stats.pct;
+  const bttsPctPart = bttsPct != null ? `BTTS ${bttsPct.toFixed(1)}%` : "BTTS stats";
+  const title = `${displayName} BTTS stats & predictions | ${bttsPctPart} | ${data.leagueName} ${data.season}`;
+  const description = bttsPct != null
+    ? `See ${displayName}'s both teams to score (BTTS) stats in ${data.leagueName} ${data.season}: BTTS rate ${bttsPct.toFixed(
+        1,
+      )}%, last 10 games and home vs away splits. Use for BTTS tips, bet builders and accumulators.`
+    : `See ${displayName}'s both teams to score (BTTS) stats in ${data.leagueName} ${data.season}: BTTS percentage, last 10 games and home vs away splits. Use for BTTS tips, bet builders and accumulators.`;
   return {
     title,
     description,
@@ -127,7 +134,15 @@ export default async function TeamBttsPage({ params }: RouteParams) {
         name: "What is BTTS (Both Teams To Score)?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "BTTS means both teams score at least one goal in the match. A bet on BTTS yes wins if the final score is 1-1, 2-1, 3-2, etc. It loses if one team keeps a clean sheet.",
+          text: "BTTS means both teams score at least one goal in the match.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "What does BTTS out of 10 mean for upcoming fixtures?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `It turns ${displayName}'s BTTS rate into a 1–10 guide for upcoming fixtures, based on the team's season performance (and home/away split when available).`,
         },
       },
       {
@@ -135,15 +150,15 @@ export default async function TeamBttsPage({ params }: RouteParams) {
         name: `How can I use ${displayName}'s BTTS stats for betting?`,
         acceptedAnswer: {
           "@type": "Answer",
-          text: `Use this page to see what share of ${displayName}'s games this season had both teams scoring, and how that splits between home and away. Combine with upcoming fixtures to gauge BTTS likelihood, compare to BTTS odds and build bet builders.`,
+          text: `Use the BTTS rate and home/away split to judge BTTS likelihood, then compare with odds and build bet builders.`,
         },
       },
       {
         "@type": "Question",
-        name: `Is ${displayName} a good BTTS team?`,
+        name: `Where do these BTTS numbers come from?`,
         acceptedAnswer: {
           "@type": "Answer",
-          text: `The BTTS percentage and recent results on this page show whether ${displayName}'s matches regularly see both teams scoring. A consistently high BTTS rate suggests they are a strong candidate for BTTS yes selections in coupons and bet builders.`,
+          text: `These rates are calculated from ${displayName}'s recent results in tracked competitions for the current season, with home/away splits when available.`,
         },
       },
       {
@@ -151,7 +166,7 @@ export default async function TeamBttsPage({ params }: RouteParams) {
         name: `How often do ${displayName}'s home games land BTTS?`,
         acceptedAnswer: {
           "@type": "Answer",
-          text: `Home vs away BTTS splits on this page highlight whether ${displayName}'s home matches behave differently to their away games. You can use this when deciding if BTTS is stronger at home, away or in neutral fixtures for this team.`,
+          text: `The home/away split shows whether BTTS is more common for ${displayName} at home than away.`,
         },
       },
     ],
@@ -179,6 +194,9 @@ export default async function TeamBttsPage({ params }: RouteParams) {
           <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
             Both teams to score (BTTS) means each side scores at least one goal. This page uses roughly the last 10 games from {displayName}&apos;s
             current season in tracked competitions to show how often their matches land BTTS and how that varies at home vs away for bet builders and BTTS tips.
+          </p>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            BTTS out of 10 for upcoming fixtures: {likelihood != null ? `${likelihood}/10` : "—"}.
           </p>
         </header>
 
@@ -346,6 +364,30 @@ export default async function TeamBttsPage({ params }: RouteParams) {
             </Link>{" "}
             to understand whether their matches are generally high-scoring as well as BTTS-friendly.
           </p>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            Related markets:{" "}
+            <Link
+              href={`/teams/${canonicalSlug}/markets/total-goals`}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              total goals
+            </Link>
+            ,{" "}
+            <Link
+              href={`/teams/${canonicalSlug}/markets/corners`}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              corners
+            </Link>
+            , and{" "}
+            <Link
+              href={`/teams/${canonicalSlug}/markets/cards`}
+              className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              cards
+            </Link>
+            .
+          </p>
           <Link
             href={`/teams/${canonicalSlug}`}
             className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
@@ -354,6 +396,35 @@ export default async function TeamBttsPage({ params }: RouteParams) {
             <span aria-hidden>→</span>
           </Link>
         </section>
+
+        <section className="mt-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60">
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">FAQs</h2>
+          <dl className="mt-2 space-y-3 text-sm text-neutral-700 dark:text-neutral-200">
+            <div>
+              <dt className="font-medium">What is BTTS?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">BTTS means both teams score at least one goal in the match.</dd>
+            </div>
+            <div>
+              <dt className="font-medium">What does BTTS out of 10 mean?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                It turns {displayName}&apos;s BTTS rate into a 1–10 guide for upcoming fixtures, based on the team&apos;s season performance (and home/away split when available).
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium">How do I use BTTS stats for betting?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                Use the BTTS rate and home/away split to judge BTTS likelihood, then compare with odds and build bet builders.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium">Where do these BTTS numbers come from?</dt>
+              <dd className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                These rates are calculated from {displayName}&apos;s recent results in tracked competitions for the current season, with home/away splits when available.
+              </dd>
+            </div>
+          </dl>
+        </section>
+
       </main>
     </div>
   );
