@@ -201,8 +201,23 @@ export function TodayFixturesDashboard({
         setLoading(true);
         setError(null);
 
+        const selectedFixture = filteredFixtures.find((f) => String(f.id) === selectedId);
+        const kickoff = selectedFixture ? new Date(selectedFixture.date) : null;
+        const now = new Date();
+        const withinLineupFetchWindow =
+          kickoff && !Number.isNaN(kickoff.getTime())
+            ? now.getTime() >= kickoff.getTime() - 30 * 60 * 1000 && now.getTime() <= kickoff.getTime() + 120 * 60 * 1000
+            : false;
+
         const res = await fetch(`/api/fixtures/${selectedId}/stats`, {
           cache: "no-store",
+          headers: withinLineupFetchWindow
+            ? {
+                // Force the CDN/edge not to serve a previously-cached "hasLineup=false" payload.
+                "Cache-Control": "no-cache",
+                Pragma: "no-cache",
+              }
+            : undefined,
         });
 
         if (!res.ok) {

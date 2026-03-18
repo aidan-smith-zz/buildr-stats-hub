@@ -116,8 +116,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
     stats = await mergeLineupIntoStats(stats, lineupByTeam);
   }
 
-  const cacheControl =
-    inLineupWindow && !stats.hasLineup ? CACHE_CONTROL_NO_STORE : CACHE_CONTROL_LONG;
+  // Lineups can appear shortly after kickoff (or change as starters/subs are confirmed).
+  // While we're inside the lineup fetch window, we must not allow edge/CDN caching of the response,
+  // otherwise the UI can get stuck on an earlier "hasLineup=false" payload.
+  const cacheControl = inLineupWindow ? CACHE_CONTROL_NO_STORE : CACHE_CONTROL_LONG;
 
   return NextResponse.json(stats, {
     headers: {
