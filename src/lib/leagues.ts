@@ -5,7 +5,7 @@
  * here and everything else (home page, upcoming, form edge, sitemap, crests,
  * matchday insights) will pick it up automatically.
  */
-export const BASE_REQUIRED_LEAGUE_IDS = [39, 135, 40, 140, 2, 3, 179, 45, 41, 42, 181, 48] as const;
+export const BASE_REQUIRED_LEAGUE_IDS = [39, 135, 40, 140, 2, 3, 179, 45, 41, 42, 181, 48, 32] as const;
 
 /** All competitions the site brings in fixtures for. */
 export const REQUIRED_LEAGUE_IDS: readonly number[] = [...BASE_REQUIRED_LEAGUE_IDS];
@@ -19,8 +19,8 @@ export const ENGLISH_LEAGUE_CUP_LEAGUE_ID = 48;
 /** Premier League: used for warming and reading stats when the fixture is English League Cup. */
 export const PREMIER_LEAGUE_LEAGUE_ID = 39;
 
-/** League IDs that have a standings table (excludes cups: FA Cup 45, Scottish Cup 181). */
-export const STANDINGS_LEAGUE_IDS: readonly number[] = [39, 135, 40, 140, 2, 3, 179, 41, 42];
+/** League IDs with a standings/tournament page (cups can render grouped/tournament views). */
+export const STANDINGS_LEAGUE_IDS: readonly number[] = [39, 135, 40, 140, 2, 3, 179, 41, 42, 32];
 
 /** Leagues that get full treatment: team pages, player stats, warming like EPL. Used for hasTeamPages, sitemap, teamPageService, teams/all. */
 export const TOP_LEAGUE_IDS = [39, 135, 40, 140, 179, 2, 3] as const;
@@ -42,6 +42,7 @@ export const LEAGUE_ORDER: readonly number[] = [
   45, // FA Cup
   48, // English League Cup
   181, // Scottish Cup
+  32, // World Cup
 ];
 
 /** Order when grouping by league on busy days (home page + form edge page). */
@@ -58,6 +59,7 @@ export const LEAGUE_GROUP_ORDER: readonly number[] = [
   45, // FA Cup
   48, // English League Cup
   181, // Scottish Cup
+  32, // World Cup
 ];
 
 /** Consistent display names for competitions (professional, no acronyms). */
@@ -75,6 +77,7 @@ export const LEAGUE_DISPLAY_NAMES: Record<number, string> = (() => {
     45: "FA Cup",
     48: "English League Cup",
     181: "Scottish Cup",
+    32: "UEFA World Cup qualification",
   };
   return base;
 })();
@@ -110,6 +113,9 @@ const LEAGUE_NAME_TO_ID: Record<string, number> = (() => {
     "English League Cup": 48,
     "Carabao Cup": 48,
     "League Cup": 48,
+    "World Cup": 32,
+    "UEFA World Cup qualification": 32,
+    "FIFA World Cup": 32,
     "La Liga": 140,
     "Spanish La Liga": 140,
     "Serie A": 135,
@@ -182,6 +188,9 @@ const REQUIRED_LEAGUE_NAMES = [
   "Carabao Cup",
   "League Cup",
   "Scottish Cup",
+  "World Cup",
+  "UEFA World Cup qualification",
+  "FIFA World Cup",
 ];
 
 export function isFixtureInRequiredLeagues(fixture: {
@@ -245,6 +254,8 @@ export const STANDINGS_LEAGUE_SLUG_BY_ID: Record<number, string> = (() => {
     const name = LEAGUE_DISPLAY_NAMES[id];
     if (name) out[id] = leagueDisplayNameToSlug(name);
   }
+  // Keep World Cup qualification URLs on the existing /world-cup/* path.
+  out[32] = "world-cup";
   return out;
 })();
 
@@ -257,6 +268,7 @@ export function getStandingsSlug(leagueId: number | null, leagueSlug: string): s
 /** Map URL slug -> league id for standings pages. Returns undefined if slug not found. */
 export function standingsSlugToLeagueId(slug: string): number | undefined {
   const normalized = slug.toLowerCase().trim();
+  if (normalized === "world-cup") return 32; // Backward-compat for previous canonical slug.
   for (const [id, s] of Object.entries(STANDINGS_LEAGUE_SLUG_BY_ID)) {
     if (s === normalized) return Number(id);
   }

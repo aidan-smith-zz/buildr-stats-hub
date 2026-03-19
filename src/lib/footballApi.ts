@@ -11,6 +11,29 @@ const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY;
 
 /** All API requests use this season only (e.g. standings?league=39&season=2025). */
 export const API_SEASON = "2025";
+const WORLD_CUP_LEAGUE_ID = 32;
+const WORLD_CUP_SEASON = "2024";
+
+export function getApiSeasonForLeagueId(leagueId?: string | number | null): string {
+  if (leagueId !== undefined && leagueId !== null && Number(leagueId) === WORLD_CUP_LEAGUE_ID) {
+    return WORLD_CUP_SEASON;
+  }
+  return API_SEASON;
+}
+
+function resolveSeasonForLeague(leagueId?: string | number, explicitSeason?: string | number): string {
+  const isWorldCup = leagueId !== undefined && leagueId !== null && Number(leagueId) === WORLD_CUP_LEAGUE_ID;
+  if (explicitSeason !== undefined && explicitSeason !== null) {
+    const explicit = String(explicitSeason);
+    // Most internal callers pass API_SEASON by default; for World Cup we must pin to 2024.
+    if (isWorldCup && explicit === API_SEASON) return WORLD_CUP_SEASON;
+    return explicit;
+  }
+  if (isWorldCup) {
+    return WORLD_CUP_SEASON;
+  }
+  return API_SEASON;
+}
 
 /** Min ms between outgoing requests to stay under rate limit (e.g. 3000 = ~20/min). Set FOOTBALL_API_MIN_INTERVAL_MS to override. */
 const MIN_INTERVAL_MS = Number(process.env.FOOTBALL_API_MIN_INTERVAL_MS) || 1000;
@@ -333,7 +356,8 @@ export async function fetchStandings(
   season: string = API_SEASON,
 ): Promise<StandingsResponseItem[]> {
   const path = "/standings";
-  const response = await request<StandingsResponseItem>(path, { league: leagueId, season });
+  const resolvedSeason = resolveSeasonForLeague(leagueId, season);
+  const response = await request<StandingsResponseItem>(path, { league: leagueId, season: resolvedSeason });
   return Array.isArray(response) ? response : [];
 }
 
@@ -361,7 +385,7 @@ export async function fetchTodayFixtures(
 
   const baseParams: Record<string, string | number> = {
     date: params.date,
-    season: API_SEASON,
+    season: resolveSeasonForLeague(params.leagueId, params.season),
   };
   if (params.leagueId !== undefined) baseParams.league = params.leagueId;
   if (params.timezone !== undefined) baseParams.timezone = params.timezone;
@@ -411,6 +435,8 @@ export async function fetchTodayFixtures(
     "English League Cup": 48,
     "Carabao Cup": 48,
     "League Cup": 48,
+    "World Cup": 32,
+    "FIFA World Cup": 32,
   };
 
   return fixtures.map((f) => {
@@ -485,7 +511,7 @@ export async function fetchPlayerSeasonStatsByTeam(
 
   const baseParams: Record<string, string | number> = {
     team: params.teamExternalId,
-    season: API_SEASON,
+    season: resolveSeasonForLeague(params.leagueId, params.season),
   };
   if (params.leagueId !== undefined) baseParams.league = params.leagueId;
 
@@ -556,7 +582,7 @@ export async function fetchPlayerSeasonStatsByTeam(
           id: stat.team.id,
           name: stat.team.name,
         },
-        season: API_SEASON,
+        season: resolveSeasonForLeague(params.leagueId, params.season),
         league: String(params.leagueId ?? ""),
         stats: {
           appearances: getAppearances(stat, minutes),
@@ -624,7 +650,7 @@ export async function fetchTeamFixturesWithGoals(
   const path = "/fixtures";
   const baseParams: Record<string, string | number> = {
     team: teamApiId,
-    season: API_SEASON,
+    season: resolveSeasonForLeague(leagueId, _season),
     league: leagueId,
   };
 
@@ -661,7 +687,12 @@ export async function fetchTeamFixturesWithGoals(
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[footballApi] fetchTeamFixturesWithGoals error", { team: teamApiId, season: API_SEASON, league: leagueId, error: msg });
+    console.error("[footballApi] fetchTeamFixturesWithGoals error", {
+      team: teamApiId,
+      season: resolveSeasonForLeague(leagueId, _season),
+      league: leagueId,
+      error: msg,
+    });
     return { fixtureIds: [], goalsFor: 0, goalsAgainst: 0, played: 0, fixtures: [] };
   }
 }

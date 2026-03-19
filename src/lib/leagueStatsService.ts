@@ -2,7 +2,7 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { API_SEASON } from "@/lib/footballApi";
+import { getApiSeasonForLeagueId } from "@/lib/footballApi";
 import { LEAGUE_DISPLAY_NAMES } from "@/lib/leagues";
 
 export type LeagueTeamStatsRow = {
@@ -30,10 +30,11 @@ async function loadLeagueStatsHubData(leagueId: number): Promise<LeagueStatsHubD
   if (!Number.isFinite(leagueId) || leagueId <= 0) return null;
 
   const leagueName = LEAGUE_DISPLAY_NAMES[leagueId] ?? "League";
+  const season = getApiSeasonForLeagueId(leagueId);
 
   const rows = await prisma.teamSeasonStats.findMany({
     where: {
-      season: API_SEASON,
+      season,
       leagueId,
     },
     include: {
@@ -53,7 +54,7 @@ async function loadLeagueStatsHubData(leagueId: number): Promise<LeagueStatsHubD
     return {
       leagueId,
       leagueName,
-      season: API_SEASON,
+      season,
       teams: [],
       updatedAt: null,
     };
@@ -117,7 +118,7 @@ async function loadLeagueStatsHubData(leagueId: number): Promise<LeagueStatsHubD
   return {
     leagueId,
     leagueName,
-    season: API_SEASON,
+    season,
     teams,
     updatedAt,
   };

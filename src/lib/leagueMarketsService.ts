@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { API_SEASON } from "@/lib/footballApi";
+import { getApiSeasonForLeagueId } from "@/lib/footballApi";
 import { LEAGUE_DISPLAY_NAMES } from "@/lib/leagues";
 
 type LeagueBttsTeamRow = {
@@ -38,12 +38,13 @@ async function loadLeagueBttsMarketData(leagueId: number): Promise<LeagueBttsMar
   if (!Number.isFinite(leagueId) || leagueId <= 0) return null;
   const leagueName = LEAGUE_DISPLAY_NAMES[leagueId];
   if (!leagueName) return null;
+  const season = getApiSeasonForLeagueId(leagueId);
 
   const cacheKey = String(leagueId);
 
   const rows = await prisma.teamFixtureCache.findMany({
     where: {
-      season: API_SEASON,
+      season,
       league: cacheKey,
     },
     select: {
@@ -56,7 +57,16 @@ async function loadLeagueBttsMarketData(leagueId: number): Promise<LeagueBttsMar
   });
 
   if (rows.length === 0) {
-    return null;
+    return {
+      leagueId,
+      leagueName,
+      season,
+      totalMatches: 0,
+      bttsYes: 0,
+      bttsPct: null,
+      teams: [],
+      recentFixtures: [],
+    };
   }
 
   // Per-team BTTS from cache rows (team perspective).
@@ -182,7 +192,7 @@ async function loadLeagueBttsMarketData(leagueId: number): Promise<LeagueBttsMar
   return {
     leagueId,
     leagueName,
-    season: API_SEASON,
+    season,
     totalMatches,
     bttsYes,
     bttsPct,
@@ -241,12 +251,13 @@ async function loadLeagueTotalGoalsMarketData(leagueId: number): Promise<LeagueT
   if (!Number.isFinite(leagueId) || leagueId <= 0) return null;
   const leagueName = LEAGUE_DISPLAY_NAMES[leagueId];
   if (!leagueName) return null;
+  const season = getApiSeasonForLeagueId(leagueId);
 
   const cacheKey = String(leagueId);
 
   const rows = await prisma.teamFixtureCache.findMany({
     where: {
-      season: API_SEASON,
+      season,
       league: cacheKey,
     },
     select: {
@@ -259,7 +270,20 @@ async function loadLeagueTotalGoalsMarketData(leagueId: number): Promise<LeagueT
   });
 
   if (rows.length === 0) {
-    return null;
+    return {
+      leagueId,
+      leagueName,
+      season,
+      totalMatches: 0,
+      over25: 0,
+      over25Pct: null,
+      over35: 0,
+      over35Pct: null,
+      over45: 0,
+      over45Pct: null,
+      teams: [],
+      recentFixtures: [],
+    };
   }
 
   // Per-team over 2.5 from cache rows (team perspective).
@@ -395,7 +419,7 @@ async function loadLeagueTotalGoalsMarketData(leagueId: number): Promise<LeagueT
   return {
     leagueId,
     leagueName,
-    season: API_SEASON,
+    season,
     totalMatches,
     over25,
     over25Pct,
@@ -455,12 +479,13 @@ async function loadLeagueCornersMarketData(leagueId: number): Promise<LeagueCorn
   if (!Number.isFinite(leagueId) || leagueId <= 0) return null;
   const leagueName = LEAGUE_DISPLAY_NAMES[leagueId];
   if (!leagueName) return null;
+  const season = getApiSeasonForLeagueId(leagueId);
 
   const cacheKey = String(leagueId);
 
   const rows = await prisma.teamFixtureCache.findMany({
     where: {
-      season: API_SEASON,
+      season,
       league: cacheKey,
     },
     select: {
@@ -472,7 +497,20 @@ async function loadLeagueCornersMarketData(leagueId: number): Promise<LeagueCorn
   });
 
   if (rows.length === 0) {
-    return null;
+    return {
+      leagueId,
+      leagueName,
+      season,
+      totalRows: 0,
+      over35: 0,
+      over35Pct: null,
+      over45: 0,
+      over45Pct: null,
+      over55: 0,
+      over55Pct: null,
+      teams: [],
+      recentRows: [],
+    };
   }
 
   // Per-team over 3.5 from cache rows (team-specific corners).
@@ -557,7 +595,7 @@ async function loadLeagueCornersMarketData(leagueId: number): Promise<LeagueCorn
   return {
     leagueId,
     leagueName,
-    season: API_SEASON,
+    season,
     totalRows,
     over35,
     over35Pct,
@@ -617,12 +655,13 @@ async function loadLeagueCardsMarketData(leagueId: number): Promise<LeagueCardsM
   if (!Number.isFinite(leagueId) || leagueId <= 0) return null;
   const leagueName = LEAGUE_DISPLAY_NAMES[leagueId];
   if (!leagueName) return null;
+  const season = getApiSeasonForLeagueId(leagueId);
 
   const cacheKey = String(leagueId);
 
   const rows = await prisma.teamFixtureCache.findMany({
     where: {
-      season: API_SEASON,
+      season,
       league: cacheKey,
     },
     select: {
@@ -635,7 +674,20 @@ async function loadLeagueCardsMarketData(leagueId: number): Promise<LeagueCardsM
   });
 
   if (rows.length === 0) {
-    return null;
+    return {
+      leagueId,
+      leagueName,
+      season,
+      totalRows: 0,
+      over15: 0,
+      over15Pct: null,
+      over25: 0,
+      over25Pct: null,
+      over35: 0,
+      over35Pct: null,
+      teams: [],
+      recentRows: [],
+    };
   }
 
   const teamStats = new Map<
@@ -721,7 +773,7 @@ async function loadLeagueCardsMarketData(leagueId: number): Promise<LeagueCardsM
   return {
     leagueId,
     leagueName,
-    season: API_SEASON,
+    season,
     totalRows,
     over15,
     over15Pct,

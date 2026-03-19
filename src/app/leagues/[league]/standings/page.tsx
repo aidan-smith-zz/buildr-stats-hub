@@ -14,10 +14,12 @@ import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { prisma } from "@/lib/prisma";
 import { makeTeamSlug } from "@/lib/teamSlugs";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 
 export const dynamic = "force-dynamic";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
+const WORLD_CUP_LEAGUE_ID = 32;
 
 type Props = { params: Promise<{ league: string }> };
 
@@ -42,9 +44,29 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!leagueName) {
     return { title: "League not found | statsBuildr" };
   }
-  const season = getCurrentSeasonString();
-  const title = `${leagueName} Table ${season} | Live Standings, Points & Form | statsBuildr`;
-  const description = `Current ${leagueName} league table and standings ${season}. Points, goal difference, wins, draws, losses. Free football stats and bet builder analytics.`;
+  const season = leagueId === WORLD_CUP_LEAGUE_ID ? "2024" : getCurrentSeasonString();
+  const isTournament = leagueId === WORLD_CUP_LEAGUE_ID;
+  const title = isTournament
+    ? buildIntentTitle({
+        intent: `${leagueName} standings`,
+        timeframe: season,
+        keyStat: "group table, play-off paths & fixtures",
+      })
+    : buildIntentTitle({
+        intent: `${leagueName} table`,
+        timeframe: season,
+        keyStat: "standings, points & form",
+      });
+  const description = isTournament
+    ? toSnippetDescription([
+        `${leagueName} ${season} standings and play-off tracker.`,
+        "Follow group-table positions, Path A-D progress, kick-off times and live/finished scores.",
+        "Includes links to stats and market pages for qualification fixtures.",
+      ])
+    : toSnippetDescription([
+        `Current ${leagueName} league table and standings ${season}.`,
+        "Track points, goal difference, wins, draws and losses.",
+      ]);
   const canonical = `${BASE_URL}/leagues/${slug}/standings`;
   return {
     title,
@@ -88,6 +110,116 @@ function CrestCell({ logo, teamName }: { logo: string | null; teamName: string }
   );
 }
 
+type TournamentFixtureCard = {
+  id: number | string;
+  kickoff: Date;
+  status: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeGoals: number | null;
+  awayGoals: number | null;
+};
+
+type KnockoutSlot = {
+  id: string;
+  kickoff: Date | null;
+  status: string | null;
+  homeTeam: string;
+  awayTeam: string;
+  homeGoals: number | null;
+  awayGoals: number | null;
+  isPlaceholder: boolean;
+};
+
+type PlayoffPod = {
+  id: string;
+  semi1: KnockoutSlot;
+  semi2: KnockoutSlot;
+  final: KnockoutSlot;
+};
+
+function formatTournamentKickoff(date: Date): string {
+  return date.toLocaleString("en-GB", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Europe/London",
+  });
+}
+
+function isCompletedFixtureStatus(status: string | null | undefined): boolean {
+  if (!status) return false;
+  const s = status.toUpperCase();
+  return s === "FT" || s === "AET" || s === "PEN";
+}
+
+function isLiveFixtureStatus(status: string | null | undefined): boolean {
+  if (!status) return false;
+  const s = status.toUpperCase();
+  return s === "1H" || s === "2H" || s === "HT" || s === "ET" || s === "BT" || s === "P";
+}
+
+function buildPlayoffPods(fixtures: TournamentFixtureCard[]): PlayoffPod[] {
+  const ordered = fixtures
+    .slice()
+    .sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime())
+    .slice(-12); // 4 mini tournaments * (2 semis + 1 final) = 12 ties
+
+  function makeSlot(stage: string, podIdx: number, slotIdx: number, fixture?: TournamentFixtureCard): KnockoutSlot {
+    if (fixture) {
+      return {
+        id: `${stage}-pod-${podIdx}-slot-${slotIdx}-${fixture.id}`,
+        kickoff: fixture.kickoff,
+        status: fixture.status,
+        homeTeam: fixture.homeTeam,
+        awayTeam: fixture.awayTeam,
+        homeGoals: fixture.homeGoals,
+        awayGoals: fixture.awayGoals,
+        isPlaceholder: false,
+      };
+    }
+    return {
+      id: `${stage}-pod-${podIdx}-slot-${slotIdx}-placeholder`,
+      kickoff: null,
+      status: null,
+      homeTeam: "TBD",
+      awayTeam: "TBD",
+      homeGoals: null,
+      awayGoals: null,
+      isPlaceholder: true,
+    };
+  }
+
+  const pods: PlayoffPod[] = [];
+  for (let pod = 0; pod < 4; pod++) {
+    const base = pod * 3;
+    pods.push({
+      id: `pod-${pod + 1}`,
+      semi1: makeSlot("semi1", pod + 1, 1, ordered[base]),
+      semi2: makeSlot("semi2", pod + 1, 2, ordered[base + 1]),
+      final: makeSlot("final", pod + 1, 3, ordered[base + 2]),
+    });
+  }
+  return pods;
+}
+
+function getSlotWinner(slot: KnockoutSlot): string | null {
+  if (
+    slot.isPlaceholder ||
+    !isCompletedFixtureStatus(slot.status) ||
+    slot.homeGoals == null ||
+    slot.awayGoals == null
+  ) {
+    return null;
+  }
+  if (slot.homeGoals > slot.awayGoals) return slot.homeTeam;
+  if (slot.awayGoals > slot.homeGoals) return slot.awayTeam;
+  return null;
+}
+
 export default async function LeagueStandingsPage({ params }: Props) {
   const slug = normalizeSlug((await params).league);
   const leagueId = standingsSlugToLeagueId(slug);
@@ -108,14 +240,19 @@ export default async function LeagueStandingsPage({ params }: Props) {
     { href: `/fixtures/${todayKey}`, label: "Fixtures" },
     { href: `/leagues/${slug}/standings`, label: `${leagueName} standings` },
   ];
+  const isWorldCup = leagueId === WORLD_CUP_LEAGUE_ID;
 
   const jsonLd =
     standings?.tables?.length && standings.tables[0].rows?.length
       ? {
           "@context": "https://schema.org",
           "@type": "ItemList",
-          name: `${leagueName} league table ${standings.season ?? ""}`.trim(),
-          description: `Current ${leagueName} standings: points, goal difference, wins, draws, losses.`,
+          name: isWorldCup
+            ? `${leagueName} standings and play-off paths ${standings.season ?? ""}`.trim()
+            : `${leagueName} league table ${standings.season ?? ""}`.trim(),
+          description: isWorldCup
+            ? `Current ${leagueName} group standings with play-off Path A-D progress and fixture status updates.`
+            : `Current ${leagueName} standings: points, goal difference, wins, draws, losses.`,
           numberOfItems: standings.tables[0].rows.length,
           itemListElement: standings.tables[0].rows.map((row) => ({
             "@type": "ListItem",
@@ -125,32 +262,59 @@ export default async function LeagueStandingsPage({ params }: Props) {
         }
       : null;
 
-  const faqEntitiesStandings = [
-    {
-      "@type": "Question" as const,
-      name: `What is the current ${leagueName} league table?`,
-      acceptedAnswer: {
-        "@type": "Answer" as const,
-        text: `The ${leagueName} league table shows the current standings for the ${standings?.season ?? "current"} season: points, goal difference, wins, draws, losses and position for every team. Use it with today's fixtures and form for bet builder stats.`,
-      },
-    },
-    {
-      "@type": "Question" as const,
-      name: "How often is the league table updated?",
-      acceptedAnswer: {
-        "@type": "Answer" as const,
-        text: "Standings are refreshed regularly from official sources. For match previews, team form and player stats, see today's fixtures and the form table on statsBuildr.",
-      },
-    },
-    {
-      "@type": "Question" as const,
-      name: "Where can I see team stats and form?",
-      acceptedAnswer: {
-        "@type": "Answer" as const,
-        text: `From this ${leagueName} standings page you can use today's fixtures and the form table for bet builder analytics. Top-league team names in the table link to dedicated team stats pages.`,
-      },
-    },
-  ];
+  const faqEntitiesStandings = isWorldCup
+    ? [
+        {
+          "@type": "Question" as const,
+          name: `What does ${leagueName} Path A-D mean?`,
+          acceptedAnswer: {
+            "@type": "Answer" as const,
+            text: "Each path is a mini 4-team play-off: Semi 1 and Semi 2 feed into a path final. The path winner qualifies from that route.",
+          },
+        },
+        {
+          "@type": "Question" as const,
+          name: "How often does the play-off tracker update?",
+          acceptedAnswer: {
+            "@type": "Answer" as const,
+            text: "The tracker refreshes from warmed fixture data and updates statuses, scorelines and path progress as matches move from upcoming to live and finished.",
+          },
+        },
+        {
+          "@type": "Question" as const,
+          name: "Do team stats and market pages populate before kick-off?",
+          acceptedAnswer: {
+            "@type": "Answer" as const,
+            text: "Yes. As upcoming fixtures are pulled in and warmed, stats and market pages for this competition start filling with international team data.",
+          },
+        },
+      ]
+    : [
+        {
+          "@type": "Question" as const,
+          name: `What is the current ${leagueName} league table?`,
+          acceptedAnswer: {
+            "@type": "Answer" as const,
+            text: `The ${leagueName} league table shows the current standings for the ${standings?.season ?? "current"} season: points, goal difference, wins, draws, losses and position for every team. Use it with today's fixtures and form for bet builder stats.`,
+          },
+        },
+        {
+          "@type": "Question" as const,
+          name: "How often is the league table updated?",
+          acceptedAnswer: {
+            "@type": "Answer" as const,
+            text: "Standings are refreshed regularly from official sources. For match previews, team form and player stats, see today's fixtures and the form table on statsBuildr.",
+          },
+        },
+        {
+          "@type": "Question" as const,
+          name: "Where can I see team stats and form?",
+          acceptedAnswer: {
+            "@type": "Answer" as const,
+            text: `From this ${leagueName} standings page you can use today's fixtures and the form table for bet builder analytics. Top-league team names in the table link to dedicated team stats pages.`,
+          },
+        },
+      ];
   const faqJsonLdStandings = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -175,6 +339,51 @@ export default async function LeagueStandingsPage({ params }: Props) {
       );
     }
   }
+
+  let tournamentFixtures: TournamentFixtureCard[] = [];
+  if (isWorldCup) {
+    const now = new Date();
+    const [upcoming, recent] = await Promise.all([
+      prisma.upcomingFixture.findMany({
+        where: { leagueId },
+        orderBy: { kickoff: "asc" },
+        take: 24,
+      }),
+      prisma.fixture.findMany({
+        where: { leagueId, date: { lte: now } },
+        orderBy: { date: "desc" },
+        include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
+        take: 24,
+      }),
+    ]);
+    const out: TournamentFixtureCard[] = [];
+    for (const row of recent) {
+      out.push({
+        id: row.id,
+        kickoff: row.date,
+        status: row.status,
+        homeTeam: row.homeTeam.shortName ?? row.homeTeam.name,
+        awayTeam: row.awayTeam.shortName ?? row.awayTeam.name,
+        homeGoals: row.liveScoreCache?.homeGoals ?? null,
+        awayGoals: row.liveScoreCache?.awayGoals ?? null,
+      });
+    }
+    for (const row of upcoming) {
+      out.push({
+        id: row.apiFixtureId,
+        kickoff: row.kickoff,
+        status: "NS",
+        homeTeam: row.homeTeamShortName ?? row.homeTeamName,
+        awayTeam: row.awayTeamShortName ?? row.awayTeamName,
+        homeGoals: null,
+        awayGoals: null,
+      });
+    }
+    tournamentFixtures = out
+      .sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime())
+      .slice(0, 24);
+  }
+  const playoffPods = isWorldCup ? buildPlayoffPods(tournamentFixtures) : [];
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -215,20 +424,21 @@ export default async function LeagueStandingsPage({ params }: Props) {
                     {standings?.season ?? "2025"} season
                   </p>
                   <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-                    {leagueName} standings
+                    {isWorldCup ? `${leagueName} standings & play-off tracker` : `${leagueName} standings`}
                   </h1>
                   <p className="mt-0.5 text-xs font-medium text-neutral-400 dark:text-neutral-500 sm:text-[13px]">
-                    statsBuildr · League table
+                    {isWorldCup ? "statsBuildr · Qualification tracker" : "statsBuildr · League table"}
                   </p>
                 </div>
               </div>
               <span className="inline-flex flex-shrink-0 items-center rounded-full bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900">
-                P · Pts · GD · W · L · D
+                {isWorldCup ? "Tournament tracker" : "P · Pts · GD · W · L · D"}
               </span>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-              Official {leagueName} league table: current points, goal difference, wins, draws and
-              losses. Use with today&apos;s fixtures and form for bet builder stats.
+              {isWorldCup
+                ? `${leagueName} ${standings?.season ?? "2024"}: group standings plus Path A-D play-off progress, with live and finished score updates.`
+                : `Official ${leagueName} league table: current points, goal difference, wins, draws and losses. Use with today&apos;s fixtures and form for bet builder stats.`}
             </p>
           </header>
 
@@ -251,6 +461,103 @@ export default async function LeagueStandingsPage({ params }: Props) {
             </div>
           ) : (
             <article aria-label={`${leagueName} league table`}>
+              {isWorldCup ? (
+                <section className="mb-6 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+                  <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+                    Play-off knockout round
+                  </h2>
+                  <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                    16 teams are split into 4 mini play-off brackets. Each bracket has Semi 1, Semi 2, then a Final; unknown ties stay greyed out.
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                    Progress updates on refresh based on warmed fixture status (pending, live, complete) and scorelines when cached.
+                  </p>
+                  <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
+                    Quick view: {playoffPods.length} paths, {playoffPods.flatMap((p) => [p.semi1, p.semi2, p.final]).filter((s) => !s.isPlaceholder).length} known fixtures,{" "}
+                    {playoffPods.flatMap((p) => [p.semi1, p.semi2, p.final]).filter((s) => isCompletedFixtureStatus(s.status)).length} completed.
+                  </p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {playoffPods.map((pod, podIdx) => (
+                      <section
+                        key={pod.id}
+                        className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/40"
+                      >
+                        {(() => {
+                          const semisCompleted = [pod.semi1, pod.semi2].filter((s) =>
+                            isCompletedFixtureStatus(s.status),
+                          ).length;
+                          const finalCompleted = isCompletedFixtureStatus(pod.final.status);
+                          const finalLive = isLiveFixtureStatus(pod.final.status);
+                          const winner = getSlotWinner(pod.final);
+                          const progressLabel = winner
+                            ? `Winner: ${winner}`
+                            : finalCompleted
+                              ? "Final complete"
+                              : finalLive
+                                ? "Final live"
+                                : semisCompleted === 2
+                                  ? "Semis complete - final pending"
+                                  : semisCompleted === 1
+                                    ? "1/2 semis complete"
+                                    : "Semis pending";
+                          return (
+                            <p className="mt-1 px-1 text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                              {progressLabel}
+                            </p>
+                          );
+                        })()}
+                        <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
+                          Path {String.fromCharCode(65 + podIdx)}
+                        </h3>
+                        <ul className="mt-2 space-y-2">
+                          {[
+                            { label: "Semi 1", slot: pod.semi1 },
+                            { label: "Semi 2", slot: pod.semi2 },
+                            { label: "Final", slot: pod.final },
+                          ].map(({ label, slot }) => (
+                            <li
+                              key={slot.id}
+                              className={`rounded-md border px-2 py-2 ${
+                                slot.isPlaceholder
+                                  ? "border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500"
+                                  : "border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
+                              }`}
+                            >
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                                {label}
+                              </p>
+                              {slot.kickoff ? (
+                                <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                                  {formatTournamentKickoff(slot.kickoff)} · {slot.status}
+                                </p>
+                              ) : (
+                                <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+                                  Awaiting fixture
+                                </p>
+                              )}
+                              <p
+                                className={`mt-1 text-xs font-medium ${
+                                  slot.isPlaceholder
+                                    ? "text-neutral-400 dark:text-neutral-500"
+                                    : "text-neutral-900 dark:text-neutral-100"
+                                }`}
+                              >
+                                {slot.homeTeam} vs {slot.awayTeam}
+                              </p>
+                              {slot.homeGoals != null && slot.awayGoals != null ? (
+                                <p className="mt-0.5 text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
+                                  Score: {slot.homeGoals}-{slot.awayGoals}
+                                </p>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
               {standings.tables.map((table, idx) => (
                 <section
                   key={table.group ?? idx}
@@ -454,33 +761,66 @@ export default async function LeagueStandingsPage({ params }: Props) {
                 aria-label="Frequently asked questions"
               >
                 <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
-                  Frequently asked questions about the {leagueName} table
+                  {isWorldCup
+                    ? `Frequently asked questions about ${leagueName}`
+                    : `Frequently asked questions about the ${leagueName} table`}
                 </h2>
                 <dl className="mt-3 space-y-4 text-sm">
-                  <div>
-                    <dt className="font-medium text-neutral-800 dark:text-neutral-200">
-                      What is the current {leagueName} league table?
-                    </dt>
-                    <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
-                      The {leagueName} league table shows the current standings for the {standings?.season ?? "current"} season: points, goal difference, wins, draws, losses and position for every team. Use it with today&apos;s fixtures and form for bet builder stats.
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium text-neutral-800 dark:text-neutral-200">
-                      How often is the league table updated?
-                    </dt>
-                    <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
-                      Standings are refreshed regularly from official sources. For match previews, team form and player stats, see today&apos;s fixtures and the form table on statsBuildr.
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium text-neutral-800 dark:text-neutral-200">
-                      Where can I see team stats and form?
-                    </dt>
-                    <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
-                      From this {leagueName} standings page you can use today&apos;s fixtures and the form table for bet builder analytics. Top-league team names in the table link to dedicated team stats pages.
-                    </dd>
-                  </div>
+                  {isWorldCup ? (
+                    <>
+                      <div>
+                        <dt className="font-medium text-neutral-800 dark:text-neutral-200">
+                          What does {leagueName} Path A-D mean?
+                        </dt>
+                        <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
+                          Each path is a mini 4-team play-off: Semi 1 and Semi 2 feed into a path final, and the path winner qualifies.
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-neutral-800 dark:text-neutral-200">
+                          How often does the play-off tracker update?
+                        </dt>
+                        <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
+                          It updates from warmed fixture data, so statuses and scorelines move from pending to live to complete as matches are played.
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-neutral-800 dark:text-neutral-200">
+                          Do stats and market pages populate before and during match week?
+                        </dt>
+                        <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
+                          Yes. As upcoming qualification fixtures are pulled in and warmed, league stats and market pages start filling with international team data.
+                        </dd>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <dt className="font-medium text-neutral-800 dark:text-neutral-200">
+                          What is the current {leagueName} league table?
+                        </dt>
+                        <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
+                          The {leagueName} league table shows the current standings for the {standings?.season ?? "current"} season: points, goal difference, wins, draws, losses and position for every team. Use it with today&apos;s fixtures and form for bet builder stats.
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-neutral-800 dark:text-neutral-200">
+                          How often is the league table updated?
+                        </dt>
+                        <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
+                          Standings are refreshed regularly from official sources. For match previews, team form and player stats, see today&apos;s fixtures and the form table on statsBuildr.
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-neutral-800 dark:text-neutral-200">
+                          Where can I see team stats and form?
+                        </dt>
+                        <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
+                          From this {leagueName} standings page you can use today&apos;s fixtures and the form table for bet builder analytics. Top-league team names in the table link to dedicated team stats pages.
+                        </dd>
+                      </div>
+                    </>
+                  )}
                 </dl>
               </section>
             </article>
