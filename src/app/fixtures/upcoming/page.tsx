@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { getFixturesForDateFromDbOnly, getUpcomingFixturesFromDb } from "@/lib/fixturesService";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { UpcomingFixturesList } from "./upcoming-fixtures-list";
@@ -15,15 +16,27 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 const UPCOMING_PAGE_CACHE_TAG = "upcoming-page-data";
 
 export const metadata: Metadata = {
-  title: "Upcoming football fixtures | Next 14 days – match previews & bet builder stats",
-  description:
-    "View upcoming football fixtures for the next 14 days. Premier League, Championship and more: match previews, team stats, lineups and AI bet builder insights before kick-off.",
+  title: buildIntentTitle({
+    intent: "Upcoming football fixtures",
+    timeframe: "next 14 days",
+    keyStat: "match previews & bet builder stats",
+  }),
+  description: toSnippetDescription([
+    "Upcoming football fixtures for the next 14 days.",
+    "See match previews with team stats, lineups and AI insights before kick-off.",
+  ]),
   alternates: { canonical: `${BASE_URL}/fixtures/upcoming` },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Upcoming football fixtures | Next 14 days – match previews & bet builder stats",
-    description:
-      "View upcoming football fixtures for the next 14 days. Match previews, team stats, lineups and AI bet builder insights before kick-off.",
+    title: buildIntentTitle({
+      intent: "Upcoming football fixtures",
+      timeframe: "next 14 days",
+      keyStat: "match previews & bet builder stats",
+    }),
+    description: toSnippetDescription([
+      "Upcoming football fixtures for the next 14 days.",
+      "Match previews with team stats, lineups and AI insights before kick-off.",
+    ]),
     url: `${BASE_URL}/fixtures/upcoming`,
     siteName: "statsBuildr",
     type: "website",
@@ -32,9 +45,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Upcoming football fixtures | Next 14 days – match previews & bet builder stats",
-    description:
-      "View upcoming football fixtures for the next 14 days. Match previews, team stats, lineups and AI bet builder insights.",
+    title: buildIntentTitle({
+      intent: "Upcoming football fixtures",
+      timeframe: "next 14 days",
+      keyStat: "match previews & bet builder stats",
+    }),
+    description: toSnippetDescription([
+      "Upcoming football fixtures for the next 14 days.",
+      "Compare team stats, likely lineups and AI insights before kick-off.",
+    ]),
     images: [`${BASE_URL}/stats-buildr.png`],
   },
 };

@@ -3,9 +3,11 @@ import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { RefreshInsightsButton } from "@/app/_components/refresh-insights-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
+import Image from "next/image";
 import { generateInsights } from "@/lib/insightsService";
 import { decodeHtmlEntities } from "@/lib/text";
 import { prisma } from "@/lib/prisma";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 
 export const dynamic = "force-dynamic";
 
@@ -43,8 +45,15 @@ export async function generateMetadata({
   const displayDate = formatDisplayDate(dateKey);
   const insights = await generateInsights(dateKey);
   const hasContent = insights.length > 0;
-  const title = `AI football insights & bet builder stats for ${displayDate}`;
-  const description = `AI-powered football insights and bet builder stats for ${displayDate}: xG, corners, cards, shots per 90 and over 1.5 / over 2.5 / BTTS trends across today's fixtures.`;
+  const title = buildIntentTitle({
+    intent: "AI football insights",
+    timeframe: displayDate,
+    keyStat: "bet builder stats",
+  });
+  const description = toSnippetDescription([
+    `AI football insights for ${displayDate}.`,
+    "See xG, corners, cards, shots per 90 and over 1.5/2.5/BTTS trends across fixtures.",
+  ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}/ai-insights`;
   return {
     title,
@@ -125,10 +134,13 @@ export default async function AIInsightsPage({
         <div className="mb-8">
           <div className="mt-4 rounded-2xl border border-slate-700/70 bg-slate-900/80 px-4 py-3 shadow-sm backdrop-blur-sm sm:px-5 sm:py-4">
             <div className="flex items-center gap-3">
-              <img
+              <Image
                 src="/stats-buildr-mini.png"
                 alt="statsBuildr"
+                width={40}
+                height={40}
                 className="h-9 w-9 rounded-2xl border border-slate-600 bg-slate-950 p-1 shadow-md sm:h-10 sm:w-10"
+                priority
               />
               <div className="space-y-1">
                 <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-300">

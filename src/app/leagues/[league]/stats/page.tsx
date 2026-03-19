@@ -11,6 +11,7 @@ import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { makeTeamSlug } from "@/lib/teamSlugs";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import { LeagueStatsTable } from "./league-stats-table";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
@@ -39,8 +40,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const seasonString = getCurrentSeasonString();
-  const title = `${leagueName} stats ${seasonString} | Goals, xG, corners & cards per 90 | statsBuildr`;
-  const description = `Team stats for the ${leagueName} ${seasonString} season: goals for and against per 90, corners per match and cards per match. Use these league stats for bet builder research.`;
+  const title = buildIntentTitle({
+    intent: "League stats",
+    subject: leagueName,
+    timeframe: seasonString,
+    keyStat: "goals, xG, corners & cards per 90",
+  });
+  const description = toSnippetDescription([
+    `League stats for ${leagueName} ${seasonString}.`,
+    "Compare goals for/against per 90, corners per match and cards per match by team.",
+    "Useful for bet builder research.",
+  ]);
   const canonical = `${BASE_URL}/leagues/${slug}/stats`;
 
   return {

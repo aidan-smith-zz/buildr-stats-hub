@@ -5,6 +5,7 @@ import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { standingsSlugToLeagueId, LEAGUE_DISPLAY_NAMES, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
 import { getLeagueCardsMarketData } from "@/lib/leagueMarketsService";
 import { getLeagueCrestUrl } from "@/lib/crestsService";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
@@ -23,8 +24,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "League team cards stats not found | statsBuildr" };
   }
 
-  const title = `${leagueName} team cards stats | Over 1.5, 2.5, 3.5 | statsBuildr`;
-  const description = `Team cards stats for ${leagueName}: how often teams receive over 1.5, 2.5 and 3.5 cards in league matches this season, plus recent high card-count performances for bet builders.`;
+  const title = buildIntentTitle({
+    intent: "Team cards stats",
+    subject: leagueName,
+    timeframe: "this season",
+    keyStat: "Over 1.5, 2.5 & 3.5",
+  });
+  const description = toSnippetDescription([
+    `Team cards stats for ${leagueName}.`,
+    "See over 1.5, 2.5 and 3.5 team-cards rates plus recent high booking results.",
+    "Useful for cards and bet builder picks.",
+  ]);
   const canonical = `${BASE_URL}/leagues/${slug}/markets/cards`;
 
   return {

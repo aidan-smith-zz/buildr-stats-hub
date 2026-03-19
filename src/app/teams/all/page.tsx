@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
+import Image from "next/image";
 import {
   LEAGUE_DISPLAY_NAMES,
   LEAGUE_GROUP_ORDER,
@@ -11,6 +12,7 @@ import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { prisma } from "@/lib/prisma";
 import { API_SEASON } from "@/lib/footballApi";
 import { makeTeamSlug } from "@/lib/teamSlugs";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 
 export const dynamic = "force-dynamic";
 
@@ -109,15 +111,27 @@ const getTeamsAllPageData = unstable_cache(
 );
 
 export const metadata: Metadata = {
-  title: "Football teams | Premier League, Championship & more | statsBuildr",
-  description:
-    "Browse all football teams: Premier League, Championship, Scottish Premiership, League One, League Two, Champions League and Europa League. Team stats, form and fixtures.",
+  title: buildIntentTitle({
+    intent: "Football teams",
+    timeframe: "all supported competitions",
+    keyStat: "team stats, form & fixtures",
+  }),
+  description: toSnippetDescription([
+    "Browse football teams across supported competitions.",
+    "Open team pages for stats, form, fixtures and market hubs.",
+  ]),
   alternates: { canonical: `${BASE_URL}/teams/all` },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Football teams | Premier League, Championship & more | statsBuildr",
-    description:
-      "Browse all football teams across Premier League, Championship, Scottish Premiership and more. Team stats, form and fixtures.",
+    title: buildIntentTitle({
+      intent: "Football teams",
+      timeframe: "all supported competitions",
+      keyStat: "team stats, form & fixtures",
+    }),
+    description: toSnippetDescription([
+      "Browse football teams across supported competitions.",
+      "Access team stats, form and fixture hubs in one place.",
+    ]),
     url: `${BASE_URL}/teams/all`,
     siteName: "statsBuildr",
     type: "website",
@@ -125,9 +139,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Football teams | Premier League, Championship & more | statsBuildr",
-    description:
-      "Browse all football teams. Team stats, form and fixtures for bet builders.",
+    title: buildIntentTitle({
+      intent: "Football teams",
+      timeframe: "all supported competitions",
+      keyStat: "team stats, form & fixtures",
+    }),
+    description: toSnippetDescription([
+      "Browse football teams across supported competitions.",
+      "Use team stats, form and fixture hubs for bet builder research.",
+    ]),
   },
 };
 
@@ -183,6 +203,29 @@ export default async function TeamsAllPage() {
           </div>
         </header>
 
+        <section className="mb-8 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+            Team stats hubs
+          </h2>
+          <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+            Explore cross-team and fixture hubs to compare trends faster.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs sm:text-sm">
+            <NavLinkWithOverlay href="/leagues/all" className="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700" message="Loading leagues…">
+              League hubs
+            </NavLinkWithOverlay>
+            <NavLinkWithOverlay href="/fixtures/today/form" className="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700" message="Loading form table…">
+              Form table
+            </NavLinkWithOverlay>
+            <NavLinkWithOverlay href="/fixtures/today/ai-insights" className="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700" message="Loading AI insights…">
+              AI insights
+            </NavLinkWithOverlay>
+            <NavLinkWithOverlay href="/fixtures/today/matchday-insights" className="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700" message="Loading matchday insights…">
+              Matchday insights
+            </NavLinkWithOverlay>
+          </div>
+        </section>
+
         <section className="space-y-8" aria-label="Teams by league">
           <h2 className="sr-only">Teams by competition</h2>
           {groups.map(({ leagueId, leagueName, teams }) => (
@@ -215,12 +258,14 @@ export default async function TeamsAllPage() {
                                 className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white p-1.5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800/80 sm:h-11 sm:w-11"
                                 aria-hidden
                               >
-                                <img
+                                <Image
                                   src={team.crestUrl}
                                   alt=""
                                   width={40}
                                   height={40}
                                   className="h-full w-full object-contain"
+                                  loading="lazy"
+                                  unoptimized
                                 />
                               </div>
                             ) : (
@@ -284,12 +329,14 @@ export default async function TeamsAllPage() {
                             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white p-1.5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800/80 sm:h-11 sm:w-11"
                             aria-hidden
                           >
-                            <img
+                            <Image
                               src={team.crestUrl}
                               alt=""
                               width={40}
                               height={40}
                               className="h-full w-full object-contain"
+                              loading="lazy"
+                              unoptimized
                             />
                           </div>
                         ) : (

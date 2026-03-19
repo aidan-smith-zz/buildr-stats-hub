@@ -1,5 +1,11 @@
+function normalizeSlugInput(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 export function makeTeamSlug(name: string): string {
-  return name
+  return normalizeSlugInput(name)
     .toLowerCase()
     .trim()
     .replace(/\s+/g, "-")

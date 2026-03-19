@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import {
   getTeamPageData,
   getTeamIdBySlug,
+  getTeamIdentityById,
   getTeamUpcomingFixtures,
   type TeamPageData,
   type TeamPageFixtureSummary,
@@ -11,7 +12,8 @@ import {
 } from "@/lib/teamPageService";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { LEAGUE_DISPLAY_NAMES, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
-import { makeTeamSlug } from "@/lib/teamSlugs";
+import { makeTeamSlug, normalizeTeamSlug } from "@/lib/teamSlugs";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
@@ -87,12 +89,17 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const stats = computeBttsStats(data);
   const bttsPct = stats.pct;
   const bttsPctPart = bttsPct != null ? `BTTS ${bttsPct.toFixed(1)}%` : "BTTS stats";
-  const title = `${displayName} BTTS stats & predictions | ${bttsPctPart} | ${data.leagueName} ${data.season}`;
-  const description = bttsPct != null
-    ? `See ${displayName}'s both teams to score (BTTS) stats in ${data.leagueName} ${data.season}: BTTS rate ${bttsPct.toFixed(
-        1,
-      )}%, last 10 games and home vs away splits. Use for BTTS tips, bet builders and accumulators.`
-    : `See ${displayName}'s both teams to score (BTTS) stats in ${data.leagueName} ${data.season}: BTTS percentage, last 10 games and home vs away splits. Use for BTTS tips, bet builders and accumulators.`;
+  const title = buildIntentTitle({
+    intent: "BTTS stats",
+    subject: displayName,
+    timeframe: `${data.leagueName} ${data.season}`,
+    keyStat: bttsPctPart,
+  });
+  const description = toSnippetDescription([
+    `Both teams to score stats for ${displayName} in ${data.leagueName} ${data.season}.`,
+    bttsPct != null ? `BTTS rate ${bttsPct.toFixed(1)}% with last 10 and home/away splits.` : "Includes last 10 and home/away BTTS splits.",
+    "Use for BTTS tips, bet builders and accumulators.",
+  ]);
   return {
     title,
     description,
@@ -106,10 +113,16 @@ export default async function TeamBttsPage({ params }: RouteParams) {
   const { slug } = await params;
   const teamId = await getTeamIdBySlug(slug);
   if (!teamId) notFound();
+  const normalizedSlug = normalizeTeamSlug(slug);
+  const identity = await getTeamIdentityById(teamId);
+  if (!identity) notFound();
+  const canonicalSlug = makeTeamSlug(identity.shortName ?? identity.name);
+  if (normalizedSlug !== canonicalSlug) {
+    permanentRedirect(`/teams/${canonicalSlug}/markets/btts`);
+  }
   const data = await getTeamPageData(teamId);
   if (!data) notFound();
   const upcoming = await getTeamUpcomingFixtures(teamId);
-  const canonicalSlug = makeTeamSlug(data.shortName ?? data.name);
   const displayName = data.shortName ?? data.name;
   const stats = computeBttsStats(data);
   const likelihood = likelihoodOutOf10(stats.pct);
@@ -124,6 +137,16 @@ export default async function TeamBttsPage({ params }: RouteParams) {
     { href: `/teams/${canonicalSlug}`, label: displayName },
     { href: `/teams/${canonicalSlug}/markets/btts`, label: "BTTS" },
   ].filter(Boolean) as { href: string; label: string }[];
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.label,
+      item: `${BASE_URL}${item.href}`,
+    })),
+  };
 
   const faqJsonLd = {
     "@context": "https://schema.org",
@@ -174,6 +197,7 @@ export default async function TeamBttsPage({ params }: RouteParams) {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-3" />

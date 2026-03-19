@@ -11,9 +11,10 @@ import { API_SEASON, fetchLiveFixture } from "@/lib/footballApi";
 import { prisma } from "@/lib/prisma";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import { makeTeamSlug } from "@/lib/teamSlugs";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import type { RawFixture } from "@/lib/footballApi";
 import type { FixtureSummary } from "@/lib/statsService";
-import { isFixtureInRequiredLeagues, REQUIRED_LEAGUE_IDS, getStandingsSlug, STANDINGS_LEAGUE_SLUG_BY_ID, TOP_LEAGUE_IDS, isTeamStatsOnlyLeague } from "@/lib/leagues";
+import { isFixtureInRequiredLeagues, REQUIRED_LEAGUE_IDS, getStandingsSlug, STANDINGS_LEAGUE_SLUG_BY_ID, isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { MatchPageStatsSection } from "@/app/_components/match-page-stats-section";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
@@ -103,8 +104,17 @@ export async function generateMetadata({
     const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
     const league = fixture.league ?? "Football";
     const year = getYear(dateKey);
-    const title = `${home} vs ${away} Preview, Stats & AI insights | ${league} ${year}`;
-    const description = `${home} vs ${away} ${league} stats and lineups with xG, corners, cards, shots per 90 and bet builder stats, plus AI-powered football insights.`;
+    const title = buildIntentTitle({
+      intent: "Match preview",
+      subject: `${home} vs ${away}`,
+      timeframe: `${league} ${year}`,
+      keyStat: "stats, lineups & AI insights",
+    });
+    const description = toSnippetDescription([
+      `${home} vs ${away} in ${league}.`,
+      "Match stats and lineups with xG, corners, cards and shots per 90.",
+      "Includes AI insights for bet builder picks.",
+    ]);
     const canonical = `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
     return {
       title,
@@ -140,11 +150,28 @@ export async function generateMetadata({
     const canonical = `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
     const isPast = dateKey < todayDateKey();
     const title = isPast
-      ? `${home} vs ${away} Result & lineups | ${league} ${year}`
-      : `${home} vs ${away} Preview, Stats & AI insights | ${league} ${year}`;
+      ? buildIntentTitle({
+          intent: "Match result",
+          subject: `${home} vs ${away}`,
+          timeframe: `${league} ${year}`,
+          keyStat: "final score & lineups",
+        })
+      : buildIntentTitle({
+          intent: "Match preview",
+          subject: `${home} vs ${away}`,
+          timeframe: `${league} ${year}`,
+          keyStat: "stats, lineups & AI insights",
+        });
     const description = isPast
-      ? `${home} vs ${away} ${league} final result and lineups.`
-      : `${home} vs ${away} ${league} stats and lineups with xG, corners, cards, shots per 90 and bet builder stats, plus AI-powered football insights.`;
+      ? toSnippetDescription([
+          `Final result for ${home} vs ${away} in ${league}.`,
+          "Includes confirmed lineups and key match stats.",
+        ])
+      : toSnippetDescription([
+          `${home} vs ${away} in ${league}.`,
+          "Match stats and lineups with xG, corners, cards and shots per 90.",
+          "Includes AI insights for bet builder picks.",
+        ]);
     return {
       title,
       description,
@@ -181,8 +208,17 @@ export async function generateMetadata({
   const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
   const league = fixture.league ?? "Football";
   const year = getYear(dateKey);
-  const title = `${home} vs ${away} Preview, Stats & AI insights | ${league} ${year}`;
-  const description = `${home} vs ${away} ${league} stats and lineups with xG, corners, cards, shots per 90 and bet builder stats, plus AI-powered football insights.`;
+  const title = buildIntentTitle({
+    intent: "Match preview",
+    subject: `${home} vs ${away}`,
+    timeframe: `${league} ${year}`,
+    keyStat: "stats, lineups & AI insights",
+  });
+  const description = toSnippetDescription([
+    `${home} vs ${away} in ${league}.`,
+    "Match stats and lineups with xG, corners, cards and shots per 90.",
+    "Includes AI insights for bet builder picks.",
+  ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
   return {
     title,
@@ -421,35 +457,25 @@ export default async function FixtureMatchPage({
                     )}
                   </p>
                   <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-                    {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) ? (
-                      <NavLinkWithOverlay
-                        href={`/teams/${makeTeamSlug(home ?? fixture.homeTeam.name)}`}
-                        className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
-                        message="Loading team stats…"
-                      >
-                        {home}
-                      </NavLinkWithOverlay>
-                    ) : (
-                      home
-                    )}
+                    <NavLinkWithOverlay
+                      href={`/teams/${makeTeamSlug(home ?? fixture.homeTeam.name)}`}
+                      className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                      message="Loading team stats…"
+                    >
+                      {home}
+                    </NavLinkWithOverlay>
                     <span className="mx-2 text-neutral-400 dark:text-neutral-500">vs</span>
-                    {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) ? (
-                      <NavLinkWithOverlay
-                        href={`/teams/${makeTeamSlug(away ?? fixture.awayTeam.name)}`}
-                        className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
-                        message="Loading team stats…"
-                      >
-                        {away}
-                      </NavLinkWithOverlay>
-                    ) : (
-                      away
-                    )}
+                    <NavLinkWithOverlay
+                      href={`/teams/${makeTeamSlug(away ?? fixture.awayTeam.name)}`}
+                      className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                      message="Loading team stats…"
+                    >
+                      {away}
+                    </NavLinkWithOverlay>
                   </h1>
-                  {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) && (
-                    <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-                      Tap or click a team name to see their season stats and form.
-                    </p>
-                  )}
+                  <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Tap or click a team name to see their season stats and form.
+                  </p>
                 </div>
             <span className="hidden items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900 sm:inline-flex">
               {showLineupsCopy ? "Match stats & lineups" : "Match stats"}
@@ -829,35 +855,25 @@ export default async function FixtureMatchPage({
                 )}
               </p>
               <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-                {warmedFixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(warmedFixture.leagueId) ? (
-                  <NavLinkWithOverlay
-                    href={`/teams/${makeTeamSlug(home ?? warmedFixture.homeTeam.name)}`}
-                    className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
-                    message="Loading team stats…"
-                  >
-                    {home}
-                  </NavLinkWithOverlay>
-                ) : (
-                  home
-                )}
+                <NavLinkWithOverlay
+                  href={`/teams/${makeTeamSlug(home ?? warmedFixture.homeTeam.name)}`}
+                  className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                  message="Loading team stats…"
+                >
+                  {home}
+                </NavLinkWithOverlay>
                 <span className="mx-2 text-neutral-400 dark:text-neutral-500">vs</span>
-                {warmedFixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(warmedFixture.leagueId) ? (
-                  <NavLinkWithOverlay
-                    href={`/teams/${makeTeamSlug(away ?? warmedFixture.awayTeam.name)}`}
-                    className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
-                    message="Loading team stats…"
-                  >
-                    {away}
-                  </NavLinkWithOverlay>
-                ) : (
-                  away
-                )}
+                <NavLinkWithOverlay
+                  href={`/teams/${makeTeamSlug(away ?? warmedFixture.awayTeam.name)}`}
+                  className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                  message="Loading team stats…"
+                >
+                  {away}
+                </NavLinkWithOverlay>
               </h1>
-              {warmedFixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(warmedFixture.leagueId) && (
-                <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-                  Tap or click a team name to see their season stats and form.
-                </p>
-              )}
+              <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                Tap or click a team name to see their season stats and form.
+              </p>
               {standingsSlugPast && (
                 <nav
                   className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-700"
@@ -1120,35 +1136,25 @@ export default async function FixtureMatchPage({
                     )}
                   </p>
                   <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-                    {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) ? (
-                      <NavLinkWithOverlay
-                        href={`/teams/${makeTeamSlug(home ?? fixture.homeTeam.name)}`}
-                        className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
-                        message="Loading team stats…"
-                      >
-                        {home}
-                      </NavLinkWithOverlay>
-                    ) : (
-                      home
-                    )}
+                    <NavLinkWithOverlay
+                      href={`/teams/${makeTeamSlug(home ?? fixture.homeTeam.name)}`}
+                      className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                      message="Loading team stats…"
+                    >
+                      {home}
+                    </NavLinkWithOverlay>
                     <span className="mx-2 text-neutral-400 dark:text-neutral-500">vs</span>
-                    {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) ? (
-                      <NavLinkWithOverlay
-                        href={`/teams/${makeTeamSlug(away ?? fixture.awayTeam.name)}`}
-                        className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
-                        message="Loading team stats…"
-                      >
-                        {away}
-                      </NavLinkWithOverlay>
-                    ) : (
-                      away
-                    )}
+                    <NavLinkWithOverlay
+                      href={`/teams/${makeTeamSlug(away ?? fixture.awayTeam.name)}`}
+                      className="text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+                      message="Loading team stats…"
+                    >
+                      {away}
+                    </NavLinkWithOverlay>
                   </h1>
-              {fixture.leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(fixture.leagueId) && (
-                    <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-                      Tap or click a team name to see their season stats and form.
-                    </p>
-                  )}
+                  <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Tap or click a team name to see their season stats and form.
+                  </p>
                 </div>
                 <span className="hidden items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900 sm:inline-flex">
                   {isTeamStatsOnlyLeague(fixture.leagueId ?? null) ? "Match stats" : "Match stats & lineups"}
@@ -1568,7 +1574,6 @@ function TeamAndLeagueStatsSection({
     leagueId != null && STANDINGS_LEAGUE_SLUG_BY_ID[leagueId]
       ? STANDINGS_LEAGUE_SLUG_BY_ID[leagueId]
       : leagueSlug;
-  const hasTeamPages = leagueId != null && (TOP_LEAGUE_IDS as readonly number[]).includes(leagueId);
   const hasLeagueMarkets = leagueId != null && STANDINGS_LEAGUE_SLUG_BY_ID[leagueId] != null;
   const linkClass =
     "inline-flex items-center gap-1 text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300";
@@ -1594,73 +1599,37 @@ function TeamAndLeagueStatsSection({
         <div className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-3 dark:border-neutral-800 dark:bg-neutral-800/40 sm:p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{home}</span>
-            {hasTeamPages ? (
-              <NavLinkWithOverlay
-                href={`/teams/${makeTeamSlug(home)}`}
-                className="text-xs font-medium text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
-                message="Loading team…"
-              >
-                Team stats →
-              </NavLinkWithOverlay>
-            ) : null}
+            <NavLinkWithOverlay
+              href={`/teams/${makeTeamSlug(home)}`}
+              className="text-xs font-medium text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+              message="Loading team…"
+            >
+              Team stats →
+            </NavLinkWithOverlay>
           </div>
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-neutral-200 pt-2 text-xs dark:border-neutral-700">
-            {hasTeamPages ? (
-              <>
-                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/btts`} className={linkClass} message="Loading…"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
-                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/total-goals`} className={linkClass} message="Loading…"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
-                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/corners`} className={linkClass} message="Loading…"><span>Corners</span>{arrow}</NavLinkWithOverlay>
-                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/cards`} className={linkClass} message="Loading…"><span>Cards</span>{arrow}</NavLinkWithOverlay>
-              </>
-            ) : (
-              <div className="space-y-1">
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  <span className={disabledClass}>BTTS</span>
-                  <span className={disabledClass}>Total goals</span>
-                  <span className={disabledClass}>Corners</span>
-                  <span className={disabledClass}>Cards</span>
-                </div>
-                <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
-                  Team markets for this competition are coming soon.
-                </p>
-              </div>
-            )}
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/btts`} className={linkClass} message="Loading…"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/total-goals`} className={linkClass} message="Loading…"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/corners`} className={linkClass} message="Loading…"><span>Corners</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/cards`} className={linkClass} message="Loading…"><span>Cards</span>{arrow}</NavLinkWithOverlay>
           </div>
         </div>
         <div className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-3 dark:border-neutral-800 dark:bg-neutral-800/40 sm:p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{away}</span>
-            {hasTeamPages ? (
-              <NavLinkWithOverlay
-                href={`/teams/${makeTeamSlug(away)}`}
-                className="text-xs font-medium text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
-                message="Loading team…"
-              >
-                Team stats →
-              </NavLinkWithOverlay>
-            ) : null}
+            <NavLinkWithOverlay
+              href={`/teams/${makeTeamSlug(away)}`}
+              className="text-xs font-medium text-violet-600 underline-offset-2 hover:text-violet-500 hover:underline dark:text-violet-400 dark:hover:text-violet-300"
+              message="Loading team…"
+            >
+              Team stats →
+            </NavLinkWithOverlay>
           </div>
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-neutral-200 pt-2 text-xs dark:border-neutral-700">
-            {hasTeamPages ? (
-              <>
-                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/btts`} className={linkClass} message="Loading…"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
-                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/total-goals`} className={linkClass} message="Loading…"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
-                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/corners`} className={linkClass} message="Loading…"><span>Corners</span>{arrow}</NavLinkWithOverlay>
-                <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/cards`} className={linkClass} message="Loading…"><span>Cards</span>{arrow}</NavLinkWithOverlay>
-              </>
-            ) : (
-              <div className="space-y-1">
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  <span className={disabledClass}>BTTS</span>
-                  <span className={disabledClass}>Total goals</span>
-                  <span className={disabledClass}>Corners</span>
-                  <span className={disabledClass}>Cards</span>
-                </div>
-                <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
-                  Team markets for this competition are coming soon.
-                </p>
-              </div>
-            )}
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/btts`} className={linkClass} message="Loading…"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/total-goals`} className={linkClass} message="Loading…"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/corners`} className={linkClass} message="Loading…"><span>Corners</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/cards`} className={linkClass} message="Loading…"><span>Cards</span>{arrow}</NavLinkWithOverlay>
           </div>
         </div>
         <div className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-3 dark:border-neutral-800 dark:bg-neutral-800/40 sm:p-4">

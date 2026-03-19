@@ -9,6 +9,7 @@ import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { todayDateKey, tomorrowDateKey } from "@/lib/slugs";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import { FormEdgeSection } from "./form-edge-section";
 import { FormTableClient } from "./form-table-client";
 
@@ -44,12 +45,30 @@ export async function generateMetadata({
   const displayDate = formatDisplayDate(dateKey);
   const isToday = dateKey === todayDateKey();
   const isTomorrow = dateKey === tomorrowDateKey();
+  const timeframe = isToday ? "today" : isTomorrow ? "tomorrow" : displayDate;
   const title = isToday
-    ? "Today form table | GF/GA, corners & cards per 90"
+    ? buildIntentTitle({
+        intent: "Form table",
+        timeframe: "today",
+        keyStat: "GF/GA, corners & cards per 90",
+      })
     : isTomorrow
-      ? "Tomorrow form table | GF/GA, corners & cards per 90"
-      : `Form table for ${displayDate} | GF/GA, corners & cards per 90`;
-  const description = `Team form table for ${displayDate} (${isToday ? "today" : isTomorrow ? "tomorrow" : "this date"}): goals for/against (GF/GA), corners and cards per 90 using Last 5, Last 10 and season averages, with home/away splits. Sortable for bet builder picks.`;
+      ? buildIntentTitle({
+          intent: "Form table",
+          timeframe: "tomorrow",
+          keyStat: "GF/GA, corners & cards per 90",
+        })
+      : buildIntentTitle({
+          intent: "Form table",
+          timeframe: displayDate,
+          keyStat: "GF/GA, corners & cards per 90",
+        });
+  const description = toSnippetDescription([
+    `Team form table for ${timeframe}.`,
+    "Compare goals for/against (GF/GA), corners and cards per 90.",
+    "Uses Last 5, Last 10 and season averages with home/away splits.",
+    "Sortable for bet builder picks.",
+  ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}/form`;
   return {
     title,

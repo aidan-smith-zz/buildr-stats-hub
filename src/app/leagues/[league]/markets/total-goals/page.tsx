@@ -5,6 +5,7 @@ import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { standingsSlugToLeagueId, LEAGUE_DISPLAY_NAMES, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
 import { getLeagueTotalGoalsMarketData } from "@/lib/leagueMarketsService";
 import { getLeagueCrestUrl } from "@/lib/crestsService";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
@@ -23,8 +24,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "League total goals stats not found | statsBuildr" };
   }
 
-  const title = `${leagueName} total goals stats | Over 2.5, 3.5, 4.5 | statsBuildr`;
-  const description = `Total goals stats for ${leagueName}: how often league matches finish over 2.5, 3.5 and 4.5 goals, plus team over 2.5 records and recent high-scoring results for bet builders.`;
+  const title = buildIntentTitle({
+    intent: "Total goals stats",
+    subject: leagueName,
+    timeframe: "this season",
+    keyStat: "Over 2.5, 3.5 & 4.5",
+  });
+  const description = toSnippetDescription([
+    `Total goals stats for ${leagueName}.`,
+    "Track over 2.5, 3.5 and 4.5 rates, team over-2.5 records and recent high-scoring results.",
+    "Useful for over/under and bet builder picks.",
+  ]);
   const canonical = `${BASE_URL}/leagues/${slug}/markets/total-goals`;
 
   return {

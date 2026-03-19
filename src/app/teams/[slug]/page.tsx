@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { getTeamPageData, type TeamPageData } from "@/lib/teamPageService";
+import { notFound, permanentRedirect } from "next/navigation";
+import { getTeamIdBySlug, getTeamIdentityById, getTeamPageData, type TeamPageData } from "@/lib/teamPageService";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { LEAGUE_DISPLAY_NAMES, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
 import { getOrRefreshStandings, type StandingsData } from "@/lib/standingsService";
-import { prisma } from "@/lib/prisma";
 import { makeTeamSlug, normalizeTeamSlug } from "@/lib/teamSlugs";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import { TeamPlayersTable } from "./TeamPlayersTable";
 
 type RouteParams = {
@@ -13,35 +13,6 @@ type RouteParams = {
     slug: string;
   }>;
 };
-
-async function findTeamIdBySlug(rawSlug: string): Promise<number | null> {
-  const slug = normalizeTeamSlug(rawSlug);
-  if (!slug) return null;
-
-  const approxName = rawSlug.replace(/-/g, " ");
-  const candidates = await prisma.team.findMany({
-    where: {
-      OR: [
-        { name: { contains: approxName, mode: "insensitive" } },
-        { shortName: { contains: approxName, mode: "insensitive" } },
-      ],
-    },
-    select: { id: true, name: true, shortName: true },
-  });
-
-  if (!candidates.length) return null;
-
-  const matches = candidates.filter((team) => {
-    const nameSlug = makeTeamSlug(team.name);
-    const shortSlug = team.shortName ? makeTeamSlug(team.shortName) : null;
-    return nameSlug === slug || shortSlug === slug;
-  });
-
-  if (!matches.length) return null;
-
-  matches.sort((a, b) => a.name.localeCompare(b.name));
-  return matches[0].id;
-}
 
 function leagueSlugForName(name: string): string | null {
   for (const [id, displayName] of Object.entries(LEAGUE_DISPLAY_NAMES)) {
@@ -55,7 +26,7 @@ function leagueSlugForName(name: string): string | null {
 
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { slug } = await params;
-  const teamId = await findTeamIdBySlug(slug);
+  const teamId = await getTeamIdBySlug(slug);
   if (!teamId) {
     return {
       title: "Team not found",
@@ -72,8 +43,16 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   }
 
   const displayName = data.shortName ?? data.name;
-  const title = `${displayName} stats & form | ${data.leagueName} ${data.season}`;
-  const description = `See ${displayName}'s ${data.leagueName} ${data.season} stats: goals, xG, corners and cards per 90, recent results and key player numbers.`;
+  const title = buildIntentTitle({
+    intent: "Team stats",
+    subject: displayName,
+    timeframe: `${data.leagueName} ${data.season}`,
+    keyStat: "goals, xG, corners & cards per 90",
+  });
+  const description = toSnippetDescription([
+    `Team stats for ${displayName} in ${data.leagueName} ${data.season}.`,
+    "See goals, xG, corners and cards per 90, recent results and key player numbers.",
+  ]);
 
   return {
     title,
@@ -93,13 +72,19 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
 
 export default async function TeamPage({ params }: RouteParams) {
   const { slug } = await params;
-  const teamId = await findTeamIdBySlug(slug);
+  const teamId = await getTeamIdBySlug(slug);
   if (!teamId) notFound();
+
+  const identity = await getTeamIdentityById(teamId);
+  if (!identity) notFound();
+  const normalizedSlug = normalizeTeamSlug(slug);
+  const canonicalSlug = makeTeamSlug(identity.shortName ?? identity.name);
+  if (normalizedSlug !== canonicalSlug) {
+    permanentRedirect(`/teams/${canonicalSlug}`);
+  }
 
   const data = await getTeamPageData(teamId);
   if (!data) notFound();
-
-  const canonicalSlug = makeTeamSlug(data.shortName ?? data.name);
 
   // Map league name back to leagueId for standings (only for known leagues).
   const leagueIdEntry = Object.entries(LEAGUE_DISPLAY_NAMES).find(
@@ -143,6 +128,16 @@ function TeamPageView({
       : null,
     { href: `/teams/${slug}`, label: displayName },
   ].filter(Boolean) as { href: string; label: string }[];
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.label,
+      item: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com"}${item.href}`,
+    })),
+  };
 
   const faqEntitiesTeam = [
     {
@@ -178,6 +173,10 @@ function TeamPageView({
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLdTeam) }}

@@ -5,6 +5,7 @@ import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { standingsSlugToLeagueId, LEAGUE_DISPLAY_NAMES, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
 import { getLeagueBttsMarketData } from "@/lib/leagueMarketsService";
 import { getLeagueCrestUrl } from "@/lib/crestsService";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
@@ -23,8 +24,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "League BTTS stats not found | statsBuildr" };
   }
 
-  const title = `${leagueName} BTTS stats | Both teams to score trends | statsBuildr`;
-  const description = `BTTS (both teams to score) stats for ${leagueName}: how often both teams scored in league matches this season, plus team BTTS percentages and recent BTTS results for bet builders.`;
+  const title = buildIntentTitle({
+    intent: "BTTS stats",
+    subject: leagueName,
+    timeframe: "this season",
+    keyStat: "both teams to score trends",
+  });
+  const description = toSnippetDescription([
+    `BTTS stats for ${leagueName}.`,
+    "See how often both teams scored this season, plus team BTTS percentages and recent BTTS results.",
+    "Useful for BTTS and bet builder picks.",
+  ]);
   const canonical = `${BASE_URL}/leagues/${slug}/markets/btts`;
 
   return {

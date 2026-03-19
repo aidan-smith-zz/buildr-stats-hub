@@ -1,13 +1,21 @@
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { API_SEASON } from "@/lib/footballApi";
-import { LEAGUE_DISPLAY_NAMES, TOP_LEAGUE_IDS } from "@/lib/leagues";
+import { LEAGUE_DISPLAY_NAMES, REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 import { makeTeamSlug, normalizeTeamSlug } from "@/lib/teamSlugs";
 import { todayDateKey } from "@/lib/slugs";
 
-const TOP_LEAGUE_KEYS = TOP_LEAGUE_IDS.map((id) => LEAGUE_DISPLAY_NAMES[id]);
+const REQUIRED_LEAGUE_KEYS = REQUIRED_LEAGUE_IDS.map((id) => LEAGUE_DISPLAY_NAMES[id]).filter(
+  (name): name is string => Boolean(name),
+);
 /** TeamFixtureCache stores league as String(leagueId); use for recent fixtures from warm data. */
-const TOP_LEAGUE_CACHE_KEYS = TOP_LEAGUE_IDS.map((id) => String(id));
+const REQUIRED_LEAGUE_CACHE_KEYS = REQUIRED_LEAGUE_IDS.map((id) => String(id));
+const TEAM_SLUG_ALIASES: Record<string, string[]> = {
+  // Common Bayern variants users type/click.
+  "bayern-mnchen": ["bayern-munchen", "bayern-muenchen", "bayern-munich"],
+  "bayern-muenchen": ["bayern-munchen", "bayern-munich"],
+  "bayern-munchen": ["bayern-muenchen", "bayern-munich"],
+};
 
 type TeamSeasonRow = {
   teamId: number;
@@ -92,6 +100,12 @@ export type TeamPageData = {
   keyPlayers: TeamPagePlayerSummary[];
 };
 
+export type TeamIdentity = {
+  id: number;
+  name: string;
+  shortName: string | null;
+};
+
 function rowToPer90(row: TeamSeasonRow | null): TeamPagePer90 | null {
   if (!row) return null;
   const minutes = row.minutesPlayed ?? 0;
@@ -127,21 +141,21 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
   });
   if (!team) return null;
 
-  // Find this team's season stats for the top leagues (by display name or leagueId so we
+  // Find this team's season stats for tracked leagues (by display name or leagueId so we
   // include rows stored as "EFL Championship" etc. from fixture warm).
   const seasonRows = await prisma.teamSeasonStats.findMany({
     where: {
       teamId,
       season: API_SEASON,
       OR: [
-        { league: { in: TOP_LEAGUE_KEYS } },
-        { leagueId: { in: TOP_LEAGUE_IDS as unknown as number[] } },
+        { league: { in: REQUIRED_LEAGUE_KEYS } },
+        { leagueId: { in: REQUIRED_LEAGUE_IDS as unknown as number[] } },
       ],
     },
   });
 
   if (seasonRows.length === 0) {
-    // Not a top-league team (for our purposes) – no dedicated page.
+    // Not in tracked leagues for this season – no dedicated page.
     return null;
   }
 
@@ -184,7 +198,7 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
     where: {
       teamId,
       season: API_SEASON,
-      league: { in: TOP_LEAGUE_CACHE_KEYS },
+      league: { in: REQUIRED_LEAGUE_CACHE_KEYS },
     },
     orderBy: { fixtureDate: "desc" },
     take: 10,
@@ -236,7 +250,7 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
     const recentFixturesRaw = await prisma.fixture.findMany({
       where: {
         season: API_SEASON,
-        leagueId: { in: TOP_LEAGUE_IDS as unknown as number[] },
+        leagueId: { in: REQUIRED_LEAGUE_IDS as unknown as number[] },
         OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
       },
       orderBy: { date: "desc" },
@@ -326,25 +340,34 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
 export async function getTeamIdBySlug(rawSlug: string): Promise<number | null> {
   const slug = normalizeTeamSlug(rawSlug);
   if (!slug) return null;
-  const approxName = rawSlug.replace(/-/g, " ");
-  const candidates = await prisma.team.findMany({
-    where: {
-      OR: [
-        { name: { contains: approxName, mode: "insensitive" } },
-        { shortName: { contains: approxName, mode: "insensitive" } },
-      ],
-    },
+  const slugCandidates = new Set([slug, ...(TEAM_SLUG_ALIASES[slug] ?? [])]);
+
+  const teams = await prisma.team.findMany({
     select: { id: true, name: true, shortName: true },
   });
-  if (!candidates.length) return null;
-  const matches = candidates.filter((team) => {
-    const nameSlug = makeTeamSlug(team.name);
-    const shortSlug = team.shortName ? makeTeamSlug(team.shortName) : null;
-    return nameSlug === slug || shortSlug === slug;
+  if (!teams.length) return null;
+
+  const matches = teams.filter((team) => {
+    const nameSlug = normalizeTeamSlug(makeTeamSlug(team.name));
+    const shortSlug = team.shortName ? normalizeTeamSlug(team.shortName) : null;
+    return slugCandidates.has(nameSlug) || (shortSlug != null && slugCandidates.has(shortSlug));
   });
   if (!matches.length) return null;
   matches.sort((a, b) => a.name.localeCompare(b.name));
   return matches[0].id;
+}
+
+export async function getTeamIdentityById(teamId: number): Promise<TeamIdentity | null> {
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: { id: true, name: true, shortName: true },
+  });
+  if (!team) return null;
+  return {
+    id: team.id,
+    name: team.name,
+    shortName: team.shortName ?? null,
+  };
 }
 
 export const getTeamPageData = unstable_cache(

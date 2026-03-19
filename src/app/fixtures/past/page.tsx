@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getPast14DaysFixturesFromDb } from "@/lib/fixturesService";
 import { todayDateKey } from "@/lib/slugs";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { PastFixturesList } from "./past-fixtures-list";
@@ -10,15 +11,27 @@ export const dynamic = "force-dynamic";
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
 export const metadata: Metadata = {
-  title: "Past football fixtures | Last 14 days – results & match stats",
-  description:
-    "View past football fixtures from the last 14 days. Premier League, Championship and more: full-time results, team and player stats, xG, corners and lineups.",
+  title: buildIntentTitle({
+    intent: "Past football fixtures",
+    timeframe: "last 14 days",
+    keyStat: "results & match stats",
+  }),
+  description: toSnippetDescription([
+    "Past football fixtures from the last 14 days.",
+    "See full-time results with team and player stats, xG, corners and lineups.",
+  ]),
   alternates: { canonical: `${BASE_URL}/fixtures/past` },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Past football fixtures | Last 14 days – results & match stats",
-    description:
-      "View past football fixtures from the last 14 days. Full-time results, team and player stats, xG, corners and lineups.",
+    title: buildIntentTitle({
+      intent: "Past football fixtures",
+      timeframe: "last 14 days",
+      keyStat: "results & match stats",
+    }),
+    description: toSnippetDescription([
+      "Past football fixtures from the last 14 days.",
+      "Full-time results with team and player stats, xG, corners and lineups.",
+    ]),
     url: `${BASE_URL}/fixtures/past`,
     siteName: "statsBuildr",
     type: "website",
@@ -27,9 +40,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Past football fixtures | Last 14 days – results & match stats",
-    description:
-      "View past football fixtures from the last 14 days. Full-time results, team and player stats.",
+    title: buildIntentTitle({
+      intent: "Past football fixtures",
+      timeframe: "last 14 days",
+      keyStat: "results & match stats",
+    }),
+    description: toSnippetDescription([
+      "Past football fixtures from the last 14 days.",
+      "Check full-time results and drill into team/player match stats.",
+    ]),
     images: [`${BASE_URL}/stats-buildr.png`],
   },
 };

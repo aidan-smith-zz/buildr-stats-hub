@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getFixturesForDateFromDbOnly, getOrRefreshTodayFixtures } from "@/lib/fixturesService";
 import { withPoolRetry } from "@/lib/poolRetry";
 import { fixtureDateKey, leagueToSlug, matchSlug, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
 export const dynamic = "force-dynamic";
@@ -17,15 +18,27 @@ const organizationJsonLd = {
 };
 
 export const metadata: Metadata = {
-  title: "Today's Football Fixtures & Player Stats | Bet Builder Analytics",
-  description:
-    "Today's football fixtures with team and player statistics: goals, assists, xG, corners, cards per 90. Build your bet with data-driven match insights.",
+  title: buildIntentTitle({
+    intent: "Football fixtures",
+    timeframe: "today",
+    keyStat: "player stats & bet builder analytics",
+  }),
+  description: toSnippetDescription([
+    "Today’s football fixtures with team and player stats.",
+    "Track goals, assists, xG, corners and cards per 90 before you build selections.",
+  ]),
   alternates: { canonical: siteUrl },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Today's Football Fixtures & Player Stats | Bet Builder Analytics",
-    description:
-      "Today's football fixtures with team and player statistics: goals, assists, xG, corners, cards per 90. Build your bet with data-driven match insights.",
+    title: buildIntentTitle({
+      intent: "Football fixtures",
+      timeframe: "today",
+      keyStat: "player stats & bet builder analytics",
+    }),
+    description: toSnippetDescription([
+      "Today’s football fixtures with team and player stats.",
+      "Track goals, assists, xG, corners and cards per 90 before you build selections.",
+    ]),
     url: siteUrl,
     siteName: "statsBuildr",
     images: [{ url: "/stats-buildr.png", width: 512, height: 160, alt: "statsBuildr – Football stats and bet builder analytics" }],
@@ -34,9 +47,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Today's Football Fixtures & Player Stats | Bet Builder Analytics",
-    description:
-      "Today's football fixtures with team and player statistics: goals, assists, xG, corners, cards per 90. Build your bet with data-driven match insights.",
+    title: buildIntentTitle({
+      intent: "Football fixtures",
+      timeframe: "today",
+      keyStat: "player stats & bet builder analytics",
+    }),
+    description: toSnippetDescription([
+      "Today’s football fixtures with team and player stats.",
+      "Track goals, assists, xG, corners and cards per 90 before you build selections.",
+    ]),
     images: ["/stats-buildr.png"],
   },
 };

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
-import { getTeamPageData, getTeamIdBySlug, getTeamUpcomingFixtures } from "@/lib/teamPageService";
+import { getTeamPageData, getTeamIdBySlug, getTeamIdentityById, getTeamUpcomingFixtures } from "@/lib/teamPageService";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { LEAGUE_DISPLAY_NAMES, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
-import { makeTeamSlug } from "@/lib/teamSlugs";
+import { makeTeamSlug, normalizeTeamSlug } from "@/lib/teamSlugs";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
@@ -34,8 +35,17 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const data = await getTeamPageData(teamId);
   if (!data) return { title: "Team not found", robots: { index: false, follow: false } };
   const displayName = data.shortName ?? data.name;
-  const title = `${displayName} corners stats & over 4.5 tips | ${data.leagueName} ${data.season}`;
-  const description = `See ${displayName}'s team corners stats in ${data.leagueName} ${data.season}: how often they win over 3.5, 4.5 and 5.5 team corners in recent games and their home vs away corner averages. Use for team corners and bet builder picks.`;
+  const title = buildIntentTitle({
+    intent: "Corners stats",
+    subject: displayName,
+    timeframe: `${data.leagueName} ${data.season}`,
+    keyStat: "Over 3.5, 4.5 & 5.5",
+  });
+  const description = toSnippetDescription([
+    `Team corners stats for ${displayName} in ${data.leagueName} ${data.season}.`,
+    "See over 3.5, 4.5 and 5.5 rates in recent games, plus home/away corner averages.",
+    "Use for team corners and bet builder picks.",
+  ]);
   return {
     title,
     description,
@@ -49,9 +59,15 @@ export default async function TeamCornersPage({ params }: RouteParams) {
   const { slug } = await params;
   const teamId = await getTeamIdBySlug(slug);
   if (!teamId) notFound();
+  const normalizedSlug = normalizeTeamSlug(slug);
+  const identity = await getTeamIdentityById(teamId);
+  if (!identity) notFound();
+  const canonicalSlug = makeTeamSlug(identity.shortName ?? identity.name);
+  if (normalizedSlug !== canonicalSlug) {
+    permanentRedirect(`/teams/${canonicalSlug}/markets/corners`);
+  }
   const data = await getTeamPageData(teamId);
   if (!data) notFound();
-  const canonicalSlug = makeTeamSlug(data.shortName ?? data.name);
   const displayName = data.shortName ?? data.name;
   const recentWithCorners = data.recentFixtures.filter((f) => f.teamCorners != null);
   const sampleSize = recentWithCorners.length;
@@ -81,6 +97,16 @@ export default async function TeamCornersPage({ params }: RouteParams) {
     { href: `/teams/${canonicalSlug}`, label: displayName },
     { href: `/teams/${canonicalSlug}/markets/corners`, label: "Corners" },
   ].filter(Boolean) as { href: string; label: string }[];
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.label,
+      item: `${BASE_URL}${item.href}`,
+    })),
+  };
 
   const faqJsonLd = {
     "@context": "https://schema.org",
@@ -123,6 +149,7 @@ export default async function TeamCornersPage({ params }: RouteParams) {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-3" />

@@ -11,6 +11,8 @@ import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { getLeagueCrestUrl } from "@/lib/crestsService";
 import type { UpcomingFixtureWithCrests } from "@/lib/fixturesService";
+import Image from "next/image";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 
 export const dynamic = "force-dynamic";
 
@@ -66,15 +68,27 @@ function getNextFixturePerLeague(
 }
 
 export const metadata: Metadata = {
-  title: "Football league tables | Premier League, Championship & more | statsBuildr",
-  description:
-    "View league tables and standings for Premier League, Championship, Scottish Premiership, League One, League Two, Champions League and Europa League. Points, form and next fixtures.",
+  title: buildIntentTitle({
+    intent: "Football league tables",
+    timeframe: "all supported leagues",
+    keyStat: "standings, form & next fixtures",
+  }),
+  description: toSnippetDescription([
+    "League tables and standings for supported competitions.",
+    "Track points, form and next fixtures across Premier League, Championship, Europe and more.",
+  ]),
   alternates: { canonical: `${BASE_URL}/leagues/all` },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Football league tables | Premier League, Championship & more | statsBuildr",
-    description:
-      "League tables and standings for Premier League, Championship, Scottish Premiership and more. Points, form and next fixtures.",
+    title: buildIntentTitle({
+      intent: "Football league tables",
+      timeframe: "all supported leagues",
+      keyStat: "standings, form & next fixtures",
+    }),
+    description: toSnippetDescription([
+      "League tables and standings for supported competitions.",
+      "Compare points, form and next fixtures across major leagues.",
+    ]),
     url: `${BASE_URL}/leagues/all`,
     siteName: "statsBuildr",
     type: "website",
@@ -82,9 +96,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Football league tables | Premier League, Championship & more | statsBuildr",
-    description:
-      "League tables and standings for Premier League, Championship and more. Points, form and next fixtures.",
+    title: buildIntentTitle({
+      intent: "Football league tables",
+      timeframe: "all supported leagues",
+      keyStat: "standings, form & next fixtures",
+    }),
+    description: toSnippetDescription([
+      "League tables and standings for supported competitions.",
+      "Track points, form and upcoming fixtures in one place.",
+    ]),
   },
 };
 
@@ -165,6 +185,29 @@ export default async function LeaguesAllPage() {
           </div>
         </header>
 
+        <section className="mb-8 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+            League stats hubs
+          </h2>
+          <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+            Jump to cross-league analysis and fixture-level hubs.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs sm:text-sm">
+            <NavLinkWithOverlay href="/fixtures/today/form" className="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700">
+              Form table
+            </NavLinkWithOverlay>
+            <NavLinkWithOverlay href="/fixtures/today/ai-insights" className="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700">
+              AI insights
+            </NavLinkWithOverlay>
+            <NavLinkWithOverlay href="/fixtures/today/matchday-insights" className="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700">
+              Matchday insights
+            </NavLinkWithOverlay>
+            <NavLinkWithOverlay href="/teams/all" className="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700">
+              Team hubs
+            </NavLinkWithOverlay>
+          </div>
+        </section>
+
         <section className="space-y-4" aria-label="League list">
           <h2 className="sr-only">League tables</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -186,12 +229,14 @@ export default async function LeaguesAllPage() {
                         className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white p-1.5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800/80 sm:h-11 sm:w-11"
                         aria-hidden
                       >
-                        <img
+                        <Image
                           src={crestUrl}
                           alt=""
                           width={40}
                           height={40}
                           className="h-full w-full object-contain"
+                          loading="lazy"
+                          unoptimized
                         />
                       </div>
                     ) : (

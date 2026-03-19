@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import {
   getTeamPageData,
   getTeamIdBySlug,
+  getTeamIdentityById,
   getTeamUpcomingFixtures,
   type TeamPageData,
   type TeamPageFixtureSummary,
@@ -11,7 +12,8 @@ import {
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
 import { LEAGUE_DISPLAY_NAMES } from "@/lib/leagues";
-import { makeTeamSlug } from "@/lib/teamSlugs";
+import { makeTeamSlug, normalizeTeamSlug } from "@/lib/teamSlugs";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
@@ -105,8 +107,17 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const data = await getTeamPageData(teamId);
   if (!data) return { title: "Team not found", robots: { index: false, follow: false } };
   const displayName = data.shortName ?? data.name;
-  const title = `${displayName} total goals stats & over 2.5 tips | ${data.leagueName} ${data.season}`;
-  const description = `See ${displayName}'s total goals record in ${data.leagueName} ${data.season}: % of games over 1.5, 2.5 and 3.5 goals, recent results, and home vs away goal averages. Use for over 2.5 goals, over 1.5 and bet builder picks.`;
+  const title = buildIntentTitle({
+    intent: "Total goals stats",
+    subject: displayName,
+    timeframe: `${data.leagueName} ${data.season}`,
+    keyStat: "Over 1.5, 2.5 & 3.5",
+  });
+  const description = toSnippetDescription([
+    `Total goals stats for ${displayName} in ${data.leagueName} ${data.season}.`,
+    "See over 1.5, 2.5 and 3.5 rates, recent results and home/away goal averages.",
+    "Use for over 2.5, over 1.5 and bet builder picks.",
+  ]);
   return {
     title,
     description,
@@ -120,9 +131,15 @@ export default async function TeamTotalGoalsPage({ params }: RouteParams) {
   const { slug } = await params;
   const teamId = await getTeamIdBySlug(slug);
   if (!teamId) notFound();
+  const normalizedSlug = normalizeTeamSlug(slug);
+  const identity = await getTeamIdentityById(teamId);
+  if (!identity) notFound();
+  const canonicalSlug = makeTeamSlug(identity.shortName ?? identity.name);
+  if (normalizedSlug !== canonicalSlug) {
+    permanentRedirect(`/teams/${canonicalSlug}/markets/total-goals`);
+  }
   const data = await getTeamPageData(teamId);
   if (!data) notFound();
-  const canonicalSlug = makeTeamSlug(data.shortName ?? data.name);
   const displayName = data.shortName ?? data.name;
   const stats = computeTotalGoalsStats(data);
   const upcoming = await getTeamUpcomingFixtures(teamId);
@@ -137,6 +154,16 @@ export default async function TeamTotalGoalsPage({ params }: RouteParams) {
     { href: `/teams/${canonicalSlug}`, label: displayName },
     { href: `/teams/${canonicalSlug}/markets/total-goals`, label: "Total goals" },
   ].filter(Boolean) as { href: string; label: string }[];
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.label,
+      item: `${BASE_URL}${item.href}`,
+    })),
+  };
 
   const faqJsonLd = {
     "@context": "https://schema.org",
@@ -187,6 +214,7 @@ export default async function TeamTotalGoalsPage({ params }: RouteParams) {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-3" />

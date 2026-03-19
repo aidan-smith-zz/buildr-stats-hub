@@ -1,4 +1,5 @@
 import { FixtureRowLink, NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
+import Image from "next/image";
 import { TodayTomorrowTabs } from "@/app/_components/today-tomorrow-tabs";
 import { fixtureDateKey, leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
@@ -258,10 +259,13 @@ export function TodayFixturesList({
             <section className="mb-10">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white/80 px-3 py-2 shadow-sm backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-900/70 sm:px-4 sm:py-3">
-                  <img
+                  <Image
                     src="/stats-buildr-mini.png"
                     alt="statsBuildr"
+                    width={44}
+                    height={44}
                     className="h-10 w-10 rounded-2xl border border-neutral-200 bg-neutral-900 p-1 shadow-md sm:h-11 sm:w-11 dark:border-neutral-600"
+                    priority
                   />
                   <div className="space-y-1">
                     <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
@@ -406,6 +410,47 @@ export function TodayFixturesList({
               </>
             }
             />
+          </section>
+
+          <section className="mb-10 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">
+              Explore today&apos;s stats hubs
+            </h2>
+            <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+              Move quickly between fixture analysis, form and market pages.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs sm:text-sm">
+              <NavLinkWithOverlay
+                href={`/fixtures/${todayKey}/form`}
+                className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+              >
+                Form table
+              </NavLinkWithOverlay>
+              <NavLinkWithOverlay
+                href={`/fixtures/${todayKey}/ai-insights`}
+                className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+              >
+                AI insights
+              </NavLinkWithOverlay>
+              <NavLinkWithOverlay
+                href={`/fixtures/${todayKey}/matchday-insights`}
+                className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+              >
+                Matchday insights
+              </NavLinkWithOverlay>
+              <NavLinkWithOverlay
+                href="/leagues/all"
+                className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+              >
+                League hubs
+              </NavLinkWithOverlay>
+              <NavLinkWithOverlay
+                href="/teams/all"
+                className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+              >
+                Team hubs
+              </NavLinkWithOverlay>
+            </div>
           </section>
         </div>
 

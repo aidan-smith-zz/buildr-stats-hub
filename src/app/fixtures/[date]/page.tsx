@@ -5,6 +5,7 @@ import {
 } from "@/lib/fixturesService";
 import { withPoolRetry } from "@/lib/poolRetry";
 import { fixtureDateKey, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
 export const dynamic = "force-dynamic";
@@ -39,8 +40,18 @@ export async function generateMetadata({
   const { date: dateParam } = await params;
   const dateKey = normalizeDateKey(dateParam);
   const displayDate = formatDisplayDate(dateKey);
-  const title = `Football fixtures for ${displayDate} | Team & player stats`;
-  const description = `View ${displayDate}'s football fixtures with team season stats, player data (goals, assists, xG, corners, cards) and match previews.`;
+  const todayKey = todayDateKey();
+  const tomorrowKey = tomorrowDateKey();
+  const timeframe = dateKey === todayKey ? "today" : dateKey === tomorrowKey ? "tomorrow" : displayDate;
+  const title = buildIntentTitle({
+    intent: "Football fixtures",
+    timeframe,
+    keyStat: "team & player stats",
+  });
+  const description = toSnippetDescription([
+    `Football fixtures for ${displayDate}.`,
+    "View match previews with team season stats and player data (goals, assists, xG, corners and cards).",
+  ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}`;
   return {
     title,

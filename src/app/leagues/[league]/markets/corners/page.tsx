@@ -5,6 +5,7 @@ import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { standingsSlugToLeagueId, LEAGUE_DISPLAY_NAMES, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
 import { getLeagueCornersMarketData } from "@/lib/leagueMarketsService";
 import { getLeagueCrestUrl } from "@/lib/crestsService";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
@@ -23,8 +24,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "League corners stats not found | statsBuildr" };
   }
 
-  const title = `${leagueName} team corners stats | Over 3.5, 4.5, 5.5 | statsBuildr`;
-  const description = `Team corners stats for ${leagueName}: how often teams win over 3.5, 4.5 and 5.5 corners in league matches this season, plus recent high corners results for bet builders.`;
+  const title = buildIntentTitle({
+    intent: "Team corners stats",
+    subject: leagueName,
+    timeframe: "this season",
+    keyStat: "Over 3.5, 4.5 & 5.5",
+  });
+  const description = toSnippetDescription([
+    `Team corners stats for ${leagueName}.`,
+    "See over 3.5, 4.5 and 5.5 team-corners rates plus recent high-corners results.",
+    "Useful for corners and bet builder picks.",
+  ]);
   const canonical = `${BASE_URL}/leagues/${slug}/markets/corners`;
 
   return {

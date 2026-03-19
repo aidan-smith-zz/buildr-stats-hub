@@ -4,6 +4,7 @@ import { getLiveScoresForToday } from "@/lib/liveScoresService";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
 import { isFixtureInRequiredLeagues, LEAGUE_DISPLAY_NAMES, LEAGUE_GROUP_ORDER } from "@/lib/leagues";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import { FixtureRowLink, NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 
@@ -24,15 +25,27 @@ const LIVE_FINISHED_STATUSES = new Set([
 ]);
 
 export const metadata: Metadata = {
-  title: "Live football scores | In-play stats & match dashboards",
-  description:
-    "See live football scores and in-play stats for today’s fixtures. Track goals, cards, shots and corners while you watch the match and build smarter bet builders.",
+  title: buildIntentTitle({
+    intent: "Live football scores",
+    timeframe: "today",
+    keyStat: "in-play stats & match dashboards",
+  }),
+  description: toSnippetDescription([
+    "Live football scores for today’s fixtures.",
+    "Follow goals, cards, shots and corners in play and jump into full match dashboards.",
+  ]),
   alternates: { canonical: `${BASE_URL}/fixtures/live` },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Live football scores | In-play stats & match dashboards",
-    description:
-      "See live football scores and in-play stats for today’s fixtures. Follow goals, cards, shots and corners in real time.",
+    title: buildIntentTitle({
+      intent: "Live football scores",
+      timeframe: "today",
+      keyStat: "in-play stats & match dashboards",
+    }),
+    description: toSnippetDescription([
+      "Live football scores for today’s fixtures.",
+      "Follow goals, cards, shots and corners in real time.",
+    ]),
     url: `${BASE_URL}/fixtures/live`,
     siteName: "statsBuildr",
     type: "website",
@@ -48,9 +61,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Live football scores | In-play stats & match dashboards",
-    description:
-      "Track live football scores and in-play stats for today’s fixtures with statsBuildr.",
+    title: buildIntentTitle({
+      intent: "Live football scores",
+      timeframe: "today",
+      keyStat: "in-play stats & match dashboards",
+    }),
+    description: toSnippetDescription([
+      "Track live football scores for today’s fixtures.",
+      "See in-play goals, cards, shots and corners with quick links to match dashboards.",
+    ]),
     images: [`${BASE_URL}/stats-buildr.png`],
   },
 };

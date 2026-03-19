@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
+import Image from "next/image";
 import { getMatchdayInsightsData } from "@/lib/matchdayInsightsService";
 import { withPoolRetry } from "@/lib/poolRetry";
+import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import { MatchdayInsightsClient } from "./matchday-insights-client";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
@@ -29,8 +31,16 @@ export async function generateMetadata({
   const hasContent =
     data.top5ShotsOnTargetPer90.length > 0 || data.top5FixturesCombinedXg.length > 0;
   const displayDate = data.displayDate;
-  const title = `Matchday insights & stat leaders for ${displayDate} | Football stats`;
-  const description = `Matchday insights and stat leaders for ${displayDate}: shots on target, fouls, yellow cards, team xG and corners per match across this matchday's fixtures.`;
+  const title = buildIntentTitle({
+    intent: "Matchday insights",
+    timeframe: displayDate,
+    keyStat: "stat leaders",
+    context: "football stats",
+  });
+  const description = toSnippetDescription([
+    `Matchday insights for ${displayDate}.`,
+    "Track stat leaders for shots on target, fouls, yellow cards, team xG and corners per match.",
+  ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}/matchday-insights`;
   return {
     title,
@@ -119,10 +129,13 @@ export default async function MatchdayInsightsPage({
         <div className="mb-8">
           <header className="mt-4 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
             <div className="flex items-center gap-3">
-              <img
+              <Image
                 src="/stats-buildr-mini.png"
                 alt="statsBuildr"
+                width={40}
+                height={40}
                 className="h-9 w-9 rounded-full shadow-md sm:h-10 sm:w-10"
+                priority
               />
               <div className="space-y-1">
                 <span className="inline-flex items-center gap-1 rounded-full bg-neutral-900 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-50 dark:bg-neutral-100 dark:text-neutral-900">
