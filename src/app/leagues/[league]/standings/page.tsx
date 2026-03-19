@@ -15,6 +15,7 @@ import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { prisma } from "@/lib/prisma";
 import { makeTeamSlug } from "@/lib/teamSlugs";
 import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
+import { fetchFixtureRound } from "@/lib/footballApi";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +113,7 @@ function CrestCell({ logo, teamName }: { logo: string | null; teamName: string }
 
 type TournamentFixtureCard = {
   id: number | string;
+  apiFixtureId: string | null;
   kickoff: Date;
   status: string;
   homeTeam: string;
@@ -136,6 +138,20 @@ type PlayoffPod = {
   semi1: KnockoutSlot;
   semi2: KnockoutSlot;
   final: KnockoutSlot;
+};
+
+type KnockoutRound = {
+  label: string;
+  twoLegged: boolean;
+  ties: Array<{
+    id: string;
+    teamA: string;
+    teamB: string;
+    leg1: KnockoutSlot;
+    leg2: KnockoutSlot | null;
+    aggregate: string | null;
+    isPlaceholder: boolean;
+  }>;
 };
 
 function formatTournamentKickoff(date: Date): string {
@@ -220,6 +236,202 @@ function getSlotWinner(slot: KnockoutSlot): string | null {
   return null;
 }
 
+function buildStandardKnockoutRounds(fixtures: TournamentFixtureCard[]): KnockoutRound[] {
+  const ordered = fixtures
+    .slice()
+    .sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime())
+    .slice(-29); // fallback window for two-legged knockouts + final
+  return buildStandardKnockoutRoundsFromStageBuckets({
+    r16: ordered.slice(0, 16),
+    qf: ordered.slice(16, 24),
+    sf: ordered.slice(24, 28),
+    final: ordered.slice(28, 29),
+  });
+}
+
+function normalizeRoundLabel(round: string | null | undefined): "r16" | "qf" | "sf" | "final" | null {
+  if (!round) return null;
+  const s = round.toLowerCase();
+  if (s.includes("round of 16") || s.includes("8th finals")) return "r16";
+  if (s.includes("quarter-final") || s.includes("quarter finals")) return "qf";
+  if (s.includes("semi-final") || s.includes("semi finals")) return "sf";
+  if (s.includes("final")) return "final";
+  return null;
+}
+
+function buildStandardKnockoutRoundsFromRoundMap(
+  fixtures: TournamentFixtureCard[],
+  roundByApiFixtureId: Map<string, string | null>,
+): KnockoutRound[] {
+  const byStage: Record<"r16" | "qf" | "sf" | "final", TournamentFixtureCard[]> = {
+    r16: [],
+    qf: [],
+    sf: [],
+    final: [],
+  };
+
+  for (const f of fixtures) {
+    if (!f.apiFixtureId) continue;
+    const rawRound = roundByApiFixtureId.get(f.apiFixtureId) ?? null;
+    const stage = normalizeRoundLabel(rawRound);
+    if (!stage) continue;
+    byStage[stage].push(f);
+  }
+
+  for (const stage of Object.keys(byStage) as Array<keyof typeof byStage>) {
+    byStage[stage].sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime());
+  }
+
+  return buildStandardKnockoutRoundsFromStageBuckets(byStage);
+}
+
+function buildStandardKnockoutRoundsFromStageBuckets(
+  byStage: Record<"r16" | "qf" | "sf" | "final", TournamentFixtureCard[]>,
+): KnockoutRound[] {
+  const placeholderLeg = (id: string): KnockoutSlot => ({
+    id,
+    kickoff: null,
+    status: null,
+    homeTeam: "TBD",
+    awayTeam: "TBD",
+    homeGoals: null,
+    awayGoals: null,
+    isPlaceholder: true,
+  });
+  const toLeg = (fx: TournamentFixtureCard, id: string): KnockoutSlot => ({
+    id,
+    kickoff: fx.kickoff,
+    status: fx.status,
+    homeTeam: fx.homeTeam,
+    awayTeam: fx.awayTeam,
+    homeGoals: fx.homeGoals,
+    awayGoals: fx.awayGoals,
+    isPlaceholder: false,
+  });
+
+  function buildTwoLegRound(
+    label: string,
+    fixtures: TournamentFixtureCard[],
+    expectedTies: number,
+    roundIdx: number,
+  ): KnockoutRound {
+    const grouped = new Map<string, TournamentFixtureCard[]>();
+    for (const fx of fixtures) {
+      const key = [fx.homeTeam, fx.awayTeam].sort((a, b) => a.localeCompare(b)).join("::");
+      const list = grouped.get(key) ?? [];
+      list.push(fx);
+      grouped.set(key, list);
+    }
+    const entries = Array.from(grouped.entries())
+      .map(([key, list]) => ({
+        key,
+        teams: key.split("::"),
+        matches: list.sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime()),
+      }))
+      .sort((a, b) => {
+        const at = a.matches[0]?.kickoff.getTime() ?? Number.MAX_SAFE_INTEGER;
+        const bt = b.matches[0]?.kickoff.getTime() ?? Number.MAX_SAFE_INTEGER;
+        return at - bt;
+      });
+
+    const ties = Array.from({ length: expectedTies }, (_, tieIdx) => {
+      const entry = entries[tieIdx];
+      if (!entry) {
+        return {
+          id: `round-${roundIdx}-tie-${tieIdx}-placeholder`,
+          teamA: "TBD",
+          teamB: "TBD",
+          leg1: placeholderLeg(`round-${roundIdx}-tie-${tieIdx}-leg-1-placeholder`),
+          leg2: placeholderLeg(`round-${roundIdx}-tie-${tieIdx}-leg-2-placeholder`),
+          aggregate: null,
+          isPlaceholder: true,
+        };
+      }
+
+      const [teamA, teamB] = entry.teams as [string, string];
+      const leg1fx = entry.matches[0];
+      const leg2fx = entry.matches[1];
+      const leg1 = leg1fx
+        ? toLeg(leg1fx, `round-${roundIdx}-tie-${tieIdx}-leg-1-${leg1fx.id}`)
+        : placeholderLeg(`round-${roundIdx}-tie-${tieIdx}-leg-1-placeholder`);
+      const leg2 = leg2fx
+        ? toLeg(leg2fx, `round-${roundIdx}-tie-${tieIdx}-leg-2-${leg2fx.id}`)
+        : placeholderLeg(`round-${roundIdx}-tie-${tieIdx}-leg-2-placeholder`);
+
+      let aggA = 0;
+      let aggB = 0;
+      let scoredLegs = 0;
+      const legsForAgg = [leg1, leg2];
+      for (const leg of legsForAgg) {
+        if (leg.homeGoals == null || leg.awayGoals == null) continue;
+        scoredLegs += 1;
+        if (leg.homeTeam === teamA) aggA += leg.homeGoals;
+        if (leg.awayTeam === teamA) aggA += leg.awayGoals;
+        if (leg.homeTeam === teamB) aggB += leg.homeGoals;
+        if (leg.awayTeam === teamB) aggB += leg.awayGoals;
+      }
+      const aggregate =
+        scoredLegs > 0 ? `Aggregate: ${teamA} ${aggA}-${aggB} ${teamB}${scoredLegs < 2 ? " (after leg 1)" : ""}` : null;
+
+      return {
+        id: `round-${roundIdx}-tie-${tieIdx}`,
+        teamA,
+        teamB,
+        leg1,
+        leg2,
+        aggregate,
+        isPlaceholder: false,
+      };
+    });
+
+    return { label, twoLegged: true, ties };
+  }
+
+  function buildFinalRound(fixtures: TournamentFixtureCard[], roundIdx: number): KnockoutRound {
+    const sorted = fixtures.slice().sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime());
+    const fx = sorted[0];
+    if (!fx) {
+      return {
+        label: "Final",
+        twoLegged: false,
+        ties: [
+          {
+            id: `round-${roundIdx}-tie-0-placeholder`,
+            teamA: "TBD",
+            teamB: "TBD",
+            leg1: placeholderLeg(`round-${roundIdx}-tie-0-leg-1-placeholder`),
+            leg2: null,
+            aggregate: null,
+            isPlaceholder: true,
+          },
+        ],
+      };
+    }
+    return {
+      label: "Final",
+      twoLegged: false,
+      ties: [
+        {
+          id: `round-${roundIdx}-tie-0-${fx.id}`,
+          teamA: fx.homeTeam,
+          teamB: fx.awayTeam,
+          leg1: toLeg(fx, `round-${roundIdx}-tie-0-leg-1-${fx.id}`),
+          leg2: null,
+          aggregate: null,
+          isPlaceholder: false,
+        },
+      ],
+    };
+  }
+
+  return [
+    buildTwoLegRound("Round of 16", byStage.r16, 8, 0),
+    buildTwoLegRound("Quarter-finals", byStage.qf, 4, 1),
+    buildTwoLegRound("Semi-finals", byStage.sf, 2, 2),
+    buildFinalRound(byStage.final, 3),
+  ];
+}
+
 export default async function LeagueStandingsPage({ params }: Props) {
   const slug = normalizeSlug((await params).league);
   const leagueId = standingsSlugToLeagueId(slug);
@@ -241,6 +453,7 @@ export default async function LeagueStandingsPage({ params }: Props) {
     { href: `/leagues/${slug}/standings`, label: `${leagueName} standings` },
   ];
   const isWorldCup = leagueId === WORLD_CUP_LEAGUE_ID;
+  const isEuropeanKnockoutLeague = leagueId === 2 || leagueId === 3;
 
   const jsonLd =
     standings?.tables?.length && standings.tables[0].rows?.length
@@ -341,25 +554,27 @@ export default async function LeagueStandingsPage({ params }: Props) {
   }
 
   let tournamentFixtures: TournamentFixtureCard[] = [];
-  if (isWorldCup) {
+  if (isWorldCup || isEuropeanKnockoutLeague) {
     const now = new Date();
+    const fixtureTake = isEuropeanKnockoutLeague ? 80 : 24;
     const [upcoming, recent] = await Promise.all([
       prisma.upcomingFixture.findMany({
         where: { leagueId },
         orderBy: { kickoff: "asc" },
-        take: 24,
+        take: fixtureTake,
       }),
       prisma.fixture.findMany({
         where: { leagueId, date: { lte: now } },
         orderBy: { date: "desc" },
         include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
-        take: 24,
+        take: fixtureTake,
       }),
     ]);
     const out: TournamentFixtureCard[] = [];
     for (const row of recent) {
       out.push({
         id: row.id,
+        apiFixtureId: row.apiId ?? null,
         kickoff: row.date,
         status: row.status,
         homeTeam: row.homeTeam.shortName ?? row.homeTeam.name,
@@ -371,6 +586,7 @@ export default async function LeagueStandingsPage({ params }: Props) {
     for (const row of upcoming) {
       out.push({
         id: row.apiFixtureId,
+        apiFixtureId: row.apiFixtureId,
         kickoff: row.kickoff,
         status: "NS",
         homeTeam: row.homeTeamShortName ?? row.homeTeamName,
@@ -384,6 +600,33 @@ export default async function LeagueStandingsPage({ params }: Props) {
       .slice(0, 24);
   }
   const playoffPods = isWorldCup ? buildPlayoffPods(tournamentFixtures) : [];
+  let knockoutRounds = isEuropeanKnockoutLeague ? buildStandardKnockoutRounds(tournamentFixtures) : [];
+  if (isEuropeanKnockoutLeague) {
+    const apiIds = Array.from(
+      new Set(
+        tournamentFixtures
+          .map((f) => f.apiFixtureId)
+          .filter((id): id is string => typeof id === "string" && id.length > 0),
+      ),
+    );
+    if (apiIds.length > 0) {
+      const roundResults = await Promise.all(
+        apiIds.map(async (apiId) => {
+          try {
+            const round = await fetchFixtureRound(apiId);
+            return [apiId, round] as const;
+          } catch {
+            return [apiId, null] as const;
+          }
+        }),
+      );
+      const roundByApiFixtureId = new Map<string, string | null>(roundResults);
+      const hasAnyStage = Array.from(roundByApiFixtureId.values()).some((r) => normalizeRoundLabel(r) !== null);
+      if (hasAnyStage) {
+        knockoutRounds = buildStandardKnockoutRoundsFromRoundMap(tournamentFixtures, roundByApiFixtureId);
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -470,7 +713,7 @@ export default async function LeagueStandingsPage({ params }: Props) {
                     16 teams are split into 4 mini play-off brackets. Each bracket has Semi 1, Semi 2, then a Final; unknown ties stay greyed out.
                   </p>
                   <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                    Progress updates on refresh based on warmed fixture status (pending, live, complete) and scorelines when cached.
+                    Progress updates on refresh based on fixture status (pending, live, complete).
                   </p>
                   <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
                     Quick view: {playoffPods.length} paths, {playoffPods.flatMap((p) => [p.semi1, p.semi2, p.final]).filter((s) => !s.isPlaceholder).length} known fixtures,{" "}
@@ -549,6 +792,92 @@ export default async function LeagueStandingsPage({ params }: Props) {
                                   Score: {slot.homeGoals}-{slot.awayGoals}
                                 </p>
                               ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+              {isEuropeanKnockoutLeague ? (
+                <section className="mb-6 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+                  <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+                    Knockout round tracker
+                  </h2>
+                  <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                    Knockout ties from Round of 16 to Final. Round of 16, Quarter-finals and Semi-finals show both legs with aggregate score when available.
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                    Updates on refresh from warmed fixture status (pending, live, complete) and scorelines when available.
+                  </p>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-4">
+                    {knockoutRounds.map((round) => (
+                      <section
+                        key={round.label}
+                        className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/40"
+                      >
+                        <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
+                          {round.label}
+                        </h3>
+                        <ul className="mt-2 space-y-2">
+                          {round.ties.map((tie) => (
+                            <li
+                              key={tie.id}
+                              className={`rounded-md border px-2 py-2 ${
+                                tie.isPlaceholder
+                                  ? "border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500"
+                                  : "border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
+                              }`}
+                            >
+                              <p
+                                className={`text-xs font-medium ${
+                                  tie.isPlaceholder
+                                    ? "text-neutral-400 dark:text-neutral-500"
+                                    : "text-neutral-900 dark:text-neutral-100"
+                                }`}
+                              >
+                                {tie.teamA} vs {tie.teamB}
+                              </p>
+                              <div className="mt-2 rounded border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[11px] dark:border-neutral-700 dark:bg-neutral-800/60">
+                                <p className="font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                                  Leg 1
+                                </p>
+                                <p className="mt-0.5 text-neutral-600 dark:text-neutral-300">
+                                  {tie.leg1.homeTeam} vs {tie.leg1.awayTeam}
+                                </p>
+                                <p className="mt-0.5 font-semibold text-neutral-800 dark:text-neutral-100">
+                                  {tie.leg1.homeGoals != null && tie.leg1.awayGoals != null
+                                    ? `${tie.leg1.homeGoals}-${tie.leg1.awayGoals}`
+                                    : "TBD"}
+                                </p>
+                              </div>
+
+                              {tie.leg2 ? (
+                                <div className="mt-1.5 rounded border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[11px] dark:border-neutral-700 dark:bg-neutral-800/60">
+                                  <p className="font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                                    Leg 2
+                                  </p>
+                                  <p className="mt-0.5 text-neutral-600 dark:text-neutral-300">
+                                    {tie.leg2.homeTeam} vs {tie.leg2.awayTeam}
+                                  </p>
+                                  <p className="mt-0.5 font-semibold text-neutral-800 dark:text-neutral-100">
+                                    {tie.leg2.homeGoals != null && tie.leg2.awayGoals != null
+                                      ? `${tie.leg2.homeGoals}-${tie.leg2.awayGoals}`
+                                      : "TBD"}
+                                  </p>
+                                </div>
+                              ) : null}
+
+                              {tie.aggregate ? (
+                                <p className="mt-2 rounded bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+                                  {tie.aggregate}
+                                </p>
+                              ) : (
+                                <p className="mt-2 rounded bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                                  Aggregate: TBD
+                                </p>
+                              )}
                             </li>
                           ))}
                         </ul>

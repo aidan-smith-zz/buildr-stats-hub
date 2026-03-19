@@ -818,6 +818,21 @@ export type LiveFixtureResult = {
 };
 
 /**
+ * Fetch the competition round for a fixture id.
+ * GET /fixtures?id={fixtureApiId}
+ */
+export async function fetchFixtureRound(
+  fixtureApiId: string | number,
+): Promise<string | null> {
+  const path = "/fixtures";
+  const response = await request<ApiFootballFixtureById>(path, { id: fixtureApiId });
+  if (!response?.length) return null;
+  const first = response[0] as { league?: { round?: unknown } };
+  const round = first.league?.round;
+  return typeof round === "string" && round.trim().length > 0 ? round.trim() : null;
+}
+
+/**
  * Fetch live score and elapsed minutes for a fixture. Only call when match has started.
  * GET /fixtures?id={fixtureApiId}
  */
