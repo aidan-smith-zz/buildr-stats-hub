@@ -86,9 +86,16 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
     let cancelled = false;
     (async () => {
       try {
+        const lineupBust = Math.floor(Date.now() / 1000);
         const [liveRes, statsRes] = await Promise.all([
           fetch(`/api/fixtures/${fixtureId}/live`, { cache: "no-store" }),
-          fetch(`/api/fixtures/${fixtureId}/stats`, { cache: "no-store" }),
+          fetch(`/api/fixtures/${fixtureId}/stats?lineup_check=${lineupBust}`, {
+            cache: "no-store",
+            headers: {
+              "Cache-Control": "no-cache",
+              Pragma: "no-cache",
+            },
+          }),
         ]);
         if (cancelled) return;
         const liveJson = await liveRes.json();

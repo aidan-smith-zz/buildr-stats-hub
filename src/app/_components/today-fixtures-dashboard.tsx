@@ -206,10 +206,13 @@ export function TodayFixturesDashboard({
         const now = new Date();
         const withinLineupFetchWindow =
           kickoff && !Number.isNaN(kickoff.getTime())
-            ? now.getTime() >= kickoff.getTime() - 30 * 60 * 1000 && now.getTime() <= kickoff.getTime() + 120 * 60 * 1000
+            ? now.getTime() >= kickoff.getTime() - 45 * 60 * 1000 && now.getTime() <= kickoff.getTime() + 120 * 60 * 1000
             : false;
+        const statsUrl = withinLineupFetchWindow
+          ? `/api/fixtures/${selectedId}/stats?lineup_check=${Math.floor(now.getTime() / 1000)}`
+          : `/api/fixtures/${selectedId}/stats`;
 
-        const res = await fetch(`/api/fixtures/${selectedId}/stats`, {
+        const res = await fetch(statsUrl, {
           cache: "no-store",
           headers: withinLineupFetchWindow
             ? {

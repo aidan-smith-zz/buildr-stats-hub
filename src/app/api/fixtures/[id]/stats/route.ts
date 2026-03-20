@@ -131,8 +131,14 @@ export async function GET(_request: Request, { params }: RouteParams) {
   return NextResponse.json(stats, {
     headers: {
       "Cache-Control": cacheControl,
-      ...(shouldForceNoStoreForNegativeLineups
-        ? { Pragma: "no-cache", "Vercel-CDN-Cache-Control": "no-store, max-age=0" }
+      ...(inLineupWindow
+        ? {
+            Pragma: "no-cache",
+            "Vercel-CDN-Cache-Control": "no-store, max-age=0",
+            "CDN-Cache-Control": "no-store, max-age=0",
+          }
+        : shouldForceNoStoreForNegativeLineups
+          ? { Pragma: "no-cache", "Vercel-CDN-Cache-Control": "no-store, max-age=0" }
         : {}),
     },
   });
