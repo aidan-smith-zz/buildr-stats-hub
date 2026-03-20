@@ -25,7 +25,13 @@ async function warmTeamStatsUntilDone(
   for (let round = 1; round <= maxRounds; round++) {
     try {
       const result = await warmFixturePart(fixtureId, part);
-      const done = result.done !== false;
+      const done =
+        typeof result === "object" &&
+        result !== null &&
+        "done" in result &&
+        (result as { done?: boolean }).done === false
+          ? false
+          : true;
       if (done) return { ok: true, rounds: round };
     } catch (err) {
       return {
