@@ -154,6 +154,20 @@ type KnockoutRound = {
   }>;
 };
 
+const FIXTURE_ROUND_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+const FIXTURE_ROUND_FETCH_BATCH_SIZE = 4;
+
+const globalForFixtureRoundCache = globalThis as unknown as {
+  fixtureRoundCache?: Map<string, { round: string | null; fetchedAt: number }>;
+};
+
+function getFixtureRoundCache(): Map<string, { round: string | null; fetchedAt: number }> {
+  if (!globalForFixtureRoundCache.fixtureRoundCache) {
+    globalForFixtureRoundCache.fixtureRoundCache = new Map();
+  }
+  return globalForFixtureRoundCache.fixtureRoundCache;
+}
+
 function formatTournamentKickoff(date: Date): string {
   return date.toLocaleString("en-GB", {
     weekday: "short",
@@ -222,6 +236,66 @@ function buildPlayoffPods(fixtures: TournamentFixtureCard[]): PlayoffPod[] {
   return pods;
 }
 
+function normalizeWorldCupPlayoffRound(round: string | null | undefined): "semi" | "final" | null {
+  if (!round) return null;
+  const s = round.toLowerCase();
+  if (s.includes("semi-final") || s.includes("semi finals")) return "semi";
+  if (s.includes("final")) return "final";
+  return null;
+}
+
+function buildPlayoffPodsFromRoundMap(
+  fixtures: TournamentFixtureCard[],
+  roundByApiFixtureId: Map<string, string | null>,
+): PlayoffPod[] {
+  const semis: TournamentFixtureCard[] = [];
+  const finals: TournamentFixtureCard[] = [];
+  for (const f of fixtures) {
+    if (!f.apiFixtureId) continue;
+    const stage = normalizeWorldCupPlayoffRound(roundByApiFixtureId.get(f.apiFixtureId) ?? null);
+    if (stage === "semi") semis.push(f);
+    if (stage === "final") finals.push(f);
+  }
+  semis.sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime());
+  finals.sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime());
+
+  function toSlot(stage: string, podIdx: number, slotIdx: number, fixture?: TournamentFixtureCard): KnockoutSlot {
+    if (fixture) {
+      return {
+        id: `${stage}-pod-${podIdx}-slot-${slotIdx}-${fixture.id}`,
+        kickoff: fixture.kickoff,
+        status: fixture.status,
+        homeTeam: fixture.homeTeam,
+        awayTeam: fixture.awayTeam,
+        homeGoals: fixture.homeGoals,
+        awayGoals: fixture.awayGoals,
+        isPlaceholder: false,
+      };
+    }
+    return {
+      id: `${stage}-pod-${podIdx}-slot-${slotIdx}-placeholder`,
+      kickoff: null,
+      status: null,
+      homeTeam: "TBD",
+      awayTeam: "TBD",
+      homeGoals: null,
+      awayGoals: null,
+      isPlaceholder: true,
+    };
+  }
+
+  const pods: PlayoffPod[] = [];
+  for (let pod = 0; pod < 4; pod++) {
+    pods.push({
+      id: `pod-${pod + 1}`,
+      semi1: toSlot("semi1", pod + 1, 1, semis[pod * 2]),
+      semi2: toSlot("semi2", pod + 1, 2, semis[pod * 2 + 1]),
+      final: toSlot("final", pod + 1, 3, finals[pod]),
+    });
+  }
+  return pods;
+}
+
 function getSlotWinner(slot: KnockoutSlot): string | null {
   if (
     slot.isPlaceholder ||
@@ -269,17 +343,51 @@ function buildStandardKnockoutRoundsFromRoundMap(
     sf: [],
     final: [],
   };
+  const unclassified: TournamentFixtureCard[] = [];
 
   for (const f of fixtures) {
-    if (!f.apiFixtureId) continue;
+    if (!f.apiFixtureId) {
+      unclassified.push(f);
+      continue;
+    }
     const rawRound = roundByApiFixtureId.get(f.apiFixtureId) ?? null;
     const stage = normalizeRoundLabel(rawRound);
-    if (!stage) continue;
+    if (!stage) {
+      unclassified.push(f);
+      continue;
+    }
     byStage[stage].push(f);
   }
 
   for (const stage of Object.keys(byStage) as Array<keyof typeof byStage>) {
     byStage[stage].sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime());
+  }
+  unclassified.sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime());
+
+  // If round classification is missing for some fixtures (API timeout/rate-limit),
+  // fill remaining stage slots deterministically so ties do not disappear across refreshes.
+  const maxPerStage: Record<keyof typeof byStage, number> = {
+    r16: 16,
+    qf: 8,
+    sf: 4,
+    final: 1,
+  };
+  for (const f of unclassified) {
+    if (byStage.r16.length < maxPerStage.r16) {
+      byStage.r16.push(f);
+      continue;
+    }
+    if (byStage.qf.length < maxPerStage.qf) {
+      byStage.qf.push(f);
+      continue;
+    }
+    if (byStage.sf.length < maxPerStage.sf) {
+      byStage.sf.push(f);
+      continue;
+    }
+    if (byStage.final.length < maxPerStage.final) {
+      byStage.final.push(f);
+    }
   }
 
   return buildStandardKnockoutRoundsFromStageBuckets(byStage);
@@ -599,30 +707,63 @@ export default async function LeagueStandingsPage({ params }: Props) {
       .sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime())
       .slice(0, 24);
   }
-  const playoffPods = isWorldCup ? buildPlayoffPods(tournamentFixtures) : [];
+  let playoffPods = isWorldCup ? buildPlayoffPods(tournamentFixtures) : [];
   let knockoutRounds = isEuropeanKnockoutLeague ? buildStandardKnockoutRounds(tournamentFixtures) : [];
-  if (isEuropeanKnockoutLeague) {
+  if (isWorldCup || isEuropeanKnockoutLeague) {
+    // Only lookup as many fixtures as we can actually render in tournament tiles.
     const apiIds = Array.from(
       new Set(
         tournamentFixtures
+          .slice(0, isEuropeanKnockoutLeague ? 29 : 12)
           .map((f) => f.apiFixtureId)
           .filter((id): id is string => typeof id === "string" && id.length > 0),
       ),
     );
     if (apiIds.length > 0) {
-      const roundResults = await Promise.all(
-        apiIds.map(async (apiId) => {
-          try {
-            const round = await fetchFixtureRound(apiId);
-            return [apiId, round] as const;
-          } catch {
-            return [apiId, null] as const;
-          }
-        }),
-      );
+      const roundCache = getFixtureRoundCache();
+      const nowMs = Date.now();
+      const roundResults: Array<readonly [string, string | null]> = [];
+      const toFetch: string[] = [];
+
+      // 1) Reuse recent cached round labels to avoid repeated API calls on refresh.
+      for (const apiId of apiIds) {
+        const cached = roundCache.get(apiId);
+        if (cached && nowMs - cached.fetchedAt < FIXTURE_ROUND_CACHE_TTL_MS) {
+          roundResults.push([apiId, cached.round] as const);
+        } else {
+          toFetch.push(apiId);
+        }
+      }
+
+      // 2) Fetch remaining ids in small sequential batches to avoid rate-limit bursts.
+      for (let i = 0; i < toFetch.length; i += FIXTURE_ROUND_FETCH_BATCH_SIZE) {
+        const batch = toFetch.slice(i, i + FIXTURE_ROUND_FETCH_BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map(async (apiId) => {
+            try {
+              const round = await fetchFixtureRound(apiId);
+              roundCache.set(apiId, { round, fetchedAt: Date.now() });
+              return [apiId, round] as const;
+            } catch {
+              roundCache.set(apiId, { round: null, fetchedAt: Date.now() });
+              return [apiId, null] as const;
+            }
+          }),
+        );
+        roundResults.push(...batchResults);
+      }
+
       const roundByApiFixtureId = new Map<string, string | null>(roundResults);
+      if (isWorldCup) {
+        const hasAnyPlayoffStage = Array.from(roundByApiFixtureId.values()).some(
+          (r) => normalizeWorldCupPlayoffRound(r) !== null,
+        );
+        if (hasAnyPlayoffStage) {
+          playoffPods = buildPlayoffPodsFromRoundMap(tournamentFixtures, roundByApiFixtureId);
+        }
+      }
       const hasAnyStage = Array.from(roundByApiFixtureId.values()).some((r) => normalizeRoundLabel(r) !== null);
-      if (hasAnyStage) {
+      if (isEuropeanKnockoutLeague && hasAnyStage) {
         knockoutRounds = buildStandardKnockoutRoundsFromRoundMap(tournamentFixtures, roundByApiFixtureId);
       }
     }
