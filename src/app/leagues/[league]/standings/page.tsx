@@ -1161,7 +1161,7 @@ export default async function LeagueStandingsPage({ params }: Props) {
                 className="mt-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
                 aria-label="Related links"
               >
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                <div className="text-sm text-neutral-600 dark:text-neutral-400">
                   For match previews, team form and player stats, see{" "}
                   <NavLinkWithOverlay
                     href={`/fixtures/${todayKey}`}
@@ -1177,8 +1177,8 @@ export default async function LeagueStandingsPage({ params }: Props) {
                     form table
                   </NavLinkWithOverlay>
                   .
-                </p>
-                <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                </div>
+                <div className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
                   For league-wide per 90 stats (goals, corners and cards), see{" "}
                   <NavLinkWithOverlay
                     href={`/leagues/${slug}/stats`}
@@ -1188,8 +1188,8 @@ export default async function LeagueStandingsPage({ params }: Props) {
                     {leagueName} stats hub
                   </NavLinkWithOverlay>
                   .
-                </p>
-                <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                </div>
+                <div className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
                   For league market trends (BTTS, total goals, team corners and team cards), explore{" "}
                   <NavLinkWithOverlay
                     href={`/leagues/${slug}/markets/btts`}
@@ -1223,7 +1223,7 @@ export default async function LeagueStandingsPage({ params }: Props) {
                     team cards
                   </NavLinkWithOverlay>
                   {" market pages."}
-                </p>
+                </div>
               </section>
 
               <section
