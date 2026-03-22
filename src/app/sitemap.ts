@@ -37,9 +37,8 @@ function maxOfTwoDates(a: Date | undefined, b: Date | undefined, fallback: Date)
  * - /teams/all; /teams/[slug] and /teams/[slug]/markets/*
  */
 
+/** Always regenerate so the sitemap reflects latest fixtures after warm-today (do not combine with `revalidate` — invalid in Next.js 16). */
 export const dynamic = "force-dynamic";
-/** Prevent sitemap from being cached so it reflects latest fixtures after warm-today. */
-export const revalidate = 0;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
