@@ -16,8 +16,8 @@ import { LeagueFormSpotlight } from "./league-form-spotlight";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
-/** Align page ISR with `getCachedLeagueFormPageData` (24h). */
-export const revalidate = 60 * 60 * 24;
+/** Align page ISR with `getCachedLeagueFormPageData` (24h). Must be a numeric literal — expressions break the Next.js build. */
+export const revalidate = 86400;
 
 type Props = { params: Promise<{ league: string }> };
 
