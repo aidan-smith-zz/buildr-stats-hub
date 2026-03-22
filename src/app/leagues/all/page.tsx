@@ -194,7 +194,14 @@ export default async function LeaguesAllPage() {
           </p>
           <div className="mt-3 flex flex-wrap gap-2 text-xs sm:text-sm">
             <NavLinkWithOverlay href="/fixtures/today/form" className="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700">
-              Form table
+              Today&apos;s form
+            </NavLinkWithOverlay>
+            <NavLinkWithOverlay
+              href="/leagues/premier-league/form"
+              className="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+              message="Loading Premier League form…"
+            >
+              Premier League form
             </NavLinkWithOverlay>
             <NavLinkWithOverlay href="/fixtures/today/ai-insights" className="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700">
               AI insights
@@ -265,7 +272,7 @@ export default async function LeaguesAllPage() {
                       No upcoming fixture in the next 14 days
                     </p>
                   )}
-                  <div className="mt-4 flex flex-1 items-end justify-between gap-2">
+                  <div className="mt-4 flex flex-1 flex-wrap items-end justify-between gap-2">
                     <NavLinkWithOverlay
                       href={href}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-100 px-3 py-2 text-sm font-medium text-neutral-700 transition-colors group-hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:group-hover:bg-neutral-700"
@@ -276,7 +283,17 @@ export default async function LeaguesAllPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </NavLinkWithOverlay>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <NavLinkWithOverlay
+                        href={`/leagues/${slug}/form`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-800 transition-colors hover:border-emerald-200 hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200 dark:hover:border-emerald-700 dark:hover:bg-emerald-900/40"
+                        message="Loading league form…"
+                      >
+                        <span>Form</span>
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </NavLinkWithOverlay>
                       <span className="hidden text-[11px] font-medium uppercase tracking-wide text-neutral-400 sm:inline">
                         Stats
                       </span>

@@ -1,7 +1,9 @@
 import { API_SEASON } from "@/lib/footballApi";
 import { prisma } from "@/lib/prisma";
 import { getStatsLeagueForFixture, LEAGUE_DISPLAY_NAMES, REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
+import { getOrRefreshStandings } from "@/lib/standingsService";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
+import { makeTeamSlug } from "@/lib/teamSlugs";
 
 const db = prisma as typeof prisma & {
   teamFixtureCache: {
@@ -815,6 +817,200 @@ function loadLastNByTeam(
 
 function loadLast5ByTeam(teamIds: number[], teamIdToLeague?: Map<number, string>): Promise<Map<number, CacheRow[]>> {
   return loadLastNByTeam(teamIds, 5, teamIdToLeague);
+}
+
+/** TeamFixtureCache stores `league` as the canonical key (usually `String(leagueId)`). */
+function cacheLeagueKeyForStandingsLeague(leagueId: number): string {
+  return String(leagueId);
+}
+
+export type LeagueFormSpotlightTeam = {
+  teamId: number;
+  teamName: string;
+  logo: string | null;
+  points: number;
+  goalDiff: number;
+  matches: number;
+  href: string;
+};
+
+export type LeagueFormPageData = {
+  leagueId: number;
+  leagueName: string;
+  season: string;
+  updatedAt: Date;
+  last5: Last5TeamSummary[];
+  last10: Last5TeamSummary[];
+  hotLast5: LeagueFormSpotlightTeam[];
+  coldLast5: LeagueFormSpotlightTeam[];
+  hotLast10: LeagueFormSpotlightTeam[];
+  coldLast10: LeagueFormSpotlightTeam[];
+};
+
+function pointsAndGdFromCacheRows(rows: CacheRow[]): { points: number; gd: number } {
+  let points = 0;
+  let gd = 0;
+  for (const r of rows) {
+    if (r.goalsFor > r.goalsAgainst) points += 3;
+    else if (r.goalsFor === r.goalsAgainst) points += 1;
+    gd += r.goalsFor - r.goalsAgainst;
+  }
+  return { points, gd };
+}
+
+function buildSpotlightLists(
+  map: Map<number, CacheRow[]>,
+  teamNameById: Map<number, string>,
+  logoById: Map<number, string | null>,
+  minMatches: number,
+): { hot: LeagueFormSpotlightTeam[]; cold: LeagueFormSpotlightTeam[] } {
+  const list: LeagueFormSpotlightTeam[] = [];
+  for (const [teamId, rows] of map) {
+    if (rows.length < minMatches) continue;
+    const { points, gd } = pointsAndGdFromCacheRows(rows);
+    const name = teamNameById.get(teamId) ?? "Unknown";
+    list.push({
+      teamId,
+      teamName: name,
+      logo: logoById.get(teamId) ?? null,
+      points,
+      goalDiff: gd,
+      matches: rows.length,
+      href: `/teams/${makeTeamSlug(name)}`,
+    });
+  }
+  const hot = [...list].sort((a, b) => b.points - a.points || b.goalDiff - a.goalDiff).slice(0, 5);
+  const cold = [...list].sort((a, b) => a.points - b.points || a.goalDiff - b.goalDiff).slice(0, 5);
+  return { hot, cold };
+}
+
+/**
+ * Last 5 / last 10 league form from TeamFixtureCache for every team in the standings table.
+ * Uses the same cache key as fixture warming (`String(leagueId)`).
+ *
+ * Standings rows use API-Football team ids (`row.teamId`); TeamFixtureCache uses our internal `Team.id`.
+ * We resolve via `Team.apiId` so cache lookups match.
+ */
+export async function getLeagueFormPageData(leagueId: number): Promise<LeagueFormPageData | null> {
+  const standings = await getOrRefreshStandings(leagueId);
+  if (!standings?.tables?.length) return null;
+
+  const cacheLeagueKey = cacheLeagueKeyForStandingsLeague(leagueId);
+  const apiTeamIdsForLookup = new Set<string>();
+  for (const table of standings.tables) {
+    for (const row of table.rows) {
+      const apiKey = String(row.teamId);
+      if (apiKey && apiKey !== "0") apiTeamIdsForLookup.add(apiKey);
+    }
+  }
+  if (apiTeamIdsForLookup.size === 0) return null;
+
+  const dbTeams = await prisma.team.findMany({
+    where: { apiId: { in: Array.from(apiTeamIdsForLookup) } },
+    select: { id: true, apiId: true },
+  });
+  const internalIdByApiId = new Map<string, number>();
+  for (const t of dbTeams) {
+    if (t.apiId) internalIdByApiId.set(t.apiId, t.id);
+  }
+
+  const teamIds: number[] = [];
+  const seenInternal = new Set<number>();
+  const teamNameById = new Map<number, string>();
+  const logoById = new Map<number, string | null>();
+  for (const table of standings.tables) {
+    for (const row of table.rows) {
+      const apiKey = String(row.teamId);
+      const internalId = internalIdByApiId.get(apiKey);
+      if (internalId == null || seenInternal.has(internalId)) continue;
+      seenInternal.add(internalId);
+      teamIds.push(internalId);
+      teamNameById.set(internalId, row.teamName);
+      logoById.set(internalId, row.logo);
+    }
+  }
+  if (teamIds.length === 0) return null;
+
+  const teamIdToLeague = new Map(teamIds.map((id) => [id, cacheLeagueKey] as const));
+  const [map5, map10] = await Promise.all([
+    loadLastNByTeam(teamIds, 5, teamIdToLeague),
+    loadLastNByTeam(teamIds, 10, teamIdToLeague),
+  ]);
+
+  const allRowsFlat = [...map5.values(), ...map10.values()].flat();
+  const hasAnyIsHome = allRowsFlat.some((r) => r.isHome);
+  const homeAwayFallback =
+    !hasAnyIsHome && allRowsFlat.length > 0
+      ? await getHomeAwayByApiFixtureId(Array.from(new Set(allRowsFlat.map((r) => r.apiFixtureId))))
+      : undefined;
+
+  const buildLeagueSummary = (rows: CacheRow[], teamId: number): Last5TeamSummary => {
+    const name = teamNameById.get(teamId) ?? "Unknown";
+    const href = `/teams/${makeTeamSlug(name)}`;
+    if (rows.length === 0) {
+      return {
+        teamId,
+        teamName: name,
+        gamesPlayed: 0,
+        avgGoalsFor: 0,
+        avgGoalsAgainst: 0,
+        avgCorners: 0,
+        avgCards: 0,
+        href,
+      };
+    }
+    const n = rows.length;
+    const { home: homeAgg, away: awayAgg } = aggregateHomeAwayFromCacheRows(rows, teamId, homeAwayFallback);
+    const base = {
+      teamId,
+      teamName: name,
+      gamesPlayed: n,
+      avgGoalsFor: rows.reduce((s, r) => s + r.goalsFor, 0) / n,
+      avgGoalsAgainst: rows.reduce((s, r) => s + r.goalsAgainst, 0) / n,
+      avgCorners: rows.reduce((s, r) => s + r.corners, 0) / n,
+      avgCards: rows.reduce((s, r) => s + r.yellowCards + r.redCards, 0) / n,
+      href,
+    };
+    if (homeAgg.n > 0 || awayAgg.n > 0) {
+      return {
+        ...base,
+        homeGames: homeAgg.n,
+        awayGames: awayAgg.n,
+        homeAvgGoalsFor: homeAgg.n > 0 ? homeAgg.gf / homeAgg.n : undefined,
+        homeAvgGoalsAgainst: homeAgg.n > 0 ? homeAgg.ga / homeAgg.n : undefined,
+        homeAvgCorners: homeAgg.n > 0 ? homeAgg.corners / homeAgg.n : undefined,
+        homeAvgCards: homeAgg.n > 0 ? homeAgg.cards / homeAgg.n : undefined,
+        awayAvgGoalsFor: awayAgg.n > 0 ? awayAgg.gf / awayAgg.n : undefined,
+        awayAvgGoalsAgainst: awayAgg.n > 0 ? awayAgg.ga / awayAgg.n : undefined,
+        awayAvgCorners: awayAgg.n > 0 ? awayAgg.corners / awayAgg.n : undefined,
+        awayAvgCards: awayAgg.n > 0 ? awayAgg.cards / awayAgg.n : undefined,
+      };
+    }
+    return base;
+  };
+
+  const last5: Last5TeamSummary[] = [];
+  const last10: Last5TeamSummary[] = [];
+  for (const teamId of teamIds) {
+    last5.push(buildLeagueSummary(map5.get(teamId) ?? [], teamId));
+    last10.push(buildLeagueSummary(map10.get(teamId) ?? [], teamId));
+  }
+
+  const { hot: hotLast5, cold: coldLast5 } = buildSpotlightLists(map5, teamNameById, logoById, 3);
+  const { hot: hotLast10, cold: coldLast10 } = buildSpotlightLists(map10, teamNameById, logoById, 3);
+
+  return {
+    leagueId,
+    leagueName: standings.leagueName,
+    season: standings.season,
+    updatedAt: standings.updatedAt,
+    last5,
+    last10,
+    hotLast5,
+    coldLast5,
+    hotLast10,
+    coldLast10,
+  };
 }
 
 type PlayerWithStats = {

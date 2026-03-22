@@ -439,6 +439,13 @@ export function TodayFixturesList({
                 Matchday insights
               </NavLinkWithOverlay>
               <NavLinkWithOverlay
+                href="/leagues/premier-league/form"
+                className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+                message="Loading Premier League form…"
+              >
+                Premier League form
+              </NavLinkWithOverlay>
+              <NavLinkWithOverlay
                 href="/leagues/all"
                 className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
               >

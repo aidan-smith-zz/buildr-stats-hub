@@ -18,6 +18,25 @@ const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
 const TOP_TEAM_LEAGUE_KEYS = TOP_LEAGUE_IDS.map((id) => LEAGUE_DISPLAY_NAMES[id]);
 
+/** Newest of two optional timestamps (for league hub lastmod). */
+function maxOfTwoDates(a: Date | undefined, b: Date | undefined, fallback: Date): Date {
+  if (!a && !b) return fallback;
+  if (!a) return b!;
+  if (!b) return a;
+  return a.getTime() >= b.getTime() ? a : b;
+}
+
+/*
+ * Sitemap coverage (keep in sync with `src/app` routes):
+ * - Home, about, contact
+ * - /fixtures (hub redirects — omit; canonical is /fixtures/[date])
+ * - /fixtures/[date], /fixtures/[date]/ai-insights|form|matchday-insights (today, upcoming 14d, past 14d)
+ * - /fixtures/[date]/[league]/[match] and /live
+ * - /fixtures/past, /fixtures/upcoming, /fixtures/live
+ * - /leagues/all; /leagues/[slug]/standings|stats|form|markets/*
+ * - /teams/all; /teams/[slug] and /teams/[slug]/markets/*
+ */
+
 export const dynamic = "force-dynamic";
 /** Prevent sitemap from being cached so it reflects latest fixtures after warm-today. */
 export const revalidate = 0;
@@ -275,46 +294,57 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   });
 
-  // League standings and stats hub pages (one per standings league).
+  // League standings, stats, form and market pages (one per standings league).
   for (const [leagueId, slug] of Object.entries(STANDINGS_LEAGUE_SLUG_BY_ID)) {
     const id = Number(leagueId);
-    const lastmodStandings = leagueLastmodByLeagueId.get(id) ?? now;
+    const lastmodStandings = leagueLastmodByLeagueId.get(id);
+    const lastmodStats = statsLastmodByLeagueId.get(id);
+    const lastmodStandingsOrNow = lastmodStandings ?? now;
+    const lastmodStatsOrNow = lastmodStats ?? now;
+    /** Form uses standings team list + TeamFixtureCache; use freshest league-level signal. */
+    const lastmodLeagueForm = maxOfTwoDates(lastmodStandings, lastmodStats, now);
+
     entries.push({
       url: `${baseUrl}/leagues/${slug}/standings`,
-      lastModified: lastmodStandings,
+      lastModified: lastmodStandingsOrNow,
       changeFrequency: "daily",
       priority: 0.6,
     });
-    const lastmodStats = statsLastmodByLeagueId.get(id) ?? now;
     entries.push({
       url: `${baseUrl}/leagues/${slug}/stats`,
-      lastModified: lastmodStats,
+      lastModified: lastmodStatsOrNow,
       changeFrequency: "daily",
       priority: 0.6,
+    });
+    entries.push({
+      url: `${baseUrl}/leagues/${slug}/form`,
+      lastModified: lastmodLeagueForm,
+      changeFrequency: "daily",
+      priority: 0.65,
     });
     // League market pages for competitions that have league-level stats.
     entries.push(
       {
         url: `${baseUrl}/leagues/${slug}/markets/btts`,
-        lastModified: lastmodStats,
+        lastModified: lastmodStatsOrNow,
         changeFrequency: "daily",
         priority: 0.6,
       },
       {
         url: `${baseUrl}/leagues/${slug}/markets/total-goals`,
-        lastModified: lastmodStats,
+        lastModified: lastmodStatsOrNow,
         changeFrequency: "daily",
         priority: 0.6,
       },
       {
         url: `${baseUrl}/leagues/${slug}/markets/corners`,
-        lastModified: lastmodStats,
+        lastModified: lastmodStatsOrNow,
         changeFrequency: "daily",
         priority: 0.6,
       },
       {
         url: `${baseUrl}/leagues/${slug}/markets/cards`,
-        lastModified: lastmodStats,
+        lastModified: lastmodStatsOrNow,
         changeFrequency: "daily",
         priority: 0.6,
       },
