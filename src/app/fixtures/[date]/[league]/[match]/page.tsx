@@ -9,6 +9,7 @@ import { getPastFixtureLineupOnly } from "@/lib/lineupService";
 import { withPoolRetry } from "@/lib/poolRetry";
 import { API_SEASON, fetchLiveFixture } from "@/lib/footballApi";
 import { prisma } from "@/lib/prisma";
+import { loadMatchStatsPairFromDb, resolveMatchStatsForFixture } from "@/lib/matchStats";
 import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import { makeTeamSlug } from "@/lib/teamSlugs";
 import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
@@ -720,7 +721,11 @@ export default async function FixtureMatchPage({
     const fixtureWithScore = await withPoolRetry(() =>
       prisma.fixture.findUnique({
         where: { id: warmedFixture.id },
-        include: { liveScoreCache: true },
+        include: {
+          liveScoreCache: true,
+          homeTeam: { select: { apiId: true } },
+          awayTeam: { select: { apiId: true } },
+        },
       }),
     );
     const lineupOnly = await withPoolRetry(() =>
@@ -780,6 +785,33 @@ export default async function FixtureMatchPage({
         // Keep existing score or null; UI will show what we have
       }
     }
+
+    let matchStats =
+      (await loadMatchStatsPairFromDb(
+        warmedFixture.id,
+        warmedFixture.homeTeam.id,
+        warmedFixture.awayTeam.id,
+      )) ?? null;
+    if (
+      !matchStats &&
+      apiId != null &&
+      fixtureWithScore?.homeTeam?.apiId &&
+      fixtureWithScore?.awayTeam?.apiId
+    ) {
+      matchStats =
+        (await resolveMatchStatsForFixture(
+          {
+            id: warmedFixture.id,
+            apiId,
+            homeTeamId: warmedFixture.homeTeam.id,
+            awayTeamId: warmedFixture.awayTeam.id,
+            homeTeamApiId: fixtureWithScore.homeTeam.apiId,
+            awayTeamApiId: fixtureWithScore.awayTeam.apiId,
+          },
+          { refreshFromApi: true },
+        )) ?? null;
+    }
+
     const home = warmedFixture.homeTeam.shortName ?? warmedFixture.homeTeam.name;
     const away = warmedFixture.awayTeam.shortName ?? warmedFixture.awayTeam.name;
     const league = warmedFixture.league ?? "Football";
@@ -892,7 +924,7 @@ export default async function FixtureMatchPage({
                 {pastDescription}
               </p>
             </header>
-            <PastFixtureView fixture={warmedFixture} score={score} stats={stats} />
+            <PastFixtureView fixture={warmedFixture} score={score} stats={stats} matchStats={matchStats} />
             <TeamAndLeagueStatsSection
               home={home}
               away={away}

@@ -158,6 +158,10 @@ model FixtureTeamStats {
   corners     Int   @default(0)
   yellowCards Int   @default(0)
   redCards    Int   @default(0)
+  fouls       Int   @default(0)
+  shots       Int   @default(0)
+  shotsOnTarget Int @default(0)
+  possessionPct Float?
 
   fixture Fixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
   team    Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)

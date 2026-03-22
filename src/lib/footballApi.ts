@@ -697,6 +697,15 @@ export async function fetchTeamFixturesWithGoals(
   }
 }
 
+/** Parse numeric stats; handles "51%" and numeric strings from API-Football. */
+function parseApiFootballStatNumber(value: number | string | null | undefined): number | null {
+  if (value == null) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const s = String(value).trim().replace(/%/g, "").trim();
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : null;
+}
+
 /** Stats for one team in one fixture (from GET /fixtures/statistics). */
 export type RawFixtureTeamStats = {
   goals: number;
@@ -704,6 +713,10 @@ export type RawFixtureTeamStats = {
   corners: number;
   yellowCards: number;
   redCards: number;
+  fouls: number;
+  shots: number;
+  shotsOnTarget: number;
+  possessionPct: number | null;
 };
 
 /**
@@ -735,9 +748,8 @@ export async function fetchFixtureStatistics(
     const stats = raw.statistics ?? [];
     const byType = new Map<string, number>();
     for (const s of stats) {
-      const v = s.value;
-      const num = typeof v === "number" ? v : typeof v === "string" ? parseFloat(v) : NaN;
-      if (!Number.isNaN(num)) byType.set(s.type, num);
+      const num = parseApiFootballStatNumber(s.value);
+      if (num != null) byType.set(s.type, num);
     }
 
     function get(key: string): number {
@@ -757,12 +769,39 @@ export async function fetchFixtureStatistics(
     let xg: number | null = get("Expected Goals") || get("expected_goals") || null;
     if (xg === 0) xg = null;
 
+    const fouls = get("Fouls") || get("Foul");
+    const shotsExact =
+      [...byType.entries()].find(([k]) => {
+        const t = k.trim().toLowerCase();
+        return t === "total shots" || t === "shots total";
+      })?.[1] ??
+      [...byType.entries()].find(([k]) => k.trim().toLowerCase() === "shots")?.[1];
+    const shots = shotsExact ?? (get("Total Shots") || get("Shots Total") || 0);
+    const shotsOnTarget =
+      get("Shots on Goal") || get("Shots on Target") || get("On Target") || get("Shots on goal");
+    let possessionPct: number | null = null;
+    const possExact = byType.get("Ball Possession");
+    if (possExact != null && possExact > 0) {
+      possessionPct = possExact;
+    } else {
+      for (const [t, val] of byType) {
+        if (t.toLowerCase().includes("possession") && val > 0) {
+          possessionPct = val;
+          break;
+        }
+      }
+    }
+
     return {
       goals,
       xg: xg != null ? xg : null,
       corners,
       yellowCards,
       redCards,
+      fouls,
+      shots,
+      shotsOnTarget,
+      possessionPct,
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

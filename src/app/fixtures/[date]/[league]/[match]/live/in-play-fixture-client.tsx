@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { isTeamStatsOnlyLeague, getStandingsSlug } from "@/lib/leagues";
 import { copyToClipboard } from "@/app/_components/share-url-button";
+import type { MatchStatsSnapshot } from "@/lib/matchStats";
 import type { FixtureSummary } from "@/lib/statsService";
 import type { FixtureStatsResponse } from "@/lib/statsService";
 import { decodeHtmlEntities } from "@/lib/text";
+import { MatchStatsBlock } from "../match-stats-block";
 
 const FIXTURES_TZ = "Europe/London";
 
@@ -77,6 +79,7 @@ type Props = {
 
 export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugParam, fixture }: Props) {
   const [liveScore, setLiveScore] = useState<LiveScore | null>(null);
+  const [matchStats, setMatchStats] = useState<{ home: MatchStatsSnapshot; away: MatchStatsSnapshot } | null>(null);
   const [stats, setStats] = useState<FixtureStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [lineupTab, setLineupTab] = useState<"home" | "away">("home");
@@ -107,6 +110,10 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
             elapsedMinutes: liveJson.elapsedMinutes ?? null,
             statusShort: liveJson.statusShort ?? "?",
           });
+        }
+        const ms = liveJson.matchStats as { home?: MatchStatsSnapshot; away?: MatchStatsSnapshot } | undefined;
+        if (ms?.home && ms?.away) {
+          setMatchStats({ home: ms.home, away: ms.away });
         }
         if (statsJson) setStats(statsJson);
       } finally {
@@ -252,6 +259,16 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
           </div>
         </div>
       </header>
+
+      {matchStats != null && (
+        <MatchStatsBlock
+          homeLabel={homeName}
+          awayLabel={awayName}
+          home={matchStats.home}
+          away={matchStats.away}
+          heading={isEnded ? "Full-time statistics" : "In-play statistics"}
+        />
+      )}
 
       {/* Lineup tile – hidden for team-stats-only leagues (e.g. League One/Two) */}
       {!isTeamStatsOnlyLeague(fixture.leagueId ?? null) && stats?.hasLineup && stats.teams?.length >= 2 && (

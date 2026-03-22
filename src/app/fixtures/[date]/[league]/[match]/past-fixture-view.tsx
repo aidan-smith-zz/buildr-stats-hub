@@ -1,7 +1,9 @@
 import { isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { decodeHtmlEntities } from "@/lib/text";
+import type { MatchStatsSnapshot } from "@/lib/matchStats";
 import type { FixtureSummary } from "@/lib/statsService";
 import type { FixtureStatsResponse } from "@/lib/statsService";
+import { MatchStatsBlock } from "./match-stats-block";
 
 function lineupPositionOrder(position: string | null, shirtNumber: number | null): number {
   if (!position || position.trim() === "") {
@@ -71,9 +73,10 @@ type Props = {
   fixture: FixtureSummary;
   score: PastFixtureScore | null;
   stats: FixtureStatsResponse | null;
+  matchStats: { home: MatchStatsSnapshot; away: MatchStatsSnapshot } | null;
 };
 
-export function PastFixtureView({ fixture, score, stats }: Props) {
+export function PastFixtureView({ fixture, score, stats, matchStats }: Props) {
   const homeName = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
   const awayName = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
   const homeCrest = fixture.homeTeam.crestUrl ?? null;
@@ -127,6 +130,16 @@ export function PastFixtureView({ fixture, score, stats }: Props) {
           </div>
         </div>
       </section>
+
+      {matchStats != null && (
+        <MatchStatsBlock
+          homeLabel={homeName}
+          awayLabel={awayName}
+          home={matchStats.home}
+          away={matchStats.away}
+          heading="Full-time statistics"
+        />
+      )}
 
       {/* Lineups (if we have them) */}
       {hasLineup && stats && (
