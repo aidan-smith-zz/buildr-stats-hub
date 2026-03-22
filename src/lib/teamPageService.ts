@@ -307,62 +307,48 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
     orderBy: [{ minutes: "desc" }],
   });
 
-  // Same player can appear in multiple rows when league names differ (e.g. display name vs stored
-  // string). Merge by playerId so key players are unique and React keys stay stable.
-  const mergedByPlayer = new Map<
-    number,
-    {
-      player: { name: string; position: string | null };
-      minutes: number;
-      goals: number;
-      assists: number;
-      shots: number;
-      shotsOnTarget: number;
-      yellowCards: number;
-      redCards: number;
-    }
-  >();
+  // Same player can appear in multiple rows when `league` strings differ (e.g. API variants for one
+  // competition). Summing those would double-count goals/minutes. Pick one row per player: prefer
+  // the row whose `league` matches this page's primary `leagueName`, else the row with most minutes.
+  type PlayerSeasonRowWithPlayer = (typeof playerRows)[number];
+  function preferKeyPlayerRow(
+    prev: PlayerSeasonRowWithPlayer,
+    next: PlayerSeasonRowWithPlayer,
+    primaryLeague: string,
+  ): PlayerSeasonRowWithPlayer {
+    const prevPrimary = prev.league === primaryLeague;
+    const nextPrimary = next.league === primaryLeague;
+    if (nextPrimary && !prevPrimary) return next;
+    if (prevPrimary && !nextPrimary) return prev;
+    if (next.minutes !== prev.minutes) return next.minutes > prev.minutes ? next : prev;
+    return next.league < prev.league ? next : prev;
+  }
+
+  const bestRowByPlayer = new Map<number, PlayerSeasonRowWithPlayer>();
   for (const row of playerRows) {
-    // Always key by numeric player id. JS Map treats 1527 and "1527" as different keys,
-    // which produced duplicate rows and duplicate React keys for the same player.
     const pid = Number(row.player?.id ?? row.playerId);
     if (!Number.isFinite(pid)) continue;
 
-    const existing = mergedByPlayer.get(pid);
+    const existing = bestRowByPlayer.get(pid);
     if (!existing) {
-      mergedByPlayer.set(pid, {
-        player: row.player,
-        minutes: row.minutes,
-        goals: row.goals,
-        assists: row.assists,
-        shots: row.shots,
-        shotsOnTarget: row.shotsOnTarget,
-        yellowCards: row.yellowCards,
-        redCards: row.redCards,
-      });
+      bestRowByPlayer.set(pid, row);
     } else {
-      existing.minutes += row.minutes;
-      existing.goals += row.goals;
-      existing.assists += row.assists;
-      existing.shots += row.shots;
-      existing.shotsOnTarget += row.shotsOnTarget;
-      existing.yellowCards += row.yellowCards;
-      existing.redCards += row.redCards;
+      bestRowByPlayer.set(pid, preferKeyPlayerRow(existing, row, leagueName));
     }
   }
 
-  const keyPlayers: TeamPagePlayerSummary[] = Array.from(mergedByPlayer.entries())
-    .map(([playerId, agg]) => ({
+  const keyPlayers: TeamPagePlayerSummary[] = Array.from(bestRowByPlayer.entries())
+    .map(([playerId, row]) => ({
       id: playerId,
-      name: agg.player.name,
-      position: agg.player.position ?? null,
-      minutes: agg.minutes,
-      goals: agg.goals,
-      assists: agg.assists,
-      shots: agg.shots,
-      shotsOnTarget: agg.shotsOnTarget,
-      yellowCards: agg.yellowCards,
-      redCards: agg.redCards,
+      name: row.player.name,
+      position: row.player.position ?? null,
+      minutes: row.minutes,
+      goals: row.goals,
+      assists: row.assists,
+      shots: row.shots,
+      shotsOnTarget: row.shotsOnTarget,
+      yellowCards: row.yellowCards,
+      redCards: row.redCards,
     }))
     .sort((a, b) => b.minutes - a.minutes || a.id - b.id)
     .slice(0, 12);
