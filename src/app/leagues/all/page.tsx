@@ -294,9 +294,6 @@ export default async function LeaguesAllPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                       </NavLinkWithOverlay>
-                      <span className="hidden text-[11px] font-medium uppercase tracking-wide text-neutral-400 sm:inline">
-                        Stats
-                      </span>
                       <NavLinkWithOverlay
                         href={`/leagues/${slug}/stats`}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-violet-100 bg-violet-50 px-2.5 py-1.5 text-[11px] font-medium text-violet-700 transition-colors hover:border-violet-200 hover:bg-violet-100 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:border-violet-700 dark:hover:bg-violet-900/60"
