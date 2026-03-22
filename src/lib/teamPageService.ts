@@ -305,21 +305,67 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
       player: true,
     },
     orderBy: [{ minutes: "desc" }],
-    take: 12,
   });
 
-  const keyPlayers: TeamPagePlayerSummary[] = playerRows.map((row) => ({
-    id: row.playerId,
-    name: row.player.name,
-    position: row.player.position ?? null,
-    minutes: row.minutes,
-    goals: row.goals,
-    assists: row.assists,
-    shots: row.shots,
-    shotsOnTarget: row.shotsOnTarget,
-    yellowCards: row.yellowCards,
-    redCards: row.redCards,
-  }));
+  // Same player can appear in multiple rows when league names differ (e.g. display name vs stored
+  // string). Merge by playerId so key players are unique and React keys stay stable.
+  const mergedByPlayer = new Map<
+    number,
+    {
+      player: { name: string; position: string | null };
+      minutes: number;
+      goals: number;
+      assists: number;
+      shots: number;
+      shotsOnTarget: number;
+      yellowCards: number;
+      redCards: number;
+    }
+  >();
+  for (const row of playerRows) {
+    // Always key by numeric player id. JS Map treats 1527 and "1527" as different keys,
+    // which produced duplicate rows and duplicate React keys for the same player.
+    const pid = Number(row.player?.id ?? row.playerId);
+    if (!Number.isFinite(pid)) continue;
+
+    const existing = mergedByPlayer.get(pid);
+    if (!existing) {
+      mergedByPlayer.set(pid, {
+        player: row.player,
+        minutes: row.minutes,
+        goals: row.goals,
+        assists: row.assists,
+        shots: row.shots,
+        shotsOnTarget: row.shotsOnTarget,
+        yellowCards: row.yellowCards,
+        redCards: row.redCards,
+      });
+    } else {
+      existing.minutes += row.minutes;
+      existing.goals += row.goals;
+      existing.assists += row.assists;
+      existing.shots += row.shots;
+      existing.shotsOnTarget += row.shotsOnTarget;
+      existing.yellowCards += row.yellowCards;
+      existing.redCards += row.redCards;
+    }
+  }
+
+  const keyPlayers: TeamPagePlayerSummary[] = Array.from(mergedByPlayer.entries())
+    .map(([playerId, agg]) => ({
+      id: playerId,
+      name: agg.player.name,
+      position: agg.player.position ?? null,
+      minutes: agg.minutes,
+      goals: agg.goals,
+      assists: agg.assists,
+      shots: agg.shots,
+      shotsOnTarget: agg.shotsOnTarget,
+      yellowCards: agg.yellowCards,
+      redCards: agg.redCards,
+    }))
+    .sort((a, b) => b.minutes - a.minutes || a.id - b.id)
+    .slice(0, 12);
 
   return {
     teamId: team.id,

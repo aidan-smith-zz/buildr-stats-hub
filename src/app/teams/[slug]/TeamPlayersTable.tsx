@@ -20,8 +20,33 @@ const DEFAULT_SORT: SortState = { key: "minutes", direction: "desc" };
 export function TeamPlayersTable({ players }: Props) {
   const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
 
+  /** Dedupe by numeric id (defensive if server ever sends mixed key types or duplicates). */
+  const uniquePlayers = useMemo(() => {
+    const byId = new Map<number, TeamPagePlayerSummary>();
+    for (const p of players) {
+      const id = Number(p.id);
+      if (!Number.isFinite(id)) continue;
+      const existing = byId.get(id);
+      if (!existing) {
+        byId.set(id, { ...p, id });
+      } else {
+        byId.set(id, {
+          ...existing,
+          minutes: existing.minutes + p.minutes,
+          goals: existing.goals + p.goals,
+          assists: existing.assists + p.assists,
+          shots: existing.shots + p.shots,
+          shotsOnTarget: existing.shotsOnTarget + p.shotsOnTarget,
+          yellowCards: existing.yellowCards + p.yellowCards,
+          redCards: existing.redCards + p.redCards,
+        });
+      }
+    }
+    return [...byId.values()];
+  }, [players]);
+
   const sortedPlayers = useMemo(() => {
-    const arr = [...players];
+    const arr = [...uniquePlayers];
     const { key, direction } = sort;
     arr.sort((a, b) => {
       let av: number | string;
@@ -35,10 +60,10 @@ export function TeamPlayersTable({ players }: Props) {
       }
       if (av < bv) return direction === "asc" ? -1 : 1;
       if (av > bv) return direction === "asc" ? 1 : -1;
-      return 0;
+      return a.id - b.id;
     });
     return arr;
-  }, [players, sort]);
+  }, [uniquePlayers, sort]);
 
   function toggleSort(key: SortKey) {
     setSort((current) => {
