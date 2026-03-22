@@ -9,8 +9,10 @@ import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { todayDateKey, tomorrowDateKey } from "@/lib/slugs";
-import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
+import { toSnippetDescription } from "@/lib/seoMetadata";
 import { FormEdgeSection } from "./form-edge-section";
+import { FormKeyTrends } from "./form-key-trends";
+import { buildKeyTrends } from "./form-page-trends";
 import { FormTableClient } from "./form-table-client";
 
 export const dynamic = "force-dynamic";
@@ -45,30 +47,20 @@ export async function generateMetadata({
   const displayDate = formatDisplayDate(dateKey);
   const isToday = dateKey === todayDateKey();
   const isTomorrow = dateKey === tomorrowDateKey();
-  const timeframe = isToday ? "today" : isTomorrow ? "tomorrow" : displayDate;
   const title = isToday
-    ? buildIntentTitle({
-        intent: "Form table",
-        timeframe: "today",
-        keyStat: "GF/GA, corners & cards per 90",
-      })
+    ? `Football Fixtures Today – Form, Stats & Best Matches (${displayDate})`
     : isTomorrow
-      ? buildIntentTitle({
-          intent: "Form table",
-          timeframe: "tomorrow",
-          keyStat: "GF/GA, corners & cards per 90",
-        })
-      : buildIntentTitle({
-          intent: "Form table",
-          timeframe: displayDate,
-          keyStat: "GF/GA, corners & cards per 90",
-        });
-  const description = toSnippetDescription([
-    `Team form table for ${timeframe}.`,
-    "Compare goals for/against (GF/GA), corners and cards per 90.",
-    "Uses Last 5, Last 10 and season averages with home/away splits.",
-    "Sortable for bet builder picks.",
-  ]);
+      ? `Football Fixtures Tomorrow – Form, Stats & Best Matches (${displayDate})`
+      : `Football Fixtures – Form, Stats & Best Matches (${displayDate})`;
+  const description = isToday
+    ? toSnippetDescription([
+        "See today's football fixtures with team form, goals stats and the best matches to watch.",
+        "Updated daily with insights and trends.",
+      ])
+    : toSnippetDescription([
+        `See football fixtures for ${displayDate} with team form, goals stats and the best matches to watch.`,
+        "Updated with insights and trends.",
+      ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}/form`;
   return {
     title,
@@ -119,6 +111,13 @@ export default async function FormPage({
 
   const hasData = last5.length > 0 || last10.length > 0 || season.length > 0;
   const hasFixtures = formEdgeFixtures.length > 0;
+  const keyTrends = buildKeyTrends(formEdgeFixtures, last5);
+  const trendsSectionTitle =
+    dateContext === "today"
+      ? "Today's Key Trends"
+      : dateContext === "tomorrow"
+        ? "Tomorrow's Key Trends"
+        : "Key trends";
   const fixturesHref = `/fixtures/${dateKey}`;
   const breadcrumbItems = [
     { href: "/", label: "Home" },
@@ -181,42 +180,37 @@ export default async function FormPage({
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-3" />
         <div className="mb-8">
-          <header className="mt-4 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
+          <header className="mt-4 rounded-2xl border border-neutral-200 bg-white/80 px-4 py-4 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80 sm:px-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                   {displayDate}
                 </p>
                 <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-                  Form table – last 5, last 10 &amp; season
+                  Football fixtures — form, stats &amp; best matches
                 </h1>
                 <p className="mt-0.5 text-xs font-medium text-neutral-400 dark:text-neutral-500 sm:text-[13px]">
-                  statsBuildr · Team form for {dateContext === "today" ? "today" : dateContext === "tomorrow" ? "tomorrow" : "this date"}
+                  statsBuildr · Daily matchday hub · Goals, corners &amp; cards
                 </p>
               </div>
-              <span className="inline-flex items-center rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-neutral-50 shadow-sm dark:bg-neutral-100 dark:text-neutral-900">
-                GF/GA · Corners · Cards (per 90)
+              <span className="inline-flex shrink-0 items-center rounded-full bg-violet-900 px-3 py-1.5 text-xs font-semibold text-violet-50 shadow-sm dark:bg-violet-600 dark:text-white">
+                Sort · compare · decide
               </span>
             </div>
-            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-              {dateContext === "today"
-                ? "Last 5, last 10 and season form for all teams in action today — goals for/against, corners and cards per 90 minutes, with home and away splits. Sortable table for bet builder stats."
-                : dateContext === "tomorrow"
-                  ? "Last 5, last 10 and season form for all teams in action tomorrow — goals for/against, corners and cards per 90 minutes, with home and away splits. Sortable table for bet builder stats."
-                  : `Last 5, last 10 and season form for all teams in action on ${displayDate} — goals for/against, corners and cards per 90 minutes, with home and away splits. Sortable table for bet builder stats.`}
-            </p>
+            <div className="mt-4 space-y-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+              <p>
+                {dateContext === "today"
+                  ? "See today's football fixtures with team form, goals and key stats."
+                  : dateContext === "tomorrow"
+                    ? "See tomorrow's football fixtures with team form, goals and key stats."
+                    : `See football fixtures on ${displayDate} with team form, goals and key stats.`}
+              </p>
+              <p>
+                This page highlights which teams are in the best form and identifies the most likely high-scoring matches
+                based on recent performances.
+              </p>
+            </div>
           </header>
-
-          <section className="mt-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60">
-            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 sm:text-base">At a glance</h2>
-            <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-              This {dateContext} form table ranks teams using <strong>Last 5</strong>, <strong>Last 10</strong> and <strong>season</strong> averages per 90 minutes.
-              The sortable table shows <strong>GF</strong> / <strong>GA</strong> per 90, <strong>corners</strong> per 90 and <strong>cards</strong> per 90, with home/away splits where available.
-            </p>
-            <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
-              Data availability: Last 5 ({last5.length} teams), Last 10 ({last10.length} teams), Season ({season.length} teams).
-            </p>
-          </section>
         </div>
 
         {!hasData && !hasFixtures ? (
@@ -246,16 +240,24 @@ export default async function FormPage({
               </div>
             ) : null}
             {hasData ? (
-              <section className="mb-10">
-                <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
-                  Use the form table below to compare goals for/against, corners and cards (per 90) across last 5, last 10 and full season. Home and away columns show averages in home matches vs away matches for bet builder stats.
-                </p>
-                <FormTableClient last5={last5} last10={last10} season={season} />
-              </section>
+              <>
+                <FormKeyTrends trends={keyTrends} sectionTitle={trendsSectionTitle} />
+                <section className="mb-10">
+                  <h2 className="mb-3 text-base font-semibold text-neutral-900 dark:text-neutral-50 sm:text-lg">
+                    Full form table
+                  </h2>
+                  <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
+                    Last 5, last 10 and season — goals for/against, corners and cards per 90. Sort any column; use home/away
+                    when splits are available.
+                  </p>
+                  <FormTableClient last5={last5} last10={last10} season={season} />
+                </section>
+              </>
             ) : null}
             {hasFixtures ? (
               <FormEdgeSection
                 fixtures={formEdgeFixtures}
+                last5={last5}
                 last10={last10}
                 season={season}
                 dateContext={dateContext}

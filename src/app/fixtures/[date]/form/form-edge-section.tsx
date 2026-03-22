@@ -17,9 +17,10 @@ function leagueDisplayName(league: string | null, leagueId: number | null): stri
   return league ?? "Other";
 }
 
-type FormEdgePeriod = "last10" | "season";
+type FormEdgePeriod = "last5" | "last10" | "season";
 
 const PERIOD_LABELS: Record<FormEdgePeriod, string> = {
+  last5: "Last 5",
   last10: "Last 10",
   season: "Season",
 };
@@ -42,16 +43,17 @@ type FixtureEdgeRow = {
 
 type Props = {
   fixtures: FormEdgeFixture[];
+  last5: Last5TeamSummary[];
   last10: Last5TeamSummary[];
   season: Last5TeamSummary[];
   /** "today" | "tomorrow" | "date" — used for copy (e.g. "today's fixtures" vs "tomorrow's fixtures"). Default "today". */
   dateContext?: "today" | "tomorrow" | "date";
 };
 
-export function FormEdgeSection({ fixtures, last10, season, dateContext = "today" }: Props) {
-  const [period, setPeriod] = useState<FormEdgePeriod>("last10");
+export function FormEdgeSection({ fixtures, last5, last10, season, dateContext = "today" }: Props) {
+  const [period, setPeriod] = useState<FormEdgePeriod>("last5");
 
-  const dataByPeriod = period === "last10" ? last10 : season;
+  const dataByPeriod = period === "last5" ? last5 : period === "last10" ? last10 : season;
   const byTeamId = useMemo(() => {
     const map = new Map<number, Last5TeamSummary>();
     for (const t of dataByPeriod) map.set(t.teamId, t);
@@ -115,15 +117,24 @@ export function FormEdgeSection({ fixtures, last10, season, dateContext = "today
       <div className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
         <div className="border-b border-neutral-200 px-4 py-4 dark:border-neutral-800 sm:px-5">
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-            Form edge
+            <span aria-hidden className="mr-1.5">
+              🔥
+            </span>
+            Form Advantage{" "}
+            {dateContext === "tomorrow" ? "Tomorrow" : dateContext === "date" ? "This matchday" : "Today"}
           </h2>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-            Discover each team&apos;s Edge rating, calculated from current form and key stats, to
-            see who holds the advantage in{" "}
-            {dateContext === "tomorrow" ? "tomorrow's" : dateContext === "date" ? "these" : "today's"} fixtures.
+            These matchups show which team has the stronger recent form going into{" "}
+            {dateContext === "tomorrow"
+              ? "tomorrow's"
+              : dateContext === "date"
+                ? "these"
+                : "today's"}{" "}
+            fixtures.
+            Use the toggle to compare last 5, last 10 or season samples — a quick read on where the edge sits before kick-off.
           </p>
           <div className="mt-3 inline-flex rounded-md bg-neutral-100 p-0.5 dark:bg-neutral-800">
-            {(["last10", "season"] as const).map((p) => (
+            {(["last5", "last10", "season"] as const).map((p) => (
               <button
                 key={p}
                 type="button"
