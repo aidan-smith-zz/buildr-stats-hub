@@ -46,14 +46,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const monthYear = new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
   const title = buildIntentTitle({
-    intent: `${leagueName} form table`,
+    intent: `${leagueName} form guide & table`,
     timeframe: `${season} · ${monthYear}`,
     keyStat: "last 5 & last 10 — goals, corners & cards",
   });
   const description = toSnippetDescription([
-    `${leagueName} form table: last 5 and last 10 league games.`,
-    "Sortable team stats — goals for and against, corners and cards per 90.",
-    "See who is in form and who is struggling before you build accas and bet builders.",
+    `${leagueName} form guide and sortable form table: last 5 and last 10 league games.`,
+    "Goals for and against, corners and cards per 90 — spot in-form teams for accas and bet builders.",
   ]);
 
   const canonical = `${BASE_URL}/leagues/${slug}/form`;
@@ -115,10 +114,10 @@ export default async function LeagueFormPage({ params }: Props) {
     mainEntity: [
       {
         "@type": "Question",
-        name: `What is the ${leagueName} form table?`,
+        name: `What is the ${leagueName} form guide and table?`,
         acceptedAnswer: {
           "@type": "Answer",
-          text: `The ${leagueName} form table ranks every team by recent league performance using the last five and last ten completed matches. You can compare goals for and against, corners and cards on a per-90 basis, and switch between home, away or combined samples.`,
+          text: `The ${leagueName} form guide ranks every team by recent league performance using the last five and last ten completed matches. You can compare goals for and against, corners and cards on a per-90 basis, and switch between home, away or combined samples.`,
         },
       },
       {
@@ -143,8 +142,8 @@ export default async function LeagueFormPage({ params }: Props) {
   const webPageJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    name: `${leagueName} form table ${season}`,
-    description: `Last 5 and last 10 form for ${leagueName}: goals, corners and cards per 90, with in-form and struggling team spotlights.`,
+    name: `${leagueName} form guide & table ${season}`,
+    description: `Last 5 and last 10 form guide for ${leagueName}: goals, corners and cards per 90, with in-form and struggling team spotlights.`,
     url: `${BASE_URL}${canonicalPath}`,
   };
 
@@ -181,11 +180,11 @@ export default async function LeagueFormPage({ params }: Props) {
                   {season} · Form analysis
                 </p>
                 <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-                  {leagueName} form table
+                  {leagueName} form guide &amp; table
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-                  Last 5 and last 10 league games: compare goals, corners and cards per 90, sort any column, and see which
-                  sides are flying — and which need a result — as the season unfolds.
+                  Last 5 and last 10 league games: a form guide with sortable stats — goals, corners and cards per 90. See
+                  which sides are flying — and which need a result — as the season unfolds.
                 </p>
                 <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-500">Standings data refreshed {updatedLabel}</p>
               </div>

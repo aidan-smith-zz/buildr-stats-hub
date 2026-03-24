@@ -65,8 +65,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         "Includes links to stats and market pages for qualification fixtures.",
       ])
     : toSnippetDescription([
-        `Current ${leagueName} league table and standings ${season}.`,
-        "Track points, goal difference, wins, draws and losses.",
+        `Current ${leagueName} league table ${season}: points, goals, form and standings.`,
+        "Track wins, draws, losses and goal difference — then open team stats and betting markets.",
       ]);
   const canonical = `${BASE_URL}/leagues/${slug}/standings`;
   return {

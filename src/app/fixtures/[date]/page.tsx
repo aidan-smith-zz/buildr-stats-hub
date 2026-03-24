@@ -5,7 +5,7 @@ import {
 } from "@/lib/fixturesService";
 import { withPoolRetry } from "@/lib/poolRetry";
 import { fixtureDateKey, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
-import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
+import { toSnippetDescription } from "@/lib/seoMetadata";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +32,16 @@ function formatDisplayDate(dateKey: string): string {
   });
 }
 
+function formatShortDateChip(dateKey: string): string {
+  return new Date(dateKey + "T12:00:00.000Z").toLocaleDateString("en-GB", {
+    timeZone: "Europe/London",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -40,17 +50,22 @@ export async function generateMetadata({
   const { date: dateParam } = await params;
   const dateKey = normalizeDateKey(dateParam);
   const displayDate = formatDisplayDate(dateKey);
+  const shortDate = formatShortDateChip(dateKey);
   const todayKey = todayDateKey();
   const tomorrowKey = tomorrowDateKey();
-  const timeframe = dateKey === todayKey ? "today" : dateKey === tomorrowKey ? "tomorrow" : displayDate;
-  const title = buildIntentTitle({
-    intent: "Football fixtures",
-    timeframe,
-    keyStat: "team & player stats",
-  });
+  const title =
+    dateKey === todayKey
+      ? `Football Fixtures Today (${shortDate}) — Schedule, Kick-Offs & Match Stats | statsBuildr`
+      : dateKey === tomorrowKey
+        ? `Football Fixtures Tomorrow (${shortDate}) — Schedule & Previews | statsBuildr`
+        : `Football Fixtures ${shortDate} — Full Schedule & Match Previews | statsBuildr`;
   const description = toSnippetDescription([
-    `Football fixtures for ${displayDate}.`,
-    "View match previews with team season stats and player data (goals, assists, xG, corners and cards).",
+    dateKey === todayKey
+      ? `Today's football schedule (${displayDate}): kick-off times, fixtures list and match previews with team stats.`
+      : dateKey === tomorrowKey
+        ? `Tomorrow's football fixtures (${displayDate}): schedule, kick-offs and previews with goals, xG, corners and cards context.`
+        : `Football fixtures on ${displayDate}: full schedule with kick-off times and previews (goals, xG, corners and cards).`,
+    "Built for quick scanning before you bet.",
   ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}`;
   return {
@@ -69,7 +84,7 @@ export async function generateMetadata({
           url: `${BASE_URL}/stats-buildr.png`,
           width: 512,
           height: 160,
-          alt: `Football fixtures for ${displayDate} on statsBuildr`,
+          alt: `Football fixtures schedule for ${shortDate} on statsBuildr`,
         },
       ],
       locale: "en_GB",

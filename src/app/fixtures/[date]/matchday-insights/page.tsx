@@ -34,12 +34,12 @@ export async function generateMetadata({
   const title = buildIntentTitle({
     intent: "Matchday insights",
     timeframe: displayDate,
-    keyStat: "stat leaders",
+    keyStat: "shots, cards, corners & xG leaders",
     context: "football stats",
   });
   const description = toSnippetDescription([
-    `Matchday insights for ${displayDate}.`,
-    "Track stat leaders for shots on target, fouls, yellow cards, team xG and corners per match.",
+    `Matchday stat leaders for ${displayDate}: shots on target, fouls, cards, team xG and corners.`,
+    "See which fixtures and teams stand out before you bet.",
   ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}/matchday-insights`;
   return {

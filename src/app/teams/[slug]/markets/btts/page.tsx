@@ -90,15 +90,14 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const bttsPct = stats.pct;
   const bttsPctPart = bttsPct != null ? `BTTS ${bttsPct.toFixed(1)}%` : "BTTS stats";
   const title = buildIntentTitle({
-    intent: "BTTS stats",
-    subject: displayName,
+    intent: `${displayName} BTTS (both teams to score)`,
     timeframe: `${data.leagueName} ${data.season}`,
     keyStat: bttsPctPart,
   });
   const description = toSnippetDescription([
-    `Both teams to score stats for ${displayName} in ${data.leagueName} ${data.season}.`,
+    `Both teams to score (BTTS) for ${displayName} in ${data.leagueName} ${data.season}.`,
     bttsPct != null ? `BTTS rate ${bttsPct.toFixed(1)}% with last 10 and home/away splits.` : "Includes last 10 and home/away BTTS splits.",
-    "Use for BTTS tips, bet builders and accumulators.",
+    "Built for BTTS markets, bet builders and accumulators.",
   ]);
   const canonical = `${BASE_URL}/teams/${makeTeamSlug(displayName)}/markets/btts`;
   return {

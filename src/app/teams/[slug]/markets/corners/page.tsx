@@ -36,15 +36,13 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   if (!data) return { title: "Team not found", robots: { index: false, follow: false } };
   const displayName = data.shortName ?? data.name;
   const title = buildIntentTitle({
-    intent: "Corners stats",
-    subject: displayName,
+    intent: `${displayName} corners stats`,
     timeframe: `${data.leagueName} ${data.season}`,
     keyStat: "Over 3.5, 4.5 & 5.5",
   });
   const description = toSnippetDescription([
-    `Team corners stats for ${displayName} in ${data.leagueName} ${data.season}.`,
-    "See over 3.5, 4.5 and 5.5 rates in recent games, plus home/away corner averages.",
-    "Use for team corners and bet builder picks.",
+    `${displayName} corners stats for ${data.leagueName} ${data.season}: averages and over-line trends.`,
+    "Home vs away splits, recent games — for team corners and bet builder picks.",
   ]);
   const canonical = `${BASE_URL}/teams/${makeTeamSlug(displayName)}/markets/corners`;
   return {

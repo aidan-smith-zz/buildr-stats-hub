@@ -109,12 +109,11 @@ export async function generateMetadata({
       intent: "Match preview",
       subject: `${home} vs ${away}`,
       timeframe: `${league} ${year}`,
-      keyStat: "stats, lineups & AI insights",
+      keyStat: "form, stats, lineups & AI insights",
     });
     const description = toSnippetDescription([
-      `${home} vs ${away} in ${league}.`,
-      "Match stats and lineups with xG, corners, cards and shots per 90.",
-      "Includes AI insights for bet builder picks.",
+      `${home} vs ${away} (${league}): team form, match stats and lineups — xG, corners, cards and shots per 90.`,
+      "AI-powered bet builder angles and quick comparisons.",
     ]);
     const canonical = `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
     return {
@@ -128,7 +127,7 @@ export async function generateMetadata({
         url: canonical,
         siteName: "statsBuildr",
         type: "website",
-        images: [{ url: `${BASE_URL}/stats-buildr.png`, width: 512, height: 160, alt: `${home} vs ${away} statsBuildr` }],
+        images: [{ url: `${BASE_URL}/stats-buildr.png`, width: 512, height: 160, alt: `${home} vs ${away} — match preview on statsBuildr` }],
         locale: "en_GB",
       },
       twitter: {
@@ -161,17 +160,16 @@ export async function generateMetadata({
           intent: "Match preview",
           subject: `${home} vs ${away}`,
           timeframe: `${league} ${year}`,
-          keyStat: "stats, lineups & AI insights",
+          keyStat: "form, stats, lineups & AI insights",
         });
     const description = isPast
       ? toSnippetDescription([
-          `Final result for ${home} vs ${away} in ${league}.`,
-          "Includes confirmed lineups and key match stats.",
+          `Final result: ${home} vs ${away} (${league}). Lineups and key match stats.`,
+          "Goals, xG, corners, cards and shots context for the full-time score.",
         ])
       : toSnippetDescription([
-          `${home} vs ${away} in ${league}.`,
-          "Match stats and lineups with xG, corners, cards and shots per 90.",
-          "Includes AI insights for bet builder picks.",
+          `${home} vs ${away} (${league}): team form, match stats and lineups — xG, corners, cards and shots per 90.`,
+          "AI-powered bet builder angles and quick comparisons.",
         ]);
     return {
       title,
@@ -184,7 +182,7 @@ export async function generateMetadata({
         url: canonical,
         siteName: "statsBuildr",
         type: "website",
-        images: [{ url: `${BASE_URL}/stats-buildr.png`, width: 512, height: 160, alt: `${home} vs ${away} statsBuildr` }],
+        images: [{ url: `${BASE_URL}/stats-buildr.png`, width: 512, height: 160, alt: `${home} vs ${away} — match preview on statsBuildr` }],
         locale: "en_GB",
       },
       twitter: {
@@ -213,12 +211,11 @@ export async function generateMetadata({
     intent: "Match preview",
     subject: `${home} vs ${away}`,
     timeframe: `${league} ${year}`,
-    keyStat: "stats, lineups & AI insights",
+    keyStat: "form, stats, lineups & AI insights",
   });
   const description = toSnippetDescription([
-    `${home} vs ${away} in ${league}.`,
-    "Match stats and lineups with xG, corners, cards and shots per 90.",
-    "Includes AI insights for bet builder picks.",
+    `${home} vs ${away} (${league}): team form, match stats and lineups — xG, corners, cards and shots per 90.`,
+    "AI-powered bet builder angles and quick comparisons.",
   ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`;
   return {
@@ -232,7 +229,7 @@ export async function generateMetadata({
       url: canonical,
       siteName: "statsBuildr",
       type: "website",
-      images: [{ url: `${BASE_URL}/stats-buildr.png`, width: 512, height: 160, alt: `${home} vs ${away} statsBuildr` }],
+      images: [{ url: `${BASE_URL}/stats-buildr.png`, width: 512, height: 160, alt: `${home} vs ${away} — match preview on statsBuildr` }],
       locale: "en_GB",
     },
     twitter: {

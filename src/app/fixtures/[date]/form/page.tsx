@@ -37,6 +37,17 @@ function formatDisplayDate(dateKey: string): string {
   });
 }
 
+/** Short date for titles/SERP (e.g. Tue 3 Mar 2026). */
+function formatShortDateChip(dateKey: string): string {
+  return new Date(dateKey + "T12:00:00.000Z").toLocaleDateString("en-GB", {
+    timeZone: "Europe/London",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -45,22 +56,28 @@ export async function generateMetadata({
   const { date: dateParam } = await params;
   const dateKey = normalizeDateKey(dateParam);
   const displayDate = formatDisplayDate(dateKey);
+  const shortDate = formatShortDateChip(dateKey);
   const isToday = dateKey === todayDateKey();
   const isTomorrow = dateKey === tomorrowDateKey();
   const title = isToday
-    ? `Football Fixtures Today – Form, Stats & Best Matches (${displayDate})`
+    ? `Football Fixtures Today – Last 5 Form, Stats & Best Matches (${shortDate})`
     : isTomorrow
-      ? `Football Fixtures Tomorrow – Form, Stats & Best Matches (${displayDate})`
-      : `Football Fixtures – Form, Stats & Best Matches (${displayDate})`;
+      ? `Football Fixtures Tomorrow – Last 5 Form, Stats & Best Matches (${shortDate})`
+      : `Football Fixtures ${shortDate} – Last 5 Form, Stats & Best Games | statsBuildr`;
   const description = isToday
     ? toSnippetDescription([
-        "See today's football fixtures with team form, goals stats and the best matches to watch.",
-        "Updated daily with insights and trends.",
+        "Today's football fixtures with last 5 and last 10 team form, goals trends and the best games to watch.",
+        "Compare stats before you bet — updated daily.",
       ])
-    : toSnippetDescription([
-        `See football fixtures for ${displayDate} with team form, goals stats and the best matches to watch.`,
-        "Updated with insights and trends.",
-      ]);
+    : isTomorrow
+      ? toSnippetDescription([
+        `Tomorrow's football fixtures (${shortDate}) with last 5 form, goals stats and standout matches.`,
+        "Sortable trends for bet builder research.",
+      ])
+      : toSnippetDescription([
+          `Football fixtures on ${displayDate}: last 5 and last 10 form, goals for/against trends and high-scoring picks.`,
+          "See which teams are in form for accas and bet builders.",
+        ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}/form`;
   return {
     title,
@@ -73,7 +90,14 @@ export async function generateMetadata({
       url: canonical,
       siteName: "statsBuildr",
       type: "website",
-      images: [{ url: `${BASE_URL}/stats-buildr.png`, width: 512, height: 160, alt: `Form table for ${displayDate} on statsBuildr` }],
+      images: [
+        {
+          url: `${BASE_URL}/stats-buildr.png`,
+          width: 512,
+          height: 160,
+          alt: `Football fixtures and last 5 form for ${shortDate} on statsBuildr`,
+        },
+      ],
       locale: "en_GB",
     },
     twitter: {
@@ -187,7 +211,7 @@ export default async function FormPage({
                   {displayDate}
                 </p>
                 <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-                  Football fixtures — form, stats &amp; best matches
+                  Football fixtures — last 5 form, stats &amp; best matches
                 </h1>
                 <p className="mt-0.5 text-xs font-medium text-neutral-400 dark:text-neutral-500 sm:text-[13px]">
                   statsBuildr · Daily matchday hub · Goals, corners &amp; cards
@@ -200,10 +224,10 @@ export default async function FormPage({
             <div className="mt-4 space-y-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
               <p>
                 {dateContext === "today"
-                  ? "See today's football fixtures with team form, goals and key stats."
+                  ? "See today's football fixtures with last 5 and last 10 form, goals and key stats."
                   : dateContext === "tomorrow"
-                    ? "See tomorrow's football fixtures with team form, goals and key stats."
-                    : `See football fixtures on ${displayDate} with team form, goals and key stats.`}
+                    ? "See tomorrow's football fixtures with last 5 and last 10 form, goals and key stats."
+                    : `See football fixtures on ${displayDate} with last 5 and last 10 form, goals and key stats.`}
               </p>
               <p>
                 This page highlights which teams are in the best form and identifies the most likely high-scoring matches

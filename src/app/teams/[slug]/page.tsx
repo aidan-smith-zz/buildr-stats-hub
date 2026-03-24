@@ -47,14 +47,13 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const displayName = data.shortName ?? data.name;
   const canonical = `${BASE_URL}/teams/${makeTeamSlug(displayName)}`;
   const title = buildIntentTitle({
-    intent: "Team stats",
-    subject: displayName,
+    intent: `${displayName} stats & form`,
     timeframe: `${data.leagueName} ${data.season}`,
     keyStat: "goals, xG, corners & cards per 90",
   });
   const description = toSnippetDescription([
-    `Team stats for ${displayName} in ${data.leagueName} ${data.season}.`,
-    "See goals, xG, corners and cards per 90, recent results and key player numbers.",
+    `${displayName} stats and recent form in ${data.leagueName} ${data.season}.`,
+    "Per-90 goals, xG, corners and cards, plus results and key player numbers for bet builders.",
   ]);
 
   return {

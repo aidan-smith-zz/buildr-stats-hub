@@ -41,15 +41,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const seasonString = getCurrentSeasonString();
   const title = buildIntentTitle({
-    intent: "League stats",
-    subject: leagueName,
+    intent: `${leagueName} team stats`,
     timeframe: seasonString,
     keyStat: "goals, xG, corners & cards per 90",
   });
   const description = toSnippetDescription([
-    `League stats for ${leagueName} ${seasonString}.`,
-    "Compare goals for/against per 90, corners per match and cards per match by team.",
-    "Useful for bet builder research.",
+    `${leagueName} team stats ${seasonString}: every club ranked with per-90 numbers.`,
+    "Compare goals for and against, corners and cards per match — built for bet builder research.",
   ]);
   const canonical = `${BASE_URL}/leagues/${slug}/stats`;
 
