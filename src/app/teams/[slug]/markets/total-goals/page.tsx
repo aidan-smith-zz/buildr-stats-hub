@@ -118,11 +118,13 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
     "See over 1.5, 2.5 and 3.5 rates, recent results and home/away goal averages.",
     "Use for over 2.5, over 1.5 and bet builder picks.",
   ]);
+  const canonical = `${BASE_URL}/teams/${makeTeamSlug(displayName)}/markets/total-goals`;
   return {
     title,
     description,
+    alternates: { canonical },
     robots: { index: true, follow: true },
-    openGraph: { title, description, url: `${BASE_URL}/teams/${makeTeamSlug(displayName)}/markets/total-goals` },
+    openGraph: { title, description, url: canonical },
     twitter: { card: "summary_large_image", title, description },
   };
 }

@@ -99,7 +99,7 @@ export async function generateMetadata({
     const fixtures = await withPoolRetry(() => getOrRefreshTodayFixturesRequestCached(todayDateKey()));
     const fixture = findTodayFixture(fixtures, leagueSlug, matchSlugParam);
     if (!fixture) {
-      return { title: "Fixture not found", robots: { index: true, follow: true } };
+      return { title: "Fixture not found", robots: { index: false, follow: true } };
     }
     const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
     const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
@@ -201,7 +201,7 @@ export async function generateMetadata({
     return {
       title: "Fixture not found",
       description: "No fixtures scheduled for this date.",
-      robots: { index: true, follow: true },
+      robots: { index: false, follow: true },
     };
   }
 

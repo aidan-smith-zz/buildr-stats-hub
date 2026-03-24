@@ -14,6 +14,8 @@ type RouteParams = {
   }>;
 };
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
+
 function leagueSlugForName(name: string): string | null {
   for (const [id, displayName] of Object.entries(LEAGUE_DISPLAY_NAMES)) {
     if (displayName === name) {
@@ -43,6 +45,7 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   }
 
   const displayName = data.shortName ?? data.name;
+  const canonical = `${BASE_URL}/teams/${makeTeamSlug(displayName)}`;
   const title = buildIntentTitle({
     intent: "Team stats",
     subject: displayName,
@@ -57,10 +60,12 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   return {
     title,
     description,
+    alternates: { canonical },
     robots: { index: true, follow: true },
     openGraph: {
       title,
       description,
+      url: canonical,
     },
     twitter: {
       card: "summary_large_image",

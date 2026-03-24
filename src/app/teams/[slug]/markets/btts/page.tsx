@@ -100,11 +100,13 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
     bttsPct != null ? `BTTS rate ${bttsPct.toFixed(1)}% with last 10 and home/away splits.` : "Includes last 10 and home/away BTTS splits.",
     "Use for BTTS tips, bet builders and accumulators.",
   ]);
+  const canonical = `${BASE_URL}/teams/${makeTeamSlug(displayName)}/markets/btts`;
   return {
     title,
     description,
+    alternates: { canonical },
     robots: { index: true, follow: true },
-    openGraph: { title, description, url: `${BASE_URL}/teams/${makeTeamSlug(displayName)}/markets/btts` },
+    openGraph: { title, description, url: canonical },
     twitter: { card: "summary_large_image", title, description },
   };
 }

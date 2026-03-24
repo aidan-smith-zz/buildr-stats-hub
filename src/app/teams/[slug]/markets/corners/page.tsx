@@ -46,11 +46,13 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
     "See over 3.5, 4.5 and 5.5 rates in recent games, plus home/away corner averages.",
     "Use for team corners and bet builder picks.",
   ]);
+  const canonical = `${BASE_URL}/teams/${makeTeamSlug(displayName)}/markets/corners`;
   return {
     title,
     description,
+    alternates: { canonical },
     robots: { index: true, follow: true },
-    openGraph: { title, description, url: `${BASE_URL}/teams/${makeTeamSlug(displayName)}/markets/corners` },
+    openGraph: { title, description, url: canonical },
     twitter: { card: "summary_large_image", title, description },
   };
 }
