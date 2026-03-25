@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
+import { MatchStatsBlock } from "@/app/fixtures/[date]/[league]/[match]/match-stats-block";
 import { isFixtureInRequiredLeagues, isTeamStatsOnlyLeague } from "@/lib/leagues";
+import type { MatchStatsSnapshot } from "@/lib/matchStats";
 import { decodeHtmlEntities } from "@/lib/text";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import type { FixtureSummary, FixtureStatsResponse } from "@/lib/statsService";
@@ -21,6 +23,10 @@ type Props = {
     error: boolean;
     stats: FixtureStatsResponse | null;
   }) => void;
+  /** Single-match “today” page when live cache says full time: show DB match-level stats tab */
+  showEndedTodayMatchStatsTab?: boolean;
+  endedTodayMatchStatsFromDb?: { home: MatchStatsSnapshot; away: MatchStatsSnapshot } | null;
+  matchLivePageHref?: string;
 };
 
 type PlayerSortKey = keyof FixtureStatsResponse["teams"][number]["players"][number];
@@ -105,11 +111,16 @@ function ShirtIcon({ className }: { className?: string }) {
   );
 }
 
+type DetailTabKey = "team" | "players" | "lineups" | "matchStats";
+
 export function TodayFixturesDashboard({
   fixtures,
   initialSelectedId,
   hideFixtureSelector,
   onFixtureStatsUpdate,
+  showEndedTodayMatchStatsTab = false,
+  endedTodayMatchStatsFromDb = null,
+  matchLivePageHref = "",
 }: Props) {
   const filteredFixtures = fixtures
     .filter((fixture) =>
@@ -134,8 +145,13 @@ export function TodayFixturesDashboard({
     stats?.fixture?.leagueId ?? filteredFixtures.find((f) => String(f.id) === selectedId)?.leagueId ?? null;
   const showLineupsSection = !isTeamStatsOnlyLeague(leagueIdForLineups);
   const [lineupTab, setLineupTab] = useState<"home" | "away">("home");
-  const DETAIL_HASHES = { team: "team-stats", players: "player-stats", lineups: "lineups" } as const;
-  const [detailTab, setDetailTab] = useState<"team" | "players" | "lineups">("team");
+  const DETAIL_HASHES = {
+    team: "team-stats",
+    players: "player-stats",
+    lineups: "lineups",
+    matchStats: "match-stats",
+  } as const;
+  const [detailTab, setDetailTab] = useState<DetailTabKey>("team");
   const [teamStatsView, setTeamStatsView] = useState<"season" | "last5">("season");
   const [liveScore, setLiveScore] = useState<{
     homeGoals: number;
@@ -309,25 +325,32 @@ export function TodayFixturesDashboard({
     };
   }, [selectedId, stats]);
 
-  // Sync URL hash with detail tab (#team-stats, #player-stats, #lineups) for deep-linking and back/forward.
+  // Sync URL hash with detail tab (#team-stats, #player-stats, #lineups, #match-stats) for deep-linking and back/forward.
   useEffect(() => {
-    const hashToTab = (hash: string): "team" | "players" | "lineups" | null => {
+    const hashToTab = (hash: string): DetailTabKey | null => {
       const normalized = hash.replace(/^#/, "").toLowerCase();
       if (normalized === "team-stats") return "team";
       if (normalized === "player-stats") return "players";
       if (normalized === "lineups") return "lineups";
+      if (normalized === "match-stats") return showEndedTodayMatchStatsTab ? "matchStats" : null;
       return null;
     };
     const sync = () => {
       const hash = typeof window === "undefined" ? "" : window.location.hash;
       const tab = hashToTab(hash);
       if (tab === "lineups" && (!showLineupsSection || !stats?.hasLineup || !(stats?.teams?.length >= 2))) return; // don't switch to lineups if disabled or unavailable
+      if (tab === "matchStats" && !showEndedTodayMatchStatsTab) return;
       if (tab) setDetailTab(tab);
     };
     sync();
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
-  }, [showLineupsSection, stats?.hasLineup, stats?.teams?.length]);
+  }, [
+    showLineupsSection,
+    stats?.hasLineup,
+    stats?.teams?.length,
+    showEndedTodayMatchStatsTab,
+  ]);
 
   // When lineups are disabled for this league, leave the lineups tab and sync hash
   useEffect(() => {
@@ -339,7 +362,18 @@ export function TodayFixturesDashboard({
     }
   }, [showLineupsSection, detailTab]);
 
-  const setDetailTabWithHash = (tab: "team" | "players" | "lineups") => {
+  // When full-time match stats tab is not applicable, leave it and sync hash
+  useEffect(() => {
+    if (!showEndedTodayMatchStatsTab && detailTab === "matchStats") {
+      setDetailTab("team");
+      if (typeof window !== "undefined" && window.location.hash === "#match-stats") {
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#team-stats`);
+      }
+    }
+  }, [showEndedTodayMatchStatsTab, detailTab]);
+
+  const setDetailTabWithHash = (tab: DetailTabKey) => {
+    if (tab === "matchStats" && !showEndedTodayMatchStatsTab) return;
     setDetailTab(tab);
     const hash = `#${DETAIL_HASHES[tab]}`;
     if (typeof window !== "undefined" && window.location.hash !== hash) {
@@ -681,6 +715,23 @@ export function TodayFixturesDashboard({
                 Line-ups
               </button>
               )}
+              {showEndedTodayMatchStatsTab && (
+                <button
+                  type="button"
+                  role="tab"
+                  id="match-stats-tab"
+                  aria-selected={detailTab === "matchStats"}
+                  aria-controls="match-stats-panel"
+                  onClick={() => setDetailTabWithHash("matchStats")}
+                  className={`min-w-[5.5rem] rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+                    detailTab === "matchStats"
+                      ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-900 dark:text-neutral-50"
+                      : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                  }`}
+                >
+                  Match stats
+                </button>
+              )}
             </div>
           </header>
           )}
@@ -978,6 +1029,49 @@ export function TodayFixturesDashboard({
               </section>
             )}
             </div>
+
+            {/* Full-time match stats (today ended; populated after visiting live page) */}
+            {showEndedTodayMatchStatsTab && (
+              <div
+                id="match-stats-panel"
+                role="tabpanel"
+                aria-labelledby="match-stats-tab"
+                hidden={detailTab !== "matchStats"}
+                className={detailTab !== "matchStats" ? "sr-only" : undefined}
+              >
+                {detailTab === "matchStats" && stats && (
+                  <div className="space-y-4">
+                    {endedTodayMatchStatsFromDb ? (
+                      <MatchStatsBlock
+                        homeLabel={stats.teams[0]?.teamShortName ?? stats.teams[0]?.teamName ?? "Home"}
+                        awayLabel={stats.teams[1]?.teamShortName ?? stats.teams[1]?.teamName ?? "Away"}
+                        home={endedTodayMatchStatsFromDb.home}
+                        away={endedTodayMatchStatsFromDb.away}
+                        heading="Full-time statistics"
+                      />
+                    ) : (
+                      <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-6 text-center dark:border-neutral-800 dark:bg-neutral-900/50">
+                        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                          Full-time match statistics are not loaded yet. Open the live page once so we can fetch and save
+                          them — they will show here on refresh.
+                        </p>
+                        {matchLivePageHref ? (
+                          <p className="mt-4">
+                            <NavLinkWithOverlay
+                              href={matchLivePageHref}
+                              className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400"
+                              message="Loading live page…"
+                            >
+                              Open live page →
+                            </NavLinkWithOverlay>
+                          </p>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Player stats panel */}
             <div

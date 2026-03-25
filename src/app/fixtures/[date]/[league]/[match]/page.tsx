@@ -418,6 +418,23 @@ export default async function FixtureMatchPage({
 
     const standingsSlug = getStandingsSlug(fixture.leagueId ?? null, leagueSlug);
 
+    const todayLiveRow = await withPoolRetry(() =>
+      prisma.fixture.findUnique({
+        where: { id: fixture.id },
+        select: { liveScoreCache: { select: { statusShort: true } } },
+      }),
+    );
+    const todayLiveStatusShort = todayLiveRow?.liveScoreCache?.statusShort ?? null;
+    const showEndedTodayMatchStatsTab =
+      !!todayLiveStatusShort && isMatchEnded(todayLiveStatusShort);
+    const todayEndedMatchStatsFromDb = showEndedTodayMatchStatsTab
+      ? await loadMatchStatsPairFromDb(
+          fixture.id,
+          fixture.homeTeam.id,
+          fixture.awayTeam.id,
+        )
+      : null;
+
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <script
@@ -520,6 +537,9 @@ export default async function FixtureMatchPage({
                 homeCrest,
                 awayCrest,
               }}
+              showEndedTodayMatchStatsTab={showEndedTodayMatchStatsTab}
+              endedTodayMatchStatsFromDb={todayEndedMatchStatsFromDb}
+              matchLivePageHref={`/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}/live`}
             />
             {showHomeAwayProfile && (
               <section className="mt-6 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/60 p-3 text-xs dark:border-neutral-700 dark:bg-neutral-900/70 sm:p-4">
