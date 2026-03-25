@@ -9,7 +9,7 @@ import {
   STANDINGS_LEAGUE_SLUG_BY_ID,
   TOP_LEAGUE_IDS,
 } from "@/lib/leagues";
-import { leagueToSlug, matchSlug, pastDateKeys, todayDateKey } from "@/lib/slugs";
+import { leagueToSlug, matchSlug, nextDateKeys, pastDateKeys, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
 import { prisma } from "@/lib/prisma";
 import { API_SEASON } from "@/lib/footballApi";
 import { makeTeamSlug } from "@/lib/teamSlugs";
@@ -35,6 +35,7 @@ function maxOfTwoDates(a: Date | undefined, b: Date | undefined, fallback: Date)
  * - /fixtures/past, /fixtures/upcoming, /fixtures/live
  * - /leagues/all; /leagues/[slug]/standings|stats|form|markets/*
  * - /teams/all; /teams/[slug] and /teams/[slug]/markets/*
+ * - /predictions, /predictions/[date], /predictions/[date]/btts|total-goals|corners|cards (today + next 13 days)
  */
 
 /** Regenerate every request so URLs reflect latest fixtures (literal `0` required for static analysis in Next.js 16+). */
@@ -42,6 +43,11 @@ export const revalidate = 0;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
+  const todayKey = todayDateKey();
+  const tomorrowKey = tomorrowDateKey();
+  /** Today + next 13 days (14 rolling days, aligned with upcoming fixtures horizon). */
+  const predictionDateKeys = [todayKey, ...nextDateKeys(13)];
+
   const entries: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
@@ -55,7 +61,35 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.9,
     },
+    {
+      url: `${baseUrl}/predictions`,
+      lastModified: now,
+      changeFrequency: "daily",
+      priority: 0.8,
+    },
   ];
+
+  const PREDICTION_MARKETS = ["btts", "total-goals", "corners", "cards"] as const;
+  for (const dk of predictionDateKeys) {
+    const isToday = dk === todayKey;
+    const isTomorrow = dk === tomorrowKey;
+    const hubPriority = isToday ? 0.8 : isTomorrow ? 0.75 : 0.65;
+    const marketPriority = isToday ? 0.7 : isTomorrow ? 0.65 : 0.55;
+    entries.push({
+      url: `${baseUrl}/predictions/${dk}`,
+      lastModified: now,
+      changeFrequency: "daily",
+      priority: hubPriority,
+    });
+    for (const m of PREDICTION_MARKETS) {
+      entries.push({
+        url: `${baseUrl}/predictions/${dk}/${m}`,
+        lastModified: now,
+        changeFrequency: "daily",
+        priority: marketPriority,
+      });
+    }
+  }
 
   // Fetch lastmod data for standings, stats hubs, and upcoming (used later).
   const [standingsCacheRows, statsLastmodRows, upcomingLastmodByDate] = await Promise.all([

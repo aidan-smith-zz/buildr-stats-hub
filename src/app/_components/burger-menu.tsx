@@ -9,6 +9,13 @@ function todayDateKey(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
 }
 
+/** Tomorrow's date YYYY-MM-DD (Europe/London). */
+function tomorrowDateKey(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+}
+
 type BurgerMenuProps = {
   /** When set, show "Tomorrow's form" link (only after tomorrow's fixtures are warmed). */
   tomorrowFormHref?: string;
@@ -40,9 +47,12 @@ export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
   }, [open]);
 
   const dateKey = todayDateKey();
+  const tomorrowKey = tomorrowDateKey();
   const insightsHref = `/fixtures/${dateKey}/ai-insights`;
   const formHref = `/fixtures/${dateKey}/form`;
   const matchdayInsightsHref = `/fixtures/${dateKey}/matchday-insights`;
+  const predictionsTodayHref = `/predictions/${dateKey}`;
+  const predictionsTomorrowHref = `/predictions/${tomorrowKey}`;
 
   const closeMenu = () => setOpen(false);
 
@@ -114,6 +124,13 @@ export function BurgerMenu({ tomorrowFormHref }: BurgerMenuProps = {}) {
             role="menuitem"
           >
             Matchday insights
+          </Link>
+          <p className={sectionLabelClass}>Predictions</p>
+          <Link href={predictionsTodayHref} onClick={closeMenu} className={linkClass} role="menuitem">
+            Today
+          </Link>
+          <Link href={predictionsTomorrowHref} onClick={closeMenu} className={linkClass} role="menuitem">
+            Tomorrow
           </Link>
           <p className={sectionLabelClass}>Leagues</p>
           <Link href="/leagues/all" onClick={closeMenu} className={linkClass} role="menuitem">
