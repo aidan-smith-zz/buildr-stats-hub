@@ -278,9 +278,6 @@ export default async function PredictionsDatePage({
           <li>Use confidence as a quick filter, then open each market page for line-specific percentages.</li>
           <li>Open match previews from top picks to combine these signals with fixture-level context and lineups.</li>
         </ul>
-        <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
-          Canonical URL: <span className="font-mono">{canonical}</span>
-        </p>
       </section>
     </main>
   );
