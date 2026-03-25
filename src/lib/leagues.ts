@@ -5,7 +5,7 @@
  * here and everything else (home page, upcoming, form edge, sitemap, crests,
  * matchday insights) will pick it up automatically.
  */
-export const BASE_REQUIRED_LEAGUE_IDS = [39, 135, 40, 140, 2, 3, 179, 45, 41, 42, 181, 48, 32] as const;
+export const BASE_REQUIRED_LEAGUE_IDS = [39, 135, 40, 140, 78, 61, 2, 3, 179, 45, 41, 42, 181, 48, 32] as const;
 
 /** All competitions the site brings in fixtures for. */
 export const REQUIRED_LEAGUE_IDS: readonly number[] = [...BASE_REQUIRED_LEAGUE_IDS];
@@ -20,10 +20,10 @@ export const ENGLISH_LEAGUE_CUP_LEAGUE_ID = 48;
 export const PREMIER_LEAGUE_LEAGUE_ID = 39;
 
 /** League IDs with a standings/tournament page (cups can render grouped/tournament views). */
-export const STANDINGS_LEAGUE_IDS: readonly number[] = [39, 135, 40, 140, 2, 3, 179, 41, 42, 32];
+export const STANDINGS_LEAGUE_IDS: readonly number[] = [39, 135, 40, 140, 78, 61, 2, 3, 179, 41, 42, 32];
 
 /** Leagues that get full treatment: team pages, player stats, warming like EPL. Used for hasTeamPages, sitemap, teamPageService, teams/all. */
-export const TOP_LEAGUE_IDS = [39, 135, 40, 140, 179, 2, 3] as const;
+export const TOP_LEAGUE_IDS = [39, 135, 40, 140, 78, 61, 179, 2, 3] as const;
 
 /** Leagues that only have team stats (no player stats or lineups). */
 export const LEAGUES_WITHOUT_PLAYER_STATS: readonly number[] = [41, 42];
@@ -35,6 +35,8 @@ export const LEAGUE_ORDER: readonly number[] = [
   135, // Serie A
   40, // Championship
   140, // La Liga
+  78, // Bundesliga
+  61, // Ligue 1
   41, // League One
   42, // League Two
   2, // Champions League
@@ -51,6 +53,8 @@ export const LEAGUE_GROUP_ORDER: readonly number[] = [
   135, // Serie A
   40, // Championship
   140, // La Liga
+  78, // Bundesliga
+  61, // Ligue 1
   179, // Scottish Premiership
   41, // League One
   42, // League Two
@@ -69,6 +73,8 @@ export const LEAGUE_DISPLAY_NAMES: Record<number, string> = (() => {
     135: "Serie A",
     40: "Championship",
     140: "La Liga",
+    78: "Bundesliga",
+    61: "Ligue 1",
     41: "League One",
     42: "League Two",
     2: "Champions League",
@@ -119,6 +125,10 @@ const LEAGUE_NAME_TO_ID: Record<string, number> = (() => {
     "La Liga": 140,
     "Spanish La Liga": 140,
     "Serie A": 135,
+    "Bundesliga": 78,
+    "German Bundesliga": 78,
+    "Ligue 1": 61,
+    "French Ligue 1": 61,
   };
 })();
 
@@ -168,6 +178,10 @@ const REQUIRED_LEAGUE_NAMES = [
   "Championship",
   "La Liga",
   "Spanish La Liga",
+  "Bundesliga",
+  "German Bundesliga",
+  "Ligue 1",
+  "French Ligue 1",
   "League 41",
   "League 42",
   "League One",

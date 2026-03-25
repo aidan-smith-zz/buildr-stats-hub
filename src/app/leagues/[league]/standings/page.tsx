@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import {
   STANDINGS_LEAGUE_SLUG_BY_ID,
   LEAGUE_DISPLAY_NAMES,
+  TOP_LEAGUE_IDS,
   standingsSlugToLeagueId,
 } from "@/lib/leagues";
 import { todayDateKey } from "@/lib/slugs";
@@ -642,7 +643,7 @@ export default async function LeagueStandingsPage({ params }: Props) {
     mainEntity: faqEntitiesStandings,
   };
 
-  const isTopLeagueForTeams = leagueId === 39 || leagueId === 40 || leagueId === 179 || leagueId === 2 || leagueId === 3;
+  const isTopLeagueForTeams = (TOP_LEAGUE_IDS as readonly number[]).includes(leagueId);
 
   let teamIdByApi: Map<number, number> | null = null;
   if (isTopLeagueForTeams && standings?.tables?.length) {
