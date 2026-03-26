@@ -5,7 +5,7 @@ import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import Image from "next/image";
 import { getMatchdayInsightsData } from "@/lib/matchdayInsightsService";
 import { withPoolRetry } from "@/lib/poolRetry";
-import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
+import { toSnippetDescription } from "@/lib/seoMetadata";
 import { MatchdayInsightsClient } from "./matchday-insights-client";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
@@ -31,15 +31,9 @@ export async function generateMetadata({
   const hasContent =
     data.top5ShotsOnTargetPer90.length > 0 || data.top5FixturesCombinedXg.length > 0;
   const displayDate = data.displayDate;
-  const title = buildIntentTitle({
-    intent: "Matchday insights",
-    timeframe: displayDate,
-    keyStat: "shots, cards, corners & xG leaders",
-    context: "football stats",
-  });
+  const title = `Matchday Stats & Top Performers – xG, Corners & Cards Leaders (${displayDate})`;
   const description = toSnippetDescription([
-    `Matchday stat leaders for ${displayDate}: shots on target, fouls, cards, team xG and corners.`,
-    "See which fixtures and teams stand out before you bet.",
+    "Explore today’s top football stats including xG leaders, corners, cards and player performance insights.",
   ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}/matchday-insights`;
   return {
@@ -143,7 +137,7 @@ export default async function MatchdayInsightsPage({
                   Matchday insights
                 </span>
                 <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
-                  Matchday insights &amp; stat leaders
+                  Matchday Insights &amp; Stat Leaders – {data.displayDate}
                 </h1>
                 <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500 sm:text-[13px]">
                   statsBuildr · Matchday stats for {data.displayDate}
@@ -164,6 +158,42 @@ export default async function MatchdayInsightsPage({
             </NavLinkWithOverlay>
             .
           </div>
+          <section className="mt-4 rounded-xl border border-neutral-200 bg-white px-4 py-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">📊 Key Signals Today</h2>
+            <ul className="mt-3 space-y-2 text-sm text-neutral-700 dark:text-neutral-300">
+              {data.top5FixturesCombinedXg[0] && (
+                <li>
+                  <span className="font-medium">
+                    {data.top5FixturesCombinedXg[0].homeName} vs {data.top5FixturesCombinedXg[0].awayName}
+                  </span>{" "}
+                  → Highest xG matchup ({data.top5FixturesCombinedXg[0].combinedXg}).
+                </li>
+              )}
+              {data.top5TeamsCornersPer90[0] && (
+                <li>
+                  <span className="font-medium">{data.top5TeamsCornersPer90[0].teamName}</span> → Highest corners per game (
+                  {data.top5TeamsCornersPer90[0].cornersPer90} per 90).
+                </li>
+              )}
+              {data.top5FixturesCombinedCardsPer90?.[0] && (
+                <li>
+                  <span className="font-medium">
+                    {data.top5FixturesCombinedCardsPer90[0].homeName} vs {data.top5FixturesCombinedCardsPer90[0].awayName}
+                  </span>{" "}
+                  → Highest cards matchup ({data.top5FixturesCombinedCardsPer90[0].combinedCardsPer90} cards/90 combined).
+                </li>
+              )}
+              {data.top5ShotsOnTargetPer90[0] && (
+                <li>
+                  <span className="font-medium">{data.top5ShotsOnTargetPer90[0].name}</span> ({data.top5ShotsOnTargetPer90[0].teamName}) →
+                  Most shots on target per 90 ({data.top5ShotsOnTargetPer90[0].value}).
+                </li>
+              )}
+            </ul>
+          </section>
+          <section className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-700/40 dark:bg-emerald-900/20 dark:text-emerald-200">
+            These trends highlight the most attacking, high-tempo and high-value matches today.
+          </section>
         </div>
 
         <MatchdayInsightsClient data={data} />

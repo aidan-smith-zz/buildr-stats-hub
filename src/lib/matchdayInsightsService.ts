@@ -29,6 +29,13 @@ export type MatchdayFixtureLeaderEntry = {
   href: string;
 };
 
+export type MatchdayFixtureCardsLeaderEntry = {
+  homeName: string;
+  awayName: string;
+  combinedCardsPer90: number;
+  href: string;
+};
+
 export type MatchdayTeamLeaderEntry = {
   teamName: string;
   xgPer90: number;
@@ -48,6 +55,7 @@ export type MatchdayInsightsData = {
   top5ShotsPer90: MatchdayPlayerLeaderEntry[];
   top5FoulsPer90: MatchdayPlayerLeaderEntry[];
   top5FixturesCombinedXg: MatchdayFixtureLeaderEntry[];
+  top5FixturesCombinedCardsPer90: MatchdayFixtureCardsLeaderEntry[];
   top5TeamsXgPer90: MatchdayTeamLeaderEntry[];
   top5TeamsCornersPer90: MatchdayTeamCornersEntry[];
   top5CardsPer90: MatchdayPlayerLeaderEntry[];
@@ -84,7 +92,33 @@ export const getMatchdayInsightsData = cache(async function getMatchdayInsightsD
     where: { dateKey },
   });
   if (cached?.payload) {
-    return cached.payload as MatchdayInsightsData;
+    const payload = cached.payload as Partial<MatchdayInsightsData>;
+    return {
+      ...payload,
+      dateKey: payload.dateKey ?? dateKey,
+      displayDate:
+        payload.displayDate ??
+        new Date(dateKey + "T12:00:00.000Z").toLocaleDateString("en-GB", {
+          timeZone: FIXTURES_TZ,
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }),
+      top5ShotsOnTargetPer90: payload.top5ShotsOnTargetPer90 ?? [],
+      top5ShotsPer90: payload.top5ShotsPer90 ?? [],
+      top5FoulsPer90: payload.top5FoulsPer90 ?? [],
+      top5FixturesCombinedXg: payload.top5FixturesCombinedXg ?? [],
+      top5FixturesCombinedCardsPer90: payload.top5FixturesCombinedCardsPer90 ?? [],
+      top5TeamsXgPer90: payload.top5TeamsXgPer90 ?? [],
+      top5TeamsCornersPer90: payload.top5TeamsCornersPer90 ?? [],
+      top5CardsPer90: payload.top5CardsPer90 ?? [],
+      last5: payload.last5 ?? {
+        top5FixturesCombinedXg: [],
+        top5TeamsXgPer90: [],
+        top5TeamsCornersPer90: [],
+      },
+    } as MatchdayInsightsData;
   }
 
   // Clear cache entries older than today (keep only current day).
@@ -112,6 +146,7 @@ export const getMatchdayInsightsData = cache(async function getMatchdayInsightsD
     top5ShotsPer90: [],
     top5FoulsPer90: [],
     top5FixturesCombinedXg: [],
+    top5FixturesCombinedCardsPer90: [],
     top5TeamsXgPer90: [],
     top5TeamsCornersPer90: [],
     top5CardsPer90: [],
@@ -167,6 +202,7 @@ export const getMatchdayInsightsData = cache(async function getMatchdayInsightsD
   }[] = [];
 
   const fixtureEntries: MatchdayFixtureLeaderEntry[] = [];
+  const fixtureCardsEntries: MatchdayFixtureCardsLeaderEntry[] = [];
   const teamXgMap = new Map<number, { teamName: string; xgPer90: number; href: string }>();
   const teamCornersMap = new Map<number, { teamName: string; cornersPer90: number; href: string }>();
   const fixtureEntriesLast5: MatchdayFixtureLeaderEntry[] = [];
@@ -186,10 +222,18 @@ export const getMatchdayInsightsData = cache(async function getMatchdayInsightsD
     if (s.teamStats) {
       const homeXg = s.teamStats.home.xgPer90 ?? 0;
       const awayXg = s.teamStats.away.xgPer90 ?? 0;
+      const homeCards = s.teamStats.home.cardsPer90 ?? 0;
+      const awayCards = s.teamStats.away.cardsPer90 ?? 0;
       fixtureEntries.push({
         homeName,
         awayName,
         combinedXg: homeXg + awayXg,
+        href,
+      });
+      fixtureCardsEntries.push({
+        homeName,
+        awayName,
+        combinedCardsPer90: homeCards + awayCards,
         href,
       });
 
@@ -299,6 +343,10 @@ export const getMatchdayInsightsData = cache(async function getMatchdayInsightsD
     top5FixturesCombinedXg: take5(fixtureEntries, (e) => e.combinedXg).map((e) => ({
       ...e,
       combinedXg: Math.round(e.combinedXg * 100) / 100,
+    })),
+    top5FixturesCombinedCardsPer90: take5(fixtureCardsEntries, (e) => e.combinedCardsPer90).map((e) => ({
+      ...e,
+      combinedCardsPer90: Math.round(e.combinedCardsPer90 * 10) / 10,
     })),
     top5TeamsXgPer90: take5(
       Array.from(teamXgMap.entries()),

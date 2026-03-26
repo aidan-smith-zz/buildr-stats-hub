@@ -79,6 +79,19 @@ export function MatchdayInsightsClient({ data }: Props) {
   );
 }
 
+function labelForRank(rank: number, total: number): { text: string; classes: string } {
+  if (rank === 0) {
+    return { text: "🔥 High", classes: "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700/60 dark:bg-rose-900/30 dark:text-rose-300" };
+  }
+  if (rank <= 2) {
+    return { text: "📈 Trending", classes: "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-300" };
+  }
+  if (rank === total - 1) {
+    return { text: "⚠️ Low", classes: "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700/60 dark:bg-sky-900/30 dark:text-sky-300" };
+  }
+  return { text: "📈 Trending", classes: "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-300" };
+}
+
 function LeaderboardSection({
   title,
   entries,
@@ -115,9 +128,14 @@ function LeaderboardSection({
                   {entry.teamName}
                 </span>
               </span>
-              <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
-                {entry.value} <span className="text-xs font-normal text-neutral-400">{valueLabel}</span>
-              </span>
+                <span className="flex items-center gap-2">
+                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${labelForRank(i, entries.length).classes}`}>
+                    {labelForRank(i, entries.length).text}
+                  </span>
+                  <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
+                    {entry.value} <span className="text-xs font-normal text-neutral-400">{valueLabel}</span>
+                  </span>
+                </span>
             </NavLinkWithOverlay>
           </li>
         ))}
@@ -155,8 +173,13 @@ function FixtureXgSection({
                   {entry.homeName} vs {entry.awayName}
                 </span>
               </span>
-              <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
-                {entry.combinedXg} <span className="text-xs font-normal text-neutral-400">xG</span>
+              <span className="flex items-center gap-2">
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${labelForRank(i, entries.length).classes}`}>
+                  {labelForRank(i, entries.length).text}
+                </span>
+                <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
+                  {entry.combinedXg} <span className="text-xs font-normal text-neutral-400">xG</span>
+                </span>
               </span>
             </NavLinkWithOverlay>
           </li>
@@ -195,8 +218,13 @@ function TeamXgSection({
                   {entry.teamName}
                 </span>
               </span>
-              <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
-                {entry.xgPer90} <span className="text-xs font-normal text-neutral-400">xG/90</span>
+              <span className="flex items-center gap-2">
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${labelForRank(i, entries.length).classes}`}>
+                  {labelForRank(i, entries.length).text}
+                </span>
+                <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
+                  {entry.xgPer90} <span className="text-xs font-normal text-neutral-400">xG/90</span>
+                </span>
               </span>
             </NavLinkWithOverlay>
           </li>
@@ -235,8 +263,13 @@ function TeamCornersSection({
                   {entry.teamName}
                 </span>
               </span>
-              <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
-                {entry.cornersPer90} <span className="text-xs font-normal text-neutral-400">Corners/90</span>
+              <span className="flex items-center gap-2">
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${labelForRank(i, entries.length).classes}`}>
+                  {labelForRank(i, entries.length).text}
+                </span>
+                <span className="tabular-nums font-medium text-violet-600 dark:text-violet-400">
+                  {entry.cornersPer90} <span className="text-xs font-normal text-neutral-400">Corners/90</span>
+                </span>
               </span>
             </NavLinkWithOverlay>
           </li>

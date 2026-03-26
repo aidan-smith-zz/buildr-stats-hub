@@ -373,7 +373,7 @@ export default async function AIInsightsPage({
               className="mt-6"
             />
             <section className="mt-8 text-xs text-slate-400 sm:text-sm">
-              <p>
+              <div>
                 For more detailed numbers on {displayDate}, see{" "}
                 <NavLinkWithOverlay
                   href={fixturesHref}
@@ -396,15 +396,15 @@ export default async function AIInsightsPage({
                   matchday insights
                 </NavLinkWithOverlay>
                 .
-              </p>
-              <p className="mt-2">
+              </div>
+              <div className="mt-2">
                 <NavLinkWithOverlay
                   href={`/fixtures/${dateKey}/matchday-insights`}
                   className="font-medium text-violet-300 hover:text-violet-200"
                 >
                   📊 View full stat leaders → /fixtures/{dateKey}/matchday-insights
                 </NavLinkWithOverlay>
-              </p>
+              </div>
             </section>
           </>
         )}
