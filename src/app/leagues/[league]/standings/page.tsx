@@ -957,85 +957,123 @@ export default async function LeagueStandingsPage({ params }: Props) {
                     Progress updates on refresh based on fixture status (pending, live, complete).
                   </p>
                   <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
-                    Quick view: {playoffPods.length} paths, {playoffPods.flatMap((p) => [p.semi1, p.semi2, p.final]).filter((s) => !s.isPlaceholder).length} known fixtures,{" "}
+                    Quick view: {playoffPods.flatMap((p) => [p.semi1, p.semi2, p.final]).filter((s) => !s.isPlaceholder).length} known fixtures,{" "}
                     {playoffPods.flatMap((p) => [p.semi1, p.semi2, p.final]).filter((s) => isCompletedFixtureStatus(s.status)).length} completed.
                   </p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    {playoffPods.map((pod, podIdx) => (
-                      <section
-                        key={pod.id}
-                        className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/40"
-                      >
-                        {(() => {
-                          const semisCompleted = [pod.semi1, pod.semi2].filter((s) =>
-                            isCompletedFixtureStatus(s.status),
-                          ).length;
-                          const finalCompleted = isCompletedFixtureStatus(pod.final.status);
-                          const finalLive = isLiveFixtureStatus(pod.final.status);
-                          const winner = getSlotWinner(pod.final);
-                          const progressLabel = winner
-                            ? `Winner: ${winner}`
-                            : finalCompleted
-                              ? "Final complete"
-                              : finalLive
-                                ? "Final live"
-                                : semisCompleted === 2
-                                  ? "Semis complete - final pending"
-                                  : semisCompleted === 1
-                                    ? "1/2 semis complete"
-                                    : "Semis pending";
-                          return (
-                            <p className="mt-1 px-1 text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
-                              {progressLabel}
-                            </p>
-                          );
-                        })()}
-                        <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
-                          Path {String.fromCharCode(65 + podIdx)}
-                        </h3>
-                        <ul className="mt-2 space-y-2">
-                          {[
-                            { label: "Semi 1", slot: pod.semi1 },
-                            { label: "Semi 2", slot: pod.semi2 },
-                            { label: "Final", slot: pod.final },
-                          ].map(({ label, slot }) => (
-                            <li
-                              key={slot.id}
-                              className={`rounded-md border px-2 py-2 ${
-                                slot.isPlaceholder
-                                  ? "border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500"
-                                  : "border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
-                              }`}
-                            >
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                                {label}
-                              </p>
-                              {slot.kickoff ? (
-                                <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
-                                  {formatTournamentKickoff(slot.kickoff)} · {slot.status}
-                                </p>
-                              ) : (
-                                <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                                  Awaiting fixture
-                                </p>
-                              )}
-                              <TournamentTeamLine
-                                homeTeam={slot.homeTeam}
-                                awayTeam={slot.awayTeam}
-                                homeCrestUrl={slot.homeCrestUrl}
-                                awayCrestUrl={slot.awayCrestUrl}
-                                muted={slot.isPlaceholder}
-                              />
-                              {slot.homeGoals != null && slot.awayGoals != null ? (
-                                <p className="mt-0.5 text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
-                                  Score: {slot.homeGoals}-{slot.awayGoals}
-                                </p>
-                              ) : null}
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    ))}
+
+                  <div className="mt-3 space-y-4">
+                    {(() => {
+                      const semiSlots = playoffPods
+                        .flatMap((p) => [p.semi1, p.semi2])
+                        .slice()
+                        .sort(
+                          (a, b) =>
+                            (a.kickoff?.getTime() ?? Number.POSITIVE_INFINITY) -
+                            (b.kickoff?.getTime() ?? Number.POSITIVE_INFINITY),
+                        );
+                      const finalSlots = playoffPods
+                        .map((p) => p.final)
+                        .slice()
+                        .sort(
+                          (a, b) =>
+                            (a.kickoff?.getTime() ?? Number.POSITIVE_INFINITY) -
+                            (b.kickoff?.getTime() ?? Number.POSITIVE_INFINITY),
+                        );
+
+                      const hasAnyFinalDecided = finalSlots.some((s) => !s.isPlaceholder);
+
+                      return (
+                        <>
+                          <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/40">
+                            <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
+                              Semis
+                            </h3>
+                            <ul className="mt-2 space-y-2">
+                              {semiSlots.map((slot, i) => (
+                                <li
+                                  key={slot.id}
+                                  className={`rounded-md border px-2 py-2 ${
+                                    slot.isPlaceholder
+                                      ? "border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500"
+                                      : "border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
+                                  }`}
+                                >
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                                    Semi {i + 1}
+                                  </p>
+                                  {slot.kickoff ? (
+                                    <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                                      {formatTournamentKickoff(slot.kickoff)} · {slot.status}
+                                    </p>
+                                  ) : (
+                                    <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+                                      Awaiting fixture
+                                    </p>
+                                  )}
+                                  <TournamentTeamLine
+                                    homeTeam={slot.homeTeam}
+                                    awayTeam={slot.awayTeam}
+                                    homeCrestUrl={slot.homeCrestUrl}
+                                    awayCrestUrl={slot.awayCrestUrl}
+                                    muted={slot.isPlaceholder}
+                                  />
+                                  {slot.homeGoals != null && slot.awayGoals != null ? (
+                                    <p className="mt-0.5 text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
+                                      Score: {slot.homeGoals}-{slot.awayGoals}
+                                    </p>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          </section>
+
+                          {hasAnyFinalDecided ? (
+                            <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/40">
+                              <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
+                                Finals
+                              </h3>
+                              <ul className="mt-2 space-y-2">
+                                {finalSlots.map((slot, i) => (
+                                  <li
+                                    key={slot.id}
+                                    className={`rounded-md border px-2 py-2 ${
+                                      slot.isPlaceholder
+                                        ? "border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500"
+                                        : "border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
+                                    }`}
+                                  >
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                                      Final {i + 1}
+                                    </p>
+                                    {slot.kickoff ? (
+                                      <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                                        {formatTournamentKickoff(slot.kickoff)} · {slot.status}
+                                      </p>
+                                    ) : (
+                                      <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+                                        Awaiting fixture
+                                      </p>
+                                    )}
+                                    <TournamentTeamLine
+                                      homeTeam={slot.homeTeam}
+                                      awayTeam={slot.awayTeam}
+                                      homeCrestUrl={slot.homeCrestUrl}
+                                      awayCrestUrl={slot.awayCrestUrl}
+                                      muted={slot.isPlaceholder}
+                                    />
+                                    {slot.homeGoals != null && slot.awayGoals != null ? (
+                                      <p className="mt-0.5 text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
+                                        Score: {slot.homeGoals}-{slot.awayGoals}
+                                      </p>
+                                    ) : null}
+                                  </li>
+                                ))}
+                              </ul>
+                            </section>
+                          ) : null}
+                        </>
+                      );
+                    })()}
                   </div>
                 </section>
               ) : null}
@@ -1353,10 +1391,10 @@ export default async function LeagueStandingsPage({ params }: Props) {
                     <>
                       <div>
                         <dt className="font-medium text-neutral-800 dark:text-neutral-200">
-                          What does {leagueName} Path A-D mean?
+                          How does the {leagueName} play-off tracker work?
                         </dt>
                         <dd className="mt-1 leading-snug text-neutral-600 dark:text-neutral-400">
-                          Each path is a mini 4-team play-off: Semi 1 and Semi 2 feed into a path final, and the path winner qualifies.
+                          This tracker shows all semi-finals first. As the tournament progresses, the finals section appears once the finals matchups are decided; each final winner qualifies.
                         </dd>
                       </div>
                       <div>
