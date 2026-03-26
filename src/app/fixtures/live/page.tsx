@@ -14,10 +14,14 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 const FIXTURES_TZ = "Europe/London";
 
 /** statusShort values that mean the match has finished (don't treat as live list candidates).
- * Extra time (AET) and penalties (PEN) are kept in the live list.
+ * NOTE: API-Football uses:
+ * - ET / P for in-play extra time / penalties
+ * - AET / PEN for finished after extra time / finished after penalties
  */
 const LIVE_FINISHED_STATUSES = new Set([
   "FT",
+  "AET",
+  "PEN",
   "ABD",
   "AWD",
   "WO",
@@ -121,9 +125,10 @@ function isFixtureLive(fixture: FixtureSummary, now: Date): boolean {
   const kickoff = new Date(fixture.date);
   if (Number.isNaN(kickoff.getTime())) return false;
   const status = fixture.statusShort ?? "NS";
-  const twoHoursMs = 2 * 60 * 60 * 1000;
+  // Include extra time + potential penalties (can run > 2 hours from kickoff).
+  const threeHoursMs = 3 * 60 * 60 * 1000;
   const withinLiveWindow =
-    kickoff <= now && now.getTime() - kickoff.getTime() < twoHoursMs;
+    kickoff <= now && now.getTime() - kickoff.getTime() < threeHoursMs;
   const isFinished =
     status != null && LIVE_FINISHED_STATUSES.has(status.toUpperCase());
   return withinLiveWindow && !isFinished;
@@ -141,15 +146,6 @@ export default async function LiveFixturesPage() {
   const fixtures = await getFixturesForDateFromDbOnly(todayKey);
   const now = new Date();
 
-  const baseLiveCandidates = fixtures
-    .filter((f) =>
-      isFixtureInRequiredLeagues({ leagueId: f.leagueId ?? null, league: f.league }),
-    )
-    .filter((f) => isFixtureLive(f, now))
-    .sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    );
-
   // Call live scores logic directly (no self-fetch) so it works in dev and prod.
   const { scores: liveScoresList } = await getLiveScoresForToday();
   const scoresByFixtureId = new Map<number, LiveScore>();
@@ -161,6 +157,15 @@ export default async function LiveFixturesPage() {
       statusShort: s.statusShort,
     });
   }
+
+  const baseLiveCandidates = fixtures
+    .filter((f) =>
+      isFixtureInRequiredLeagues({ leagueId: f.leagueId ?? null, league: f.league }),
+    )
+    .filter((f) => isFixtureLive(f, now))
+    // Source of truth: only show fixtures that we have a live score row for.
+    .filter((f) => scoresByFixtureId.has(f.id))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const liveWithScores: { fixture: FixtureSummary; liveScore: LiveScore | null }[] =
     [];

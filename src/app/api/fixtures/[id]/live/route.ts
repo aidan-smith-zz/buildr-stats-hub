@@ -6,8 +6,8 @@ import { resolveMatchStatsForFixture, type MatchStatsSnapshot } from "@/lib/matc
 
 const LIVE_CACHE_TTL_MS = 90 * 1000; // 90 seconds
 const PRE_MATCH_WINDOW_MS = 10 * 60 * 1000; // show 0-0 from 10 min before kickoff
-/** Only call external API during this window after kickoff (covers normal + ET). After this, use cache only. */
-const MAX_MATCH_DURATION_MS = 120 * 60 * 1000; // 2 hours
+/** Only call external API during this window after kickoff (covers normal + ET + pens). After this, use cache only. */
+const MAX_MATCH_DURATION_MS = 180 * 60 * 1000; // 3 hours
 
 /** API-Football statusShort values that mean the match is finished (cache can be used as FT score). */
 const FINISHED_STATUS = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);

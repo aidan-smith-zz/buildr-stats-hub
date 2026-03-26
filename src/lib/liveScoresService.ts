@@ -3,9 +3,21 @@ import { fetchAllLiveFixtures } from "@/lib/footballApi";
 import { REQUIRED_LEAGUE_IDS } from "@/lib/leagues";
 
 const FIXTURES_TZ = "Europe/London";
-const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+// Include extra time + potential penalties (can run > 2 hours from kickoff).
+const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
 /** If all in-window fixtures have cache this fresh, skip external API and serve from DB only (avoids holding connection). */
 const LIVE_CACHE_FRESH_MS = 90 * 1000;
+
+/** statusShort values that mean the match is finished (exclude from /live list). */
+const LIVE_FINISHED_STATUSES = new Set([
+  "FT",
+  "AET",
+  "PEN",
+  "ABD",
+  "AWD",
+  "WO",
+  "CAN",
+]);
 
 export type LiveScoreEntry = {
   fixtureId: number;
@@ -49,7 +61,7 @@ export async function getLiveScoresForToday(): Promise<{
     if (Number.isNaN(kickoff.getTime())) return false;
     return (
       kickoff.getTime() <= now.getTime() &&
-      now.getTime() - kickoff.getTime() < TWO_HOURS_MS
+      now.getTime() - kickoff.getTime() < THREE_HOURS_MS
     );
   });
 
@@ -78,6 +90,10 @@ export async function getLiveScoresForToday(): Promise<{
       .map((fixtureId) => {
         const row = cacheByFixtureId.get(fixtureId);
         if (!row) return null;
+        const statusUpper = (row.statusShort ?? "").toUpperCase();
+        if (statusUpper.length > 0 && LIVE_FINISHED_STATUSES.has(statusUpper)) {
+          return null;
+        }
         return {
           fixtureId,
           homeGoals: row.homeGoals,
@@ -122,6 +138,8 @@ export async function getLiveScoresForToday(): Promise<{
     if (apiId == null) continue;
     const data = byApiId.get(String(apiId));
     if (!data) continue;
+    const statusUpper = (data.statusShort ?? "").toUpperCase();
+    if (statusUpper.length > 0 && LIVE_FINISHED_STATUSES.has(statusUpper)) continue;
     toUpsert.push({ fixtureId: f.id, data });
     scores.push({
       fixtureId: f.id,
