@@ -1,5 +1,7 @@
 import { buildPredictionMarketMetadata, PredictionMarketPage } from "@/app/predictions/[date]/market-page-layout";
 
+export const revalidate = 3600;
+
 export async function generateMetadata({
   params,
 }: {

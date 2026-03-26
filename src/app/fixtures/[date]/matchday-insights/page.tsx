@@ -10,7 +10,7 @@ import { MatchdayInsightsClient } from "./matchday-insights-client";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 function normalizeDateKey(param: string | undefined): string {
   if (param && /^\d{4}-\d{2}-\d{2}$/.test(param)) {

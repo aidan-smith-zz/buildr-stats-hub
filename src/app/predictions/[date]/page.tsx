@@ -8,6 +8,8 @@ import { TopPicksSection } from "@/app/predictions/_components/top-picks-section
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
+export const revalidate = 3600;
+
 function matchHref(dateKey: string, row: Awaited<ReturnType<typeof getDateMarketPredictions>>["rows"][number]): string {
   const home = row.fixture.homeTeam.shortName ?? row.fixture.homeTeam.name;
   const away = row.fixture.awayTeam.shortName ?? row.fixture.awayTeam.name;

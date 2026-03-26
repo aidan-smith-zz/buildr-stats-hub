@@ -17,7 +17,7 @@ import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import { TopPicksPanel, type TopPick } from "./top-picks-panel";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
