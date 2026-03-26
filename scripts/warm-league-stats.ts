@@ -129,8 +129,14 @@ async function main() {
   console.log("\n[warm-league-stats] All leagues processed.");
 }
 
-main().catch((err) => {
-  console.error("[warm-league-stats] Fatal:", err);
-  process.exit(1);
-});
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+    process.exit(0);
+  })
+  .catch(async (err) => {
+    console.error("[warm-league-stats] Fatal:", err);
+    await prisma.$disconnect().catch(() => undefined);
+    process.exit(1);
+  });
 
