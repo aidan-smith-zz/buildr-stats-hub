@@ -115,20 +115,28 @@ function CrestCell({ logo, teamName }: { logo: string | null; teamName: string }
 type TournamentFixtureCard = {
   id: number | string;
   apiFixtureId: string | null;
+  homeTeamApiId: string | null;
+  awayTeamApiId: string | null;
   kickoff: Date;
   status: string;
   homeTeam: string;
   awayTeam: string;
+  homeCrestUrl: string | null;
+  awayCrestUrl: string | null;
   homeGoals: number | null;
   awayGoals: number | null;
 };
 
 type KnockoutSlot = {
   id: string;
+  homeTeamApiId: string | null;
+  awayTeamApiId: string | null;
   kickoff: Date | null;
   status: string | null;
   homeTeam: string;
   awayTeam: string;
+  homeCrestUrl: string | null;
+  awayCrestUrl: string | null;
   homeGoals: number | null;
   awayGoals: number | null;
   isPlaceholder: boolean;
@@ -181,6 +189,38 @@ function formatTournamentKickoff(date: Date): string {
   });
 }
 
+function TournamentTeamLine({
+  homeTeam,
+  awayTeam,
+  homeCrestUrl,
+  awayCrestUrl,
+  muted = false,
+}: {
+  homeTeam: string;
+  awayTeam: string;
+  homeCrestUrl: string | null;
+  awayCrestUrl: string | null;
+  muted?: boolean;
+}) {
+  return (
+    <p className={`mt-1 flex items-center gap-1.5 text-xs font-medium ${muted ? "text-neutral-400 dark:text-neutral-500" : "text-neutral-900 dark:text-neutral-100"}`}>
+      {homeCrestUrl ? (
+        <img src={homeCrestUrl} alt="" width={14} height={14} className="h-3.5 w-3.5 flex-shrink-0 object-contain" aria-hidden />
+      ) : (
+        <span className="inline-block h-3.5 w-3.5 flex-shrink-0 rounded bg-neutral-300 dark:bg-neutral-600" aria-hidden />
+      )}
+      <span className="truncate">{homeTeam}</span>
+      <span className="text-neutral-400 dark:text-neutral-500">vs</span>
+      {awayCrestUrl ? (
+        <img src={awayCrestUrl} alt="" width={14} height={14} className="h-3.5 w-3.5 flex-shrink-0 object-contain" aria-hidden />
+      ) : (
+        <span className="inline-block h-3.5 w-3.5 flex-shrink-0 rounded bg-neutral-300 dark:bg-neutral-600" aria-hidden />
+      )}
+      <span className="truncate">{awayTeam}</span>
+    </p>
+  );
+}
+
 function isCompletedFixtureStatus(status: string | null | undefined): boolean {
   if (!status) return false;
   const s = status.toUpperCase();
@@ -203,10 +243,14 @@ function buildPlayoffPods(fixtures: TournamentFixtureCard[]): PlayoffPod[] {
     if (fixture) {
       return {
         id: `${stage}-pod-${podIdx}-slot-${slotIdx}-${fixture.id}`,
+        homeTeamApiId: fixture.homeTeamApiId,
+        awayTeamApiId: fixture.awayTeamApiId,
         kickoff: fixture.kickoff,
         status: fixture.status,
         homeTeam: fixture.homeTeam,
         awayTeam: fixture.awayTeam,
+        homeCrestUrl: fixture.homeCrestUrl,
+        awayCrestUrl: fixture.awayCrestUrl,
         homeGoals: fixture.homeGoals,
         awayGoals: fixture.awayGoals,
         isPlaceholder: false,
@@ -214,10 +258,14 @@ function buildPlayoffPods(fixtures: TournamentFixtureCard[]): PlayoffPod[] {
     }
     return {
       id: `${stage}-pod-${podIdx}-slot-${slotIdx}-placeholder`,
+      homeTeamApiId: null,
+      awayTeamApiId: null,
       kickoff: null,
       status: null,
       homeTeam: "TBD",
       awayTeam: "TBD",
+      homeCrestUrl: null,
+      awayCrestUrl: null,
       homeGoals: null,
       awayGoals: null,
       isPlaceholder: true,
@@ -264,10 +312,14 @@ function buildPlayoffPodsFromRoundMap(
     if (fixture) {
       return {
         id: `${stage}-pod-${podIdx}-slot-${slotIdx}-${fixture.id}`,
+        homeTeamApiId: fixture.homeTeamApiId,
+        awayTeamApiId: fixture.awayTeamApiId,
         kickoff: fixture.kickoff,
         status: fixture.status,
         homeTeam: fixture.homeTeam,
         awayTeam: fixture.awayTeam,
+        homeCrestUrl: fixture.homeCrestUrl,
+        awayCrestUrl: fixture.awayCrestUrl,
         homeGoals: fixture.homeGoals,
         awayGoals: fixture.awayGoals,
         isPlaceholder: false,
@@ -275,10 +327,14 @@ function buildPlayoffPodsFromRoundMap(
     }
     return {
       id: `${stage}-pod-${podIdx}-slot-${slotIdx}-placeholder`,
+      homeTeamApiId: null,
+      awayTeamApiId: null,
       kickoff: null,
       status: null,
       homeTeam: "TBD",
       awayTeam: "TBD",
+      homeCrestUrl: null,
+      awayCrestUrl: null,
       homeGoals: null,
       awayGoals: null,
       isPlaceholder: true,
@@ -399,20 +455,28 @@ function buildStandardKnockoutRoundsFromStageBuckets(
 ): KnockoutRound[] {
   const placeholderLeg = (id: string): KnockoutSlot => ({
     id,
+    homeTeamApiId: null,
+    awayTeamApiId: null,
     kickoff: null,
     status: null,
     homeTeam: "TBD",
     awayTeam: "TBD",
+    homeCrestUrl: null,
+    awayCrestUrl: null,
     homeGoals: null,
     awayGoals: null,
     isPlaceholder: true,
   });
   const toLeg = (fx: TournamentFixtureCard, id: string): KnockoutSlot => ({
     id,
+    homeTeamApiId: fx.homeTeamApiId,
+    awayTeamApiId: fx.awayTeamApiId,
     kickoff: fx.kickoff,
     status: fx.status,
     homeTeam: fx.homeTeam,
     awayTeam: fx.awayTeam,
+    homeCrestUrl: fx.homeCrestUrl,
+    awayCrestUrl: fx.awayCrestUrl,
     homeGoals: fx.homeGoals,
     awayGoals: fx.awayGoals,
     isPlaceholder: false,
@@ -680,16 +744,34 @@ export default async function LeagueStandingsPage({ params }: Props) {
         take: fixtureTake,
       }),
     ]);
+    const upcomingTeamApiIds = Array.from(
+      new Set(upcoming.flatMap((r) => [r.homeTeamApiId, r.awayTeamApiId])),
+    );
+    const upcomingTeams = upcomingTeamApiIds.length
+      ? await prisma.team.findMany({
+          where: { apiId: { in: upcomingTeamApiIds } },
+          select: { apiId: true, crestUrl: true },
+        })
+      : [];
+    const crestByApiId = new Map(
+      upcomingTeams
+        .filter((t) => t.apiId != null)
+        .map((t) => [t.apiId as string, t.crestUrl ?? null]),
+    );
     const outByApiFixtureId = new Map<string, TournamentFixtureCard>();
     const outWithoutApiId: TournamentFixtureCard[] = [];
     for (const row of recent) {
       const card: TournamentFixtureCard = {
         id: row.id,
         apiFixtureId: row.apiId ?? null,
+        homeTeamApiId: row.homeTeam.apiId ?? null,
+        awayTeamApiId: row.awayTeam.apiId ?? null,
         kickoff: row.date,
         status: row.status,
         homeTeam: row.homeTeam.shortName ?? row.homeTeam.name,
         awayTeam: row.awayTeam.shortName ?? row.awayTeam.name,
+        homeCrestUrl: row.homeTeam.crestUrl ?? null,
+        awayCrestUrl: row.awayTeam.crestUrl ?? null,
         homeGoals: row.liveScoreCache?.homeGoals ?? null,
         awayGoals: row.liveScoreCache?.awayGoals ?? null,
       };
@@ -705,10 +787,14 @@ export default async function LeagueStandingsPage({ params }: Props) {
       outByApiFixtureId.set(row.apiFixtureId, {
         id: row.apiFixtureId,
         apiFixtureId: row.apiFixtureId,
+        homeTeamApiId: row.homeTeamApiId,
+        awayTeamApiId: row.awayTeamApiId,
         kickoff: row.kickoff,
         status: "NS",
         homeTeam: row.homeTeamShortName ?? row.homeTeamName,
         awayTeam: row.awayTeamShortName ?? row.awayTeamName,
+        homeCrestUrl: crestByApiId.get(row.homeTeamApiId) ?? null,
+        awayCrestUrl: crestByApiId.get(row.awayTeamApiId) ?? null,
         homeGoals: null,
         awayGoals: null,
       });
@@ -933,15 +1019,13 @@ export default async function LeagueStandingsPage({ params }: Props) {
                                   Awaiting fixture
                                 </p>
                               )}
-                              <p
-                                className={`mt-1 text-xs font-medium ${
-                                  slot.isPlaceholder
-                                    ? "text-neutral-400 dark:text-neutral-500"
-                                    : "text-neutral-900 dark:text-neutral-100"
-                                }`}
-                              >
-                                {slot.homeTeam} vs {slot.awayTeam}
-                              </p>
+                              <TournamentTeamLine
+                                homeTeam={slot.homeTeam}
+                                awayTeam={slot.awayTeam}
+                                homeCrestUrl={slot.homeCrestUrl}
+                                awayCrestUrl={slot.awayCrestUrl}
+                                muted={slot.isPlaceholder}
+                              />
                               {slot.homeGoals != null && slot.awayGoals != null ? (
                                 <p className="mt-0.5 text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
                                   Score: {slot.homeGoals}-{slot.awayGoals}
@@ -985,22 +1069,23 @@ export default async function LeagueStandingsPage({ params }: Props) {
                                   : "border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
                               }`}
                             >
-                              <p
-                                className={`text-xs font-medium ${
-                                  tie.isPlaceholder
-                                    ? "text-neutral-400 dark:text-neutral-500"
-                                    : "text-neutral-900 dark:text-neutral-100"
-                                }`}
-                              >
-                                {tie.teamA} vs {tie.teamB}
-                              </p>
+                              <TournamentTeamLine
+                                homeTeam={tie.teamA}
+                                awayTeam={tie.teamB}
+                                homeCrestUrl={tie.leg1.homeCrestUrl}
+                                awayCrestUrl={tie.leg1.awayCrestUrl}
+                                muted={tie.isPlaceholder}
+                              />
                               <div className="mt-2 rounded border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[11px] dark:border-neutral-700 dark:bg-neutral-800/60">
                                 <p className="font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                                   Leg 1
                                 </p>
-                                <p className="mt-0.5 text-neutral-600 dark:text-neutral-300">
-                                  {tie.leg1.homeTeam} vs {tie.leg1.awayTeam}
-                                </p>
+                                <TournamentTeamLine
+                                  homeTeam={tie.leg1.homeTeam}
+                                  awayTeam={tie.leg1.awayTeam}
+                                  homeCrestUrl={tie.leg1.homeCrestUrl}
+                                  awayCrestUrl={tie.leg1.awayCrestUrl}
+                                />
                                 <p className="mt-0.5 font-semibold text-neutral-800 dark:text-neutral-100">
                                   {tie.leg1.homeGoals != null && tie.leg1.awayGoals != null
                                     ? `${tie.leg1.homeGoals}-${tie.leg1.awayGoals}`
@@ -1013,9 +1098,12 @@ export default async function LeagueStandingsPage({ params }: Props) {
                                   <p className="font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                                     Leg 2
                                   </p>
-                                  <p className="mt-0.5 text-neutral-600 dark:text-neutral-300">
-                                    {tie.leg2.homeTeam} vs {tie.leg2.awayTeam}
-                                  </p>
+                                  <TournamentTeamLine
+                                    homeTeam={tie.leg2.homeTeam}
+                                    awayTeam={tie.leg2.awayTeam}
+                                    homeCrestUrl={tie.leg2.homeCrestUrl}
+                                    awayCrestUrl={tie.leg2.awayCrestUrl}
+                                  />
                                   <p className="mt-0.5 font-semibold text-neutral-800 dark:text-neutral-100">
                                     {tie.leg2.homeGoals != null && tie.leg2.awayGoals != null
                                       ? `${tie.leg2.homeGoals}-${tie.leg2.awayGoals}`
