@@ -31,9 +31,9 @@ export async function generateMetadata({
   const hasContent =
     data.top5ShotsOnTargetPer90.length > 0 || data.top5FixturesCombinedXg.length > 0;
   const displayDate = data.displayDate;
-  const title = `Matchday Stats & Top Performers – xG, Corners & Cards Leaders (${displayDate})`;
+  const title = `Top Football Stats Today – xG, Corners & Key Match Insights (${displayDate})`;
   const description = toSnippetDescription([
-    "Explore today’s top football stats including xG leaders, corners, cards and player performance insights.",
+    "Explore today’s top football stats including xG leaders, corners, cards and key match insights to identify high-value games.",
   ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}/matchday-insights`;
   return {
@@ -137,7 +137,7 @@ export default async function MatchdayInsightsPage({
                   Matchday insights
                 </span>
                 <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
-                  Matchday Insights &amp; Stat Leaders – {data.displayDate}
+                  Top Football Stats &amp; Match Insights Today
                 </h1>
                 <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500 sm:text-[13px]">
                   statsBuildr · Matchday stats for {data.displayDate}
@@ -145,7 +145,7 @@ export default async function MatchdayInsightsPage({
               </div>
             </div>
             <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
-              Which players average the most yellow cards or shots on target? Which teams have the highest xG or corners per match? See today&apos;s matchday stat leaders for cards, fouls, shots and more.
+              Discover the most important stats from today&apos;s matches including xG leaders, high-corner teams and card trends to spot key fixtures.
             </p>
           </header>
           <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50/80 px-4 py-3 text-sm text-violet-900 dark:border-violet-700/50 dark:bg-violet-900/20 dark:text-violet-200">

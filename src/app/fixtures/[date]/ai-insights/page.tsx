@@ -53,9 +53,9 @@ export async function generateMetadata({
   const displayDate = formatDisplayDate(dateKey);
   const insights = await generateInsights(dateKey);
   const hasContent = insights.length > 0;
-  const title = `Football AI Predictions Today – BTTS, Goals & Best Picks (${displayDate})`;
+  const title = `Football Predictions Today – BTTS, Goals & Top Picks (${displayDate})`;
   const description = toSnippetDescription([
-    "Find today’s best BTTS, over 2.5 goals, corners and cards predictions using AI-powered football stats and insights.",
+    "Find the best football predictions today including BTTS, over 2.5 goals, corners and cards. Data-driven picks based on recent form and stats.",
   ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}/ai-insights`;
   return {
@@ -293,10 +293,10 @@ export default async function AIInsightsPage({
               <div className="space-y-1">
                 <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-                  AI insights
+                  🔥 Top Picks Today
                 </span>
                 <h1 className="text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">
-                  AI Football Insights &amp; Best Picks – {displayDate}
+                  Football Predictions Today – BTTS, Goals &amp; Top Picks
                 </h1>
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-400 sm:text-[13px]">
                   statsBuildr · AI insights for {displayDate}
@@ -304,7 +304,7 @@ export default async function AIInsightsPage({
               </div>
             </div>
             <p className="mt-3 text-xs text-slate-300 sm:text-sm">
-              We scan today&apos;s fixtures, xG, corners, cards, shots and player stats to surface AI-powered angles and bet builder ideas before kick-off.
+              We&apos;ve analysed today&apos;s fixtures to highlight the most likely BTTS, high-scoring and high-corner matches based on recent form and stats.
             </p>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-3">
