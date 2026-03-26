@@ -265,23 +265,20 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
           className={`rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-6 ${flashClass}`}
           aria-label="Match statistics"
         >
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-              {isEnded ? "Full-time statistics" : "In-play statistics"}
-            </p>
-            {isInPlay ? (
+          {isInPlay ? (
+            <div className="mb-2 flex justify-end">
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.35)]" />
                 Live
               </span>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
           <MatchStatsBlock
             homeLabel={homeName}
             awayLabel={awayName}
             home={matchStats.home}
             away={matchStats.away}
-            heading={null}
+            heading={isEnded ? "Full-time statistics" : "In-play statistics"}
           />
         </section>
       )}
