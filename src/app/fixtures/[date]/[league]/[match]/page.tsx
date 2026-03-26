@@ -5,7 +5,13 @@ import {
   getFixturesForDateRequestCached,
   getOrRefreshTodayFixturesRequestCached,
 } from "@/lib/fixturesService";
-import { getPastFixtureLineupOnly } from "@/lib/lineupService";
+import {
+  ensureLineupIfWithinWindow,
+  getLineupForFixture,
+  getPastFixtureLineupOnly,
+  isWithinLineupFetchWindow,
+  isWithinLineupShortCacheWindow,
+} from "@/lib/lineupService";
 import { withPoolRetry } from "@/lib/poolRetry";
 import { API_SEASON, fetchLiveFixture } from "@/lib/footballApi";
 import { prisma } from "@/lib/prisma";
@@ -14,6 +20,13 @@ import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import { makeTeamSlug } from "@/lib/teamSlugs";
 import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import type { RawFixture } from "@/lib/footballApi";
+import {
+  getFixtureStats,
+  getFixtureStatsCached,
+  getFixtureStatsCachedShort,
+  mergeLineupIntoStats,
+  type FixtureStatsResponse,
+} from "@/lib/statsService";
 import type { FixtureSummary } from "@/lib/statsService";
 import { isFixtureInRequiredLeagues, REQUIRED_LEAGUE_IDS, getStandingsSlug, STANDINGS_LEAGUE_SLUG_BY_ID, isTeamStatsOnlyLeague } from "@/lib/leagues";
 import { MatchPageStatsSection } from "@/app/_components/match-page-stats-section";
@@ -85,6 +98,62 @@ const FINISHED_STATUS = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"])
 
 function isMatchEnded(statusShort: string): boolean {
   return FINISHED_STATUS.has(statusShort);
+}
+
+async function loadInitialFixtureStatsMatchingApiSemantics(
+  fixtureId: number,
+): Promise<FixtureStatsResponse | null> {
+  const now = new Date();
+  const fixtureMeta = await prisma.fixture.findUnique({
+    where: { id: fixtureId },
+    select: { date: true, leagueId: true, _count: { select: { lineups: true } } },
+  });
+  const kickoffForCache = fixtureMeta?.date ? new Date(fixtureMeta.date) : null;
+  const useShortCache =
+    kickoffForCache != null &&
+    !Number.isNaN(kickoffForCache.getTime()) &&
+    isWithinLineupShortCacheWindow(kickoffForCache, now);
+  const inLineupWindowEarly =
+    kickoffForCache != null &&
+    !Number.isNaN(kickoffForCache.getTime()) &&
+    isWithinLineupFetchWindow(kickoffForCache, now);
+  const hasLineupInDb = (fixtureMeta?._count?.lineups ?? 0) > 0;
+  const shouldHaveLineupsForFixture = !isTeamStatsOnlyLeague(fixtureMeta?.leagueId ?? null);
+  const bypassCacheForLineup = inLineupWindowEarly && !hasLineupInDb;
+
+  let stats = await withPoolRetry(() =>
+    bypassCacheForLineup
+      ? getFixtureStats(fixtureId, { sequential: true })
+      : useShortCache
+        ? getFixtureStatsCachedShort(fixtureId)
+        : getFixtureStatsCached(fixtureId),
+  );
+  if (!stats) return null;
+
+  let lineupByTeam = await getLineupForFixture(fixtureId);
+  if (inLineupWindowEarly && shouldHaveLineupsForFixture && !stats.hasLineup && lineupByTeam.size === 0) {
+    const fixture = await prisma.fixture.findUnique({
+      where: { id: fixtureId },
+      include: { homeTeam: true, awayTeam: true },
+    });
+    if (fixture?.apiId) {
+      await ensureLineupIfWithinWindow(
+        fixture.id,
+        fixture.date,
+        fixture.apiId,
+        fixture.homeTeamId,
+        fixture.awayTeamId,
+        fixture.homeTeam.apiId,
+        fixture.awayTeam.apiId,
+      );
+      lineupByTeam = await getLineupForFixture(fixtureId);
+    }
+  }
+  if (lineupByTeam.size > 0 && !stats.hasLineup) {
+    stats = await mergeLineupIntoStats(stats, lineupByTeam);
+  }
+
+  return stats;
 }
 
 export async function generateMetadata({
@@ -417,6 +486,9 @@ export default async function FixtureMatchPage({
       (fixture.awayTeam as { crestUrl?: string | null }).crestUrl ?? null;
 
     const standingsSlug = getStandingsSlug(fixture.leagueId ?? null, leagueSlug);
+    const initialFixtureStats = await loadInitialFixtureStatsMatchingApiSemantics(
+      fixture.id,
+    );
 
     const todayLiveRow = await withPoolRetry(() =>
       prisma.fixture.findUnique({
@@ -540,6 +612,7 @@ export default async function FixtureMatchPage({
               showEndedTodayMatchStatsTab={showEndedTodayMatchStatsTab}
               endedTodayMatchStatsFromDb={todayEndedMatchStatsFromDb}
               matchLivePageHref={`/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}/live`}
+              initialFixtureStats={initialFixtureStats}
             />
             {showHomeAwayProfile && (
               <section className="mt-6 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/60 p-3 text-xs dark:border-neutral-700 dark:bg-neutral-900/70 sm:p-4">
@@ -1147,6 +1220,8 @@ export default async function FixtureMatchPage({
       (fixture.awayTeam as { crestUrl?: string | null }).crestUrl ?? null;
 
     const standingsSlugUpcoming = getStandingsSlug(fixture.leagueId ?? null, leagueSlug);
+      const initialFixtureStatsUpcoming =
+        await loadInitialFixtureStatsMatchingApiSemantics(fixture.id);
 
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -1248,6 +1323,7 @@ export default async function FixtureMatchPage({
                 homeCrest: homeCrestUpcoming,
                 awayCrest: awayCrestUpcoming,
               }}
+              initialFixtureStats={initialFixtureStatsUpcoming}
             />
             {showHomeAwayProfileUpcoming && (
               <section className="mt-6 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/60 p-3 text-xs dark:border-neutral-700 dark:bg-neutral-900/70 sm:p-4">

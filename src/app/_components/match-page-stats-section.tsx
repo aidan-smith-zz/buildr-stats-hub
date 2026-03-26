@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { MatchStatsSnapshot } from "@/lib/matchStats";
-import type { FixtureSummary } from "@/lib/statsService";
+import type { FixtureSummary, FixtureStatsResponse } from "@/lib/statsService";
 import {
   Last5MatchesTile,
   type Last5FixtureStatsGate,
@@ -25,6 +25,7 @@ type Props = {
     away: MatchStatsSnapshot;
   } | null;
   matchLivePageHref?: string;
+  initialFixtureStats?: FixtureStatsResponse | null;
 };
 
 /**
@@ -37,12 +38,13 @@ export function MatchPageStatsSection({
   showEndedTodayMatchStatsTab = false,
   endedTodayMatchStatsFromDb = null,
   matchLivePageHref = "",
+  initialFixtureStats = null,
 }: Props) {
   const [dash, setDash] = useState<Last5FixtureStatsGate>(() => ({
     fixtureId: initialSelectedId,
-    loading: true,
+    loading: initialFixtureStats == null,
     error: false,
-    stats: null,
+    stats: initialFixtureStats,
   }));
 
   return (
@@ -55,6 +57,7 @@ export function MatchPageStatsSection({
         showEndedTodayMatchStatsTab={showEndedTodayMatchStatsTab}
         endedTodayMatchStatsFromDb={endedTodayMatchStatsFromDb}
         matchLivePageHref={matchLivePageHref}
+        initialFixtureStats={initialFixtureStats}
       />
       <Last5MatchesTile
         fixtureId={initialSelectedId}

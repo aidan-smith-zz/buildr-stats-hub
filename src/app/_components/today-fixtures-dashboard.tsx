@@ -27,6 +27,8 @@ type Props = {
   showEndedTodayMatchStatsTab?: boolean;
   endedTodayMatchStatsFromDb?: { home: MatchStatsSnapshot; away: MatchStatsSnapshot } | null;
   matchLivePageHref?: string;
+  /** Optional server-hydrated stats for initialSelectedId (single match pages) */
+  initialFixtureStats?: FixtureStatsResponse | null;
 };
 
 type PlayerSortKey = keyof FixtureStatsResponse["teams"][number]["players"][number];
@@ -121,6 +123,7 @@ export function TodayFixturesDashboard({
   showEndedTodayMatchStatsTab = false,
   endedTodayMatchStatsFromDb = null,
   matchLivePageHref = "",
+  initialFixtureStats = null,
 }: Props) {
   const filteredFixtures = fixtures
     .filter((fixture) =>
@@ -135,7 +138,16 @@ export function TodayFixturesDashboard({
         ? String(filteredFixtures[0].id)
         : "";
   const [selectedId, setSelectedId] = useState<string>(initialId);
-  const [stats, setStats] = useState<FixtureStatsResponse | null>(null);
+  const [stats, setStats] = useState<FixtureStatsResponse | null>(() => {
+    if (
+      initialFixtureStats &&
+      initialId &&
+      String(initialFixtureStats.fixture.id) === initialId
+    ) {
+      return initialFixtureStats;
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<PlayerSortKey>("goals");
@@ -162,6 +174,9 @@ export function TodayFixturesDashboard({
 
   const onFixtureStatsUpdateRef = useRef(onFixtureStatsUpdate);
   onFixtureStatsUpdateRef.current = onFixtureStatsUpdate;
+  const silentInitialRevalidatePendingRef = useRef(
+    !!initialFixtureStats && !!initialId && String(initialFixtureStats.fixture.id) === initialId,
+  );
 
   useEffect(() => {
     if (hideFixtureSelector && typeof window !== "undefined") {
@@ -205,17 +220,34 @@ export function TodayFixturesDashboard({
     }
 
     let cancelled = false;
-    onFixtureStatsUpdateRef.current?.({
-      fixtureId: selectedId,
-      loading: true,
-      error: false,
-      stats: null,
-    });
+    const shouldSilentRevalidate =
+      silentInitialRevalidatePendingRef.current &&
+      !!stats &&
+      String(stats.fixture.id) === selectedId;
+
+    if (shouldSilentRevalidate) {
+      onFixtureStatsUpdateRef.current?.({
+        fixtureId: selectedId,
+        loading: false,
+        error: false,
+        stats,
+      });
+      silentInitialRevalidatePendingRef.current = false;
+    } else {
+      onFixtureStatsUpdateRef.current?.({
+        fixtureId: selectedId,
+        loading: true,
+        error: false,
+        stats: null,
+      });
+    }
 
     async function loadStats() {
       try {
-        setLoading(true);
-        setError(null);
+        if (!shouldSilentRevalidate) {
+          setLoading(true);
+          setError(null);
+        }
 
         const selectedFixture = filteredFixtures.find((f) => String(f.id) === selectedId);
         const kickoff = selectedFixture ? new Date(selectedFixture.date) : null;
@@ -257,17 +289,27 @@ export function TodayFixturesDashboard({
         }
       } catch (err) {
         if (!cancelled) {
-          setStats(null);
-          setError(err instanceof Error ? err.message : "Failed to load stats");
-          onFixtureStatsUpdateRef.current?.({
-            fixtureId: selectedId,
-            loading: false,
-            error: true,
-            stats: null,
-          });
+          // Background refresh should keep server-hydrated stats visible on transient errors.
+          if (shouldSilentRevalidate && stats) {
+            onFixtureStatsUpdateRef.current?.({
+              fixtureId: selectedId,
+              loading: false,
+              error: false,
+              stats,
+            });
+          } else {
+            setStats(null);
+            setError(err instanceof Error ? err.message : "Failed to load stats");
+            onFixtureStatsUpdateRef.current?.({
+              fixtureId: selectedId,
+              loading: false,
+              error: true,
+              stats: null,
+            });
+          }
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && !shouldSilentRevalidate) {
           setLoading(false);
         }
       }
