@@ -4,10 +4,18 @@ import { RefreshInsightsButton } from "@/app/_components/refresh-insights-button
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import Image from "next/image";
-import { generateInsights } from "@/lib/insightsService";
+import {
+  generateInsights,
+  getLast5StatsForDate,
+  getSeasonStatsForDate,
+  type Insight,
+  type Last5TeamSummary,
+} from "@/lib/insightsService";
 import { decodeHtmlEntities } from "@/lib/text";
 import { prisma } from "@/lib/prisma";
 import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
+import { leagueToSlug, matchSlug } from "@/lib/slugs";
+import { TopPicksPanel, type TopPick } from "./top-picks-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -45,14 +53,9 @@ export async function generateMetadata({
   const displayDate = formatDisplayDate(dateKey);
   const insights = await generateInsights(dateKey);
   const hasContent = insights.length > 0;
-  const title = buildIntentTitle({
-    intent: "AI football insights",
-    timeframe: displayDate,
-    keyStat: "bet builder stats",
-  });
+  const title = `Football AI Predictions Today – BTTS, Goals & Best Picks (${displayDate})`;
   const description = toSnippetDescription([
-    `AI football insights for ${displayDate}.`,
-    "See xG, corners, cards, shots per 90 and over 1.5/2.5/BTTS trends across fixtures.",
+    "Find today’s best BTTS, over 2.5 goals, corners and cards predictions using AI-powered football stats and insights.",
   ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}/ai-insights`;
   return {
@@ -85,6 +88,136 @@ export async function generateMetadata({
   };
 }
 
+type FixtureForPicks = {
+  id: number;
+  league: string | null;
+  homeTeamId: number;
+  awayTeamId: number;
+  homeTeam: { name: string; shortName: string | null };
+  awayTeam: { name: string; shortName: string | null };
+};
+
+function toCategory(insight: Insight): "goals" | "corners" | "cards" | "players" {
+  const text = insight.text.toLowerCase();
+  if (insight.type === "player_season") return "players";
+  if (text.includes("corner")) return "corners";
+  if (text.includes("card") || text.includes("foul")) return "cards";
+  return "goals";
+}
+
+function metricFromRows(
+  teamId: number,
+  last5ByTeam: Map<number, Last5TeamSummary>,
+  seasonByTeam: Map<number, Last5TeamSummary>,
+): Last5TeamSummary | null {
+  return last5ByTeam.get(teamId) ?? seasonByTeam.get(teamId) ?? null;
+}
+
+function fixtureHref(dateKey: string, fixture: FixtureForPicks): string {
+  const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
+  const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
+  return `/fixtures/${dateKey}/${leagueToSlug(fixture.league)}/${matchSlug(home, away)}`;
+}
+
+function buildTopPicksAndSummary(params: {
+  dateKey: string;
+  fixtures: FixtureForPicks[];
+  last5: Last5TeamSummary[];
+  season: Last5TeamSummary[];
+}): { picks: TopPick[]; standoutSummary: string[] } {
+  const { dateKey, fixtures, last5, season } = params;
+  const last5ByTeam = new Map(last5.map((r) => [r.teamId, r]));
+  const seasonByTeam = new Map(season.map((r) => [r.teamId, r]));
+
+  const candidates: Array<TopPick & { score: number }> = [];
+  let bttsTrending = 0;
+  let highScoring = 0;
+  let lowScoring = 0;
+
+  for (const fixture of fixtures) {
+    const home = metricFromRows(fixture.homeTeamId, last5ByTeam, seasonByTeam);
+    const away = metricFromRows(fixture.awayTeamId, last5ByTeam, seasonByTeam);
+    if (!home || !away) continue;
+
+    const fixtureName = `${fixture.homeTeam.shortName ?? fixture.homeTeam.name} vs ${fixture.awayTeam.shortName ?? fixture.awayTeam.name}`;
+    const href = fixtureHref(dateKey, fixture);
+    const expectedGoals = ((home.avgGoalsFor + away.avgGoalsAgainst) / 2) + ((away.avgGoalsFor + home.avgGoalsAgainst) / 2);
+    const bttsStrength = Math.min(home.avgGoalsFor, away.avgGoalsFor) + Math.min(home.avgGoalsAgainst, away.avgGoalsAgainst);
+    const cornerTotal = home.avgCorners + away.avgCorners;
+    const cardTotal = home.avgCards + away.avgCards;
+
+    if (bttsStrength >= 2.2) bttsTrending += 1;
+    if (expectedGoals >= 2.6) highScoring += 1;
+    if (expectedGoals <= 2.0) lowScoring += 1;
+
+    if (bttsStrength >= 2.2) {
+      candidates.push({
+        fixtureName,
+        fixtureHref: href,
+        market: "BTTS",
+        confidence: bttsStrength >= 2.6 ? "High" : "Medium",
+        reason: `Both sides project to score and concede regularly (combined BTTS signal ${bttsStrength.toFixed(1)} from recent form).`,
+        score: bttsStrength,
+      });
+    }
+    if (expectedGoals >= 2.4) {
+      candidates.push({
+        fixtureName,
+        fixtureHref: href,
+        market: "Over 2.5",
+        confidence: expectedGoals >= 2.9 ? "High" : "Medium",
+        reason: `Projected total goals is ${expectedGoals.toFixed(1)} based on each side's scoring and conceding averages.`,
+        score: expectedGoals,
+      });
+    }
+    if (cornerTotal >= 8.5) {
+      candidates.push({
+        fixtureName,
+        fixtureHref: href,
+        market: "Corners",
+        confidence: cornerTotal >= 10 ? "High" : "Medium",
+        reason: `Both teams combine for ${cornerTotal.toFixed(1)} average corners per match from warmed data.`,
+        score: cornerTotal,
+      });
+    }
+    if (cardTotal >= 3.8) {
+      candidates.push({
+        fixtureName,
+        fixtureHref: href,
+        market: "Cards",
+        confidence: cardTotal >= 4.8 ? "High" : "Medium",
+        reason: `Card trend is elevated at ${cardTotal.toFixed(1)} cards per game across both teams.`,
+        score: cardTotal,
+      });
+    }
+  }
+
+  const byScore = [...candidates].sort((a, b) => {
+    if (a.confidence !== b.confidence) return a.confidence === "High" ? -1 : 1;
+    return b.score - a.score;
+  });
+
+  const markets = ["BTTS", "Over 2.5", "Corners", "Cards"] as const;
+  const picks: TopPick[] = [];
+  for (const market of markets) {
+    const hit = byScore.find((c) => c.market === market);
+    if (hit) picks.push(hit);
+  }
+  for (const c of byScore) {
+    if (picks.length >= 5) break;
+    if (!picks.some((p) => p.fixtureName === c.fixtureName && p.market === c.market)) {
+      picks.push(c);
+    }
+  }
+
+  const standoutSummary = [
+    `${bttsTrending} matches trending BTTS.`,
+    `${highScoring} high-scoring games by modelled goal expectation.`,
+    `${lowScoring} lower-scoring fixtures based on current team data.`,
+  ];
+  return { picks: picks.slice(0, 5), standoutSummary };
+}
+
 export default async function AIInsightsPage({
   params,
 }: {
@@ -93,10 +226,25 @@ export default async function AIInsightsPage({
   const { date: dateParam } = await params;
   const dateKey = normalizeDateKey(dateParam);
 
-  const [insights, liveScores] = await Promise.all([
+  const [insights, liveScores, fixturesForPicks, last5Rows, seasonRows] = await Promise.all([
     generateInsights(dateKey),
     loadLiveScoresForDate(dateKey),
+    loadFixturesForTopPicks(dateKey),
+    getLast5StatsForDate(dateKey),
+    getSeasonStatsForDate(dateKey),
   ]);
+  const groupedInsights = {
+    goals: insights.filter((i) => toCategory(i) === "goals"),
+    corners: insights.filter((i) => toCategory(i) === "corners"),
+    cards: insights.filter((i) => toCategory(i) === "cards"),
+    players: insights.filter((i) => toCategory(i) === "players"),
+  };
+  const { picks, standoutSummary } = buildTopPicksAndSummary({
+    dateKey,
+    fixtures: fixturesForPicks,
+    last5: last5Rows,
+    season: seasonRows,
+  });
 
   const displayDate = new Date(dateKey + "T12:00:00.000Z").toLocaleDateString("en-GB", {
     weekday: "long",
@@ -148,7 +296,7 @@ export default async function AIInsightsPage({
                   AI insights
                 </span>
                 <h1 className="text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">
-                  AI football insights &amp; bet builder stats
+                  AI Football Insights &amp; Best Picks – {displayDate}
                 </h1>
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-400 sm:text-[13px]">
                   statsBuildr · AI insights for {displayDate}
@@ -166,6 +314,8 @@ export default async function AIInsightsPage({
             <RefreshInsightsButton className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/60 bg-slate-900/40 px-3 py-1.5 text-xs font-medium text-slate-100 transition-colors hover:bg-slate-900 hover:border-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed" />
           </div>
         </div>
+
+        <TopPicksPanel picks={picks} dateKey={dateKey} standoutSummary={standoutSummary} />
 
         {liveScores.length > 0 && (
           <section className="mb-8">
@@ -203,37 +353,25 @@ export default async function AIInsightsPage({
           </div>
         ) : (
           <>
-            <ul className="space-y-4">
-              {insights.map((insight, i) => (
-                <li
-                  key={`${insight.type}-${i}`}
-                  className="rounded-xl border border-slate-700/50 bg-slate-800/30 px-5 py-4 shadow-lg transition hover:border-slate-600/50 hover:bg-slate-800/50"
-                >
-                  <p className="text-slate-100 leading-relaxed">
-                    {decodeHtmlEntities(insight.text)}
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <span className="text-xs text-slate-500">
-                      {insight.type === "team_last5"
-                        ? "Last 5"
-                        : insight.type === "team_last10"
-                          ? "Last 10"
-                          : insight.type === "team_season"
-                            ? "Season"
-                            : "Player · Season"}
-                    </span>
-                    {insight.href && (
-                      <NavLinkWithOverlay
-                        href={insight.href}
-                        className="text-xs font-medium text-violet-400 hover:text-violet-300"
-                      >
-                        View fixture →
-                      </NavLinkWithOverlay>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <InsightsSection
+              title="⚽ Goals Insights"
+              insights={groupedInsights.goals}
+            />
+            <InsightsSection
+              title="🚩 Corners Insights"
+              insights={groupedInsights.corners}
+              className="mt-6"
+            />
+            <InsightsSection
+              title="🟥 Cards Insights"
+              insights={groupedInsights.cards}
+              className="mt-6"
+            />
+            <InsightsSection
+              title="👤 Player Insights"
+              insights={groupedInsights.players}
+              className="mt-6"
+            />
             <section className="mt-8 text-xs text-slate-400 sm:text-sm">
               <p>
                 For more detailed numbers on {displayDate}, see{" "}
@@ -259,6 +397,14 @@ export default async function AIInsightsPage({
                 </NavLinkWithOverlay>
                 .
               </p>
+              <p className="mt-2">
+                <NavLinkWithOverlay
+                  href={`/fixtures/${dateKey}/matchday-insights`}
+                  className="font-medium text-violet-300 hover:text-violet-200"
+                >
+                  📊 View full stat leaders → /fixtures/{dateKey}/matchday-insights
+                </NavLinkWithOverlay>
+              </p>
             </section>
           </>
         )}
@@ -269,6 +415,68 @@ export default async function AIInsightsPage({
       </main>
     </div>
   );
+}
+
+function insightTypeLabel(insight: Insight): string {
+  if (insight.type === "team_last5") return "Last 5";
+  if (insight.type === "team_last10") return "Last 10";
+  if (insight.type === "team_season") return "Season";
+  return "Player · Season";
+}
+
+function InsightsSection({
+  title,
+  insights,
+  className = "",
+}: {
+  title: string;
+  insights: Insight[];
+  className?: string;
+}) {
+  if (insights.length === 0) return null;
+  return (
+    <section className={className}>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">{title}</h2>
+      <ul className="space-y-4">
+        {insights.map((insight, i) => (
+          <li
+            key={`${insight.type}-${title}-${i}`}
+            className="rounded-xl border border-slate-700/50 bg-slate-800/30 px-5 py-4 shadow-lg transition hover:border-slate-600/50 hover:bg-slate-800/50"
+          >
+            <p className="text-slate-100 leading-relaxed">{decodeHtmlEntities(insight.text)}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <span className="text-xs text-slate-500">{insightTypeLabel(insight)}</span>
+              {insight.href && (
+                <NavLinkWithOverlay
+                  href={insight.href}
+                  className="text-xs font-medium text-violet-400 hover:text-violet-300"
+                >
+                  View fixture →
+                </NavLinkWithOverlay>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+async function loadFixturesForTopPicks(dateKey: string): Promise<FixtureForPicks[]> {
+  const dayStart = new Date(`${dateKey}T00:00:00.000Z`);
+  const nextDay = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+  const dayEnd = new Date(nextDay.getTime() + 60 * 60 * 1000);
+  return prisma.fixture.findMany({
+    where: { date: { gte: dayStart, lte: dayEnd } },
+    select: {
+      id: true,
+      league: true,
+      homeTeamId: true,
+      awayTeamId: true,
+      homeTeam: { select: { name: true, shortName: true } },
+      awayTeam: { select: { name: true, shortName: true } },
+    },
+  });
 }
 
 async function loadLiveScoresForDate(

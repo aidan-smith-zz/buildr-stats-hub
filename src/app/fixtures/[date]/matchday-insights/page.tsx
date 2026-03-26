@@ -154,6 +154,16 @@ export default async function MatchdayInsightsPage({
               Which players average the most yellow cards or shots on target? Which teams have the highest xG or corners per match? See today&apos;s matchday stat leaders for cards, fouls, shots and more.
             </p>
           </header>
+          <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50/80 px-4 py-3 text-sm text-violet-900 dark:border-violet-700/50 dark:bg-violet-900/20 dark:text-violet-200">
+            Want market-style picks first? See{" "}
+            <NavLinkWithOverlay
+              href={`/fixtures/${dateKey}/ai-insights`}
+              className="font-semibold text-violet-700 hover:text-violet-600 dark:text-violet-300 dark:hover:text-violet-200"
+            >
+              AI Top Picks (BTTS, goals, corners and cards)
+            </NavLinkWithOverlay>
+            .
+          </div>
         </div>
 
         <MatchdayInsightsClient data={data} />
