@@ -664,8 +664,8 @@ export default async function LeagueStandingsPage({ params }: Props) {
 
   let tournamentFixtures: TournamentFixtureCard[] = [];
   if (isWorldCup || isEuropeanKnockoutLeague) {
-    const now = new Date();
     const fixtureTake = isEuropeanKnockoutLeague ? 80 : 24;
+    const todayStart = new Date(`${todayKey}T00:00:00.000Z`);
     const [upcoming, recent] = await Promise.all([
       prisma.upcomingFixture.findMany({
         where: { leagueId },
@@ -673,15 +673,17 @@ export default async function LeagueStandingsPage({ params }: Props) {
         take: fixtureTake,
       }),
       prisma.fixture.findMany({
-        where: { leagueId, date: { lte: now } },
-        orderBy: { date: "desc" },
+        // Include today onwards so tonight's not-started ties remain visible in the tracker.
+        where: { leagueId, date: { gte: todayStart } },
+        orderBy: { date: "asc" },
         include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
         take: fixtureTake,
       }),
     ]);
-    const out: TournamentFixtureCard[] = [];
+    const outByApiFixtureId = new Map<string, TournamentFixtureCard>();
+    const outWithoutApiId: TournamentFixtureCard[] = [];
     for (const row of recent) {
-      out.push({
+      const card: TournamentFixtureCard = {
         id: row.id,
         apiFixtureId: row.apiId ?? null,
         kickoff: row.date,
@@ -690,10 +692,17 @@ export default async function LeagueStandingsPage({ params }: Props) {
         awayTeam: row.awayTeam.shortName ?? row.awayTeam.name,
         homeGoals: row.liveScoreCache?.homeGoals ?? null,
         awayGoals: row.liveScoreCache?.awayGoals ?? null,
-      });
+      };
+      if (card.apiFixtureId) {
+        outByApiFixtureId.set(card.apiFixtureId, card);
+      } else {
+        outWithoutApiId.push(card);
+      }
     }
     for (const row of upcoming) {
-      out.push({
+      // Prefer fixture-table rows when present (they carry live score cache/status updates).
+      if (outByApiFixtureId.has(row.apiFixtureId)) continue;
+      outByApiFixtureId.set(row.apiFixtureId, {
         id: row.apiFixtureId,
         apiFixtureId: row.apiFixtureId,
         kickoff: row.kickoff,
@@ -704,6 +713,10 @@ export default async function LeagueStandingsPage({ params }: Props) {
         awayGoals: null,
       });
     }
+    const out: TournamentFixtureCard[] = [
+      ...outWithoutApiId,
+      ...Array.from(outByApiFixtureId.values()),
+    ];
     tournamentFixtures = out
       .sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime())
       .slice(0, 24);
