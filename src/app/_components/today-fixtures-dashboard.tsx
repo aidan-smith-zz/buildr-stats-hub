@@ -394,6 +394,13 @@ export function TodayFixturesDashboard({
   const selectedFixture = selectedId ? filteredFixtures.find((f) => String(f.id) === selectedId) : null;
   const showMatchContent = selectedFixture && !loading && !error && stats;
   const isHeaderMode = hideFixtureSelector && selectedFixture;
+  const compactDetailTabs = showEndedTodayMatchStatsTab;
+  const detailTabsListClass = compactDetailTabs
+    ? "flex w-full flex-wrap gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800/60"
+    : "inline-flex gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800/60";
+  const detailTabButtonSizeClass = compactDetailTabs
+    ? "min-w-[4.6rem] rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors sm:min-w-[5.5rem] sm:px-3 sm:text-sm"
+    : "min-w-[5.5rem] rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm";
 
   return (
     <div className="space-y-6">
@@ -663,7 +670,7 @@ export function TodayFixturesDashboard({
           {!loading && (
             <header className="border-b border-neutral-200 px-4 pt-4 pb-3 dark:border-neutral-800 sm:px-6">
               <div
-                className="inline-flex gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800/60"
+                className={detailTabsListClass}
                 role="tablist"
                 aria-label="Match details"
               >
@@ -674,7 +681,7 @@ export function TodayFixturesDashboard({
                 aria-selected={detailTab === "team"}
                 aria-controls="team-stats"
                 onClick={() => setDetailTabWithHash("team")}
-                className={`min-w-[5.5rem] rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+                className={`${detailTabButtonSizeClass} ${
                   detailTab === "team"
                     ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-900 dark:text-neutral-50"
                     : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
@@ -689,7 +696,7 @@ export function TodayFixturesDashboard({
                 aria-selected={detailTab === "players"}
                 aria-controls="player-stats"
                 onClick={() => setDetailTabWithHash("players")}
-                className={`min-w-[5.5rem] rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+                className={`${detailTabButtonSizeClass} ${
                   detailTab === "players"
                     ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-900 dark:text-neutral-50"
                     : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
@@ -706,7 +713,7 @@ export function TodayFixturesDashboard({
                 aria-controls="lineups"
                 onClick={() => !loading && stats?.hasLineup && stats.teams?.length >= 2 && setDetailTabWithHash("lineups")}
                 disabled={loading || !stats?.hasLineup || !(stats.teams?.length >= 2)}
-                className={`min-w-[5.5rem] rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+                className={`${detailTabButtonSizeClass} ${
                   detailTab === "lineups"
                     ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-900 dark:text-neutral-50"
                     : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
@@ -723,7 +730,7 @@ export function TodayFixturesDashboard({
                   aria-selected={detailTab === "matchStats"}
                   aria-controls="match-stats-panel"
                   onClick={() => setDetailTabWithHash("matchStats")}
-                  className={`min-w-[5.5rem] rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+                  className={`${detailTabButtonSizeClass} ${
                     detailTab === "matchStats"
                       ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-900 dark:text-neutral-50"
                       : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
