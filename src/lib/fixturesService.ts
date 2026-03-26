@@ -54,15 +54,29 @@ const FIXTURES_TIMEZONE_PREVIEW = "Europe/London";
  */
 export async function getFixturesForDatePreview(dateKey: string): Promise<RawFixture[]> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return [];
-  const results = await Promise.all(
-    REQUIRED_LEAGUE_IDS.map((leagueId) =>
-      fetchTodayFixtures({
+  // IMPORTANT: fetch sequentially to avoid burst requests.
+  // Promise.all can bypass our simple min-interval limiter and cause partial league drops.
+  const results: RawFixture[][] = [];
+  const FIXTURE_FETCH_DELAY_MS = Number(process.env.FOOTBALL_API_MIN_INTERVAL_MS) || 1200;
+  for (let i = 0; i < REQUIRED_LEAGUE_IDS.length; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, FIXTURE_FETCH_DELAY_MS));
+    const leagueId = REQUIRED_LEAGUE_IDS[i];
+    try {
+      const list = await fetchTodayFixtures({
         date: dateKey,
         leagueId,
         timezone: FIXTURES_TIMEZONE_PREVIEW,
-      })
-    )
-  );
+      });
+      results.push(list);
+    } catch (err) {
+      console.warn("[fixturesService] getFixturesForDatePreview league fetch failed", {
+        dateKey,
+        leagueId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      results.push([]);
+    }
+  }
   const seen = new Set<string>();
   const flat = results.flat().filter((raw) => {
     const key = getFixtureExternalId(raw);
