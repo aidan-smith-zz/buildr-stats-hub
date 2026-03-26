@@ -1,0 +1,137 @@
+name: Daily Warm Jobs
+
+on:
+  # Run hourly in the early UTC window, then select by Europe/London local hour.
+  # This keeps 02:00 / 04:00 / 06:00 UK-time stable across DST changes.
+  schedule:
+    - cron: "0 1-6 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "What to run"
+        required: true
+        default: auto-by-uk-time
+        type: choice
+        options:
+          - auto-by-uk-time
+          - warm-today
+          - warm-tomorrow-one
+          - warm-league-stats
+          - run-all
+
+concurrency:
+  group: daily-warm-jobs
+  cancel-in-progress: false
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      # Required by warm-today and warm-tomorrow scripts (they call /api endpoints).
+      BASE_URL: ${{ secrets.WARM_BASE_URL }}
+      # Required by scripts that read/write DB directly (e.g. warm-league-stats).
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # External API credentials used by server/lib calls.
+      FOOTBALL_API_BASE_URL: ${{ secrets.FOOTBALL_API_BASE_URL }}
+      FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      NODE_ENV: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Pick run mode and command
+        id: pick
+        shell: bash
+        run: |
+          # Manual run defaults to auto-by-uk-time unless an input is selected.
+          mode="${{ github.event.inputs.mode }}"
+          if [ -z "${mode}" ]; then
+            mode="auto-by-uk-time"
+          fi
+
+          uk_hour="$(TZ=Europe/London date +%H)"
+          echo "Mode: ${mode}"
+          echo "Current UK hour: ${uk_hour} (Europe/London)"
+
+          case "${mode}" in
+            warm-today)
+              echo "label=warm-today" >> "$GITHUB_OUTPUT"
+              echo "command=npm run warm-today" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+            warm-tomorrow-one)
+              echo "label=warm-tomorrow-one" >> "$GITHUB_OUTPUT"
+              echo "command=npm run warm-tomorrow -- --one" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+            warm-league-stats)
+              echo "label=warm-league-stats" >> "$GITHUB_OUTPUT"
+              echo "command=npm run warm-league-stats" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+            run-all)
+              echo "label=run-all" >> "$GITHUB_OUTPUT"
+              echo "run_all=true" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+
+          case "${uk_hour}" in
+            02)
+              echo "label=warm-today" >> "$GITHUB_OUTPUT"
+              echo "command=npm run warm-today" >> "$GITHUB_OUTPUT"
+              ;;
+            04)
+              echo "label=warm-tomorrow-one" >> "$GITHUB_OUTPUT"
+              echo "command=npm run warm-tomorrow -- --one" >> "$GITHUB_OUTPUT"
+              ;;
+            06)
+              echo "label=warm-league-stats" >> "$GITHUB_OUTPUT"
+              echo "command=npm run warm-league-stats" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Skip non-target hour
+        if: steps.pick.outputs.skip == 'true'
+        run: echo "No warm command scheduled for this UK hour."
+
+      - name: Validate required BASE_URL
+        if: steps.pick.outputs.skip != 'true' && (steps.pick.outputs.label == 'warm-today' || steps.pick.outputs.label == 'warm-tomorrow-one' || steps.pick.outputs.run_all == 'true')
+        shell: bash
+        run: |
+          if [ -z "${BASE_URL}" ]; then
+            echo "Missing BASE_URL (set repository secret WARM_BASE_URL)."
+            exit 1
+          fi
+
+      - name: Run all warm commands (manual on-demand)
+        if: steps.pick.outputs.run_all == 'true'
+        shell: bash
+        run: |
+          echo "Running: npm run warm-today"
+          npm run warm-today
+          echo "Running: npm run warm-tomorrow -- --one"
+          npm run warm-tomorrow -- --one
+          echo "Running: npm run warm-league-stats"
+          npm run warm-league-stats
+
+      - name: Run selected warm command
+        if: steps.pick.outputs.skip != 'true' && steps.pick.outputs.run_all != 'true'
+        shell: bash
+        run: |
+          echo "Running: ${{ steps.pick.outputs.command }}"
+          ${{ steps.pick.outputs.command }}
