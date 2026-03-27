@@ -1,10 +1,16 @@
 name: Daily Warm Jobs
 
 on:
-  # Run hourly in the early UTC window, then select by Europe/London local hour.
-  # This keeps 02:00 / 04:00 / 06:00 UK-time stable across DST changes.
+  # Run each UTC hour explicitly so github.event.schedule identifies the intended slot.
+  # We then convert that scheduled UTC hour to Europe/London, so queue delays do not
+  # cause command selection to skip.
   schedule:
-    - cron: "0 1-6 * * *"
+    - cron: "0 1 * * *"
+    - cron: "0 2 * * *"
+    - cron: "0 3 * * *"
+    - cron: "0 4 * * *"
+    - cron: "0 5 * * *"
+    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -60,7 +66,34 @@ jobs:
             mode="auto-by-uk-time"
           fi
 
-          uk_hour="$(TZ=Europe/London date +%H)"
+          # IMPORTANT:
+          # For scheduled runs, use the scheduled UTC slot (from github.event.schedule),
+          # not the current clock time at step execution. This avoids "skipped" runs when
+          # Actions starts late.
+          event_name="${{ github.event_name }}"
+          schedule_expr="${{ github.event.schedule }}"
+
+          if [ "${event_name}" = "schedule" ] && [ -n "${schedule_expr}" ]; then
+            scheduled_utc_hour="$(echo "${schedule_expr}" | awk '{print $2}')"
+            if ! [[ "${scheduled_utc_hour}" =~ ^[0-9]{1,2}$ ]]; then
+              echo "Could not parse scheduled UTC hour from '${schedule_expr}', falling back to current UK hour."
+              uk_hour="$(TZ=Europe/London date +%H)"
+            else
+              uk_hour="$(python3 - <<PY
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+hour = int("${scheduled_utc_hour}")
+now_utc = datetime.now(ZoneInfo("UTC"))
+scheduled_utc = now_utc.replace(hour=hour, minute=0, second=0, microsecond=0)
+print(scheduled_utc.astimezone(ZoneInfo("Europe/London")).strftime("%H"))
+PY
+)"
+            fi
+          else
+            uk_hour="$(TZ=Europe/London date +%H)"
+          fi
+
           echo "Mode: ${mode}"
           echo "Current UK hour: ${uk_hour} (Europe/London)"
 
