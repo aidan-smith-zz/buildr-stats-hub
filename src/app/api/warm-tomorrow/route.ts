@@ -1,10 +1,12 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { getFixturesNeedingWarm } from "@/lib/warmTomorrowService";
 import { refreshUpcomingFixturesTable } from "@/lib/fixturesService";
 
 const DEFAULT_STALE_HOURS = 24;
 const UPCOMING_PAGE_CACHE_TAG = "upcoming-page-data";
+
+export const maxDuration = 300;
 
 /**
  * GET /api/warm-tomorrow
@@ -31,12 +33,19 @@ export async function GET(request: Request) {
 
   try {
     if (!skipRefresh) {
-      // Ensure upcoming fixtures stay current even if only warm-tomorrow runs.
-      await refreshUpcomingFixturesTable(now);
+      // Same as /api/warm-today: full upcoming refresh can take many minutes and causes 504 from CI.
+      // List/materialize uses existing UpcomingFixture rows; scheduled warm-today runs before warm-tomorrow in GHA.
+      after(async () => {
+        try {
+          await refreshUpcomingFixturesTable(now);
+          revalidateTag(UPCOMING_PAGE_CACHE_TAG, { expire: 0 });
+        } catch (e) {
+          console.error("[warm-tomorrow] deferred refreshUpcomingFixturesTable:", e);
+        }
+      });
     }
     const result = await getFixturesNeedingWarm({ forceWarm, staleHours, days });
-    // This endpoint can materialize upcoming fixtures into the Fixture table (via warmTomorrowService),
-    // which affects the "View stats" badges on the upcoming page. Bust the upcoming page cache.
+    // Materialization affects upcoming badges; bust cache after list is built.
     revalidateTag(UPCOMING_PAGE_CACHE_TAG, { expire: 0 });
     return NextResponse.json(result);
   } catch (err) {

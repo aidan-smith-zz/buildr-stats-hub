@@ -26,6 +26,8 @@ const DELAY_BETWEEN_FIXTURES_MS = Number(process.env.DELAY_FIXTURES_MS) || 4_000
 const CONCURRENCY = Math.max(1, Math.min(5, Number(process.env.CONCURRENCY) || 1));
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = Number(process.env.RETRY_DELAY_MS) || 5_000;
+const LIST_FETCH_MAX_ATTEMPTS = Math.max(1, Number(process.env.WARM_LIST_MAX_ATTEMPTS) || 5);
+const LIST_FETCH_RETRY_MS = Number(process.env.WARM_LIST_RETRY_MS) || 20_000;
 const MAX_TEAMSTATS_ROUNDS = 10;
 
 function sleep(ms: number): Promise<void> {
@@ -174,9 +176,24 @@ async function main() {
   if (noStale) params.set("staleHours", "0");
   if (extraDay) params.set("days", "2");
   const listUrl = `${BASE_URL}/api/warm-tomorrow${params.toString() ? "?" + params.toString() : ""}`;
-  const listRes = await fetch(listUrl, { cache: "no-store" });
-  if (!listRes.ok) {
-    console.error(`[warm-tomorrow] List failed ${listRes.status}:`, await listRes.text());
+
+  let listRes: Response | null = null;
+  for (let attempt = 1; attempt <= LIST_FETCH_MAX_ATTEMPTS; attempt++) {
+    listRes = await fetch(listUrl, { cache: "no-store" });
+    if (listRes.ok) break;
+    const retryable =
+      listRes.status === 502 || listRes.status === 503 || listRes.status === 504;
+    const body = await listRes.text();
+    if (!retryable || attempt === LIST_FETCH_MAX_ATTEMPTS) {
+      console.error(`[warm-tomorrow] List failed ${listRes.status}:`, body);
+      process.exit(1);
+    }
+    console.warn(
+      `[warm-tomorrow] List fetch ${listRes.status} (attempt ${attempt}/${LIST_FETCH_MAX_ATTEMPTS}), retry in ${LIST_FETCH_RETRY_MS / 1000}s…`,
+    );
+    await sleep(LIST_FETCH_RETRY_MS);
+  }
+  if (!listRes || !listRes.ok) {
     process.exit(1);
   }
 
