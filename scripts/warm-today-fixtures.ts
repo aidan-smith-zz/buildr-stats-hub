@@ -27,6 +27,9 @@ const CONCURRENCY = Math.max(1, Math.min(5, Number(process.env.CONCURRENCY) || 1
 /** Retry a fixture's full sequence up to this many times. */
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = Number(process.env.RETRY_DELAY_MS) || 5_000;
+/** GET /api/warm-today can briefly 502/504 after deploy or under load; retry before failing CI. */
+const LIST_FETCH_MAX_ATTEMPTS = Math.max(1, Number(process.env.WARM_LIST_MAX_ATTEMPTS) || 5);
+const LIST_FETCH_RETRY_MS = Number(process.env.WARM_LIST_RETRY_MS) || 20_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -255,9 +258,24 @@ async function main() {
   if (resume) params.set("skipRefresh", "1");
   if (force) params.set("forceWarm", "1");
   const listUrl = `${BASE_URL}/api/warm-today${params.toString() ? "?" + params.toString() : ""}`;
-  const listRes = await fetch(listUrl, { cache: "no-store" });
-  if (!listRes.ok) {
-    console.error(`[warm-today] List failed ${listRes.status}:`, await listRes.text());
+
+  let listRes: Response | null = null;
+  for (let attempt = 1; attempt <= LIST_FETCH_MAX_ATTEMPTS; attempt++) {
+    listRes = await fetch(listUrl, { cache: "no-store" });
+    if (listRes.ok) break;
+    const retryable =
+      listRes.status === 502 || listRes.status === 503 || listRes.status === 504;
+    const body = await listRes.text();
+    if (!retryable || attempt === LIST_FETCH_MAX_ATTEMPTS) {
+      console.error(`[warm-today] List failed ${listRes.status}:`, body);
+      process.exit(1);
+    }
+    console.warn(
+      `[warm-today] List fetch ${listRes.status} (attempt ${attempt}/${LIST_FETCH_MAX_ATTEMPTS}), retry in ${LIST_FETCH_RETRY_MS / 1000}s…`,
+    );
+    await sleep(LIST_FETCH_RETRY_MS);
+  }
+  if (!listRes || !listRes.ok) {
     process.exit(1);
   }
 

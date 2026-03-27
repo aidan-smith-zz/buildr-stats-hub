@@ -1,5 +1,5 @@
 import { API_SEASON } from "@/lib/footballApi";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import {
   getOrRefreshTodayFixtures,
@@ -20,6 +20,9 @@ import { todayDateKey } from "@/lib/slugs";
 const MIN_PLAYERS_PER_TEAM = 11;
 const UPCOMING_PAGE_CACHE_TAG = "upcoming-page-data";
 
+/** Vercel serverless max (Pro). Listing must return before this; heavy work is deferred via `after()`. */
+export const maxDuration = 300;
+
 /**
  * GET /api/warm-today
  * Returns today's fixture IDs that need warming: missing player stats OR missing team stats (e.g. after clearing team cache).
@@ -35,9 +38,17 @@ export async function GET(request: Request) {
   try {
     const response = await withPoolRetry(async () => {
     if (!skipRefresh) {
-      await refreshUpcomingFixturesTable(now);
-      // Bust the upcoming page cache so the refreshed UpcomingFixture table shows up immediately.
-      revalidateTag(UPCOMING_PAGE_CACHE_TAG, { expire: 0 });
+      // refreshUpcomingFixturesTable can take many minutes (14 days × leagues). If we await it here,
+      // Vercel returns 504 and GitHub Actions' warm-today fails on GET /api/warm-today even though
+      // today's fixture list does not depend on UpcomingFixture rows.
+      after(async () => {
+        try {
+          await refreshUpcomingFixturesTable(now);
+          revalidateTag(UPCOMING_PAGE_CACHE_TAG, { expire: 0 });
+        } catch (e) {
+          console.error("[warm-today] deferred refreshUpcomingFixturesTable:", e);
+        }
+      });
     }
     const fixtures = skipRefresh
       ? await getTodayFixturesFromDbOnly(now)
