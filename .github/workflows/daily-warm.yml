@@ -79,16 +79,9 @@ jobs:
               echo "Could not parse scheduled UTC hour from '${schedule_expr}', falling back to current UK hour."
               uk_hour="$(TZ=Europe/London date +%H)"
             else
-              uk_hour="$(python3 - <<PY
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
-hour = int("${scheduled_utc_hour}")
-now_utc = datetime.now(ZoneInfo("UTC"))
-scheduled_utc = now_utc.replace(hour=hour, minute=0, second=0, microsecond=0)
-print(scheduled_utc.astimezone(ZoneInfo("Europe/London")).strftime("%H"))
-PY
-)"
+              # One-line Python avoids YAML parse errors from embedded heredocs (colons / multiline).
+              export SCHEDULED_UTC_HOUR="${scheduled_utc_hour}"
+              uk_hour="$(python3 -c 'import os; from datetime import datetime; from zoneinfo import ZoneInfo; h=int(os.environ["SCHEDULED_UTC_HOUR"]); n=datetime.now(ZoneInfo("UTC")); s=n.replace(hour=h, minute=0, second=0, microsecond=0); print(s.astimezone(ZoneInfo("Europe/London")).strftime("%H"))')"
             fi
           else
             uk_hour="$(TZ=Europe/London date +%H)"
