@@ -39,12 +39,11 @@ function maxOfTwoDates(a: Date | undefined, b: Date | undefined, fallback: Date)
  */
 
 /**
- * ISR (seconds): sitemap regenerates at most once per hour unless revalidated.
- * Reduces Fluid active CPU from bots hammering `/sitemap.xml`. Next.js 16 requires a **numeric literal**
- * here (not `process.env`); change this value if you want a different TTL, and align `next.config.ts`
- * `Cache-Control` for `/sitemap.xml` if you adjust duration.
+ * ISR (seconds): full sitemap build runs at most once per day on revalidation.
+ * Next.js 16 requires a numeric literal here. Avoid duplicating Cache-Control in `next.config.ts` for
+ * `/sitemap.xml` — custom headers can conflict with Next/Vercel ISR and increase origin CPU (Fluid).
  */
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
