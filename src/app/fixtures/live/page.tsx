@@ -137,6 +137,8 @@ function isFixtureLive(fixture: FixtureSummary, now: Date): boolean {
 type LiveScore = {
   homeGoals: number;
   awayGoals: number;
+  penaltyHome: number | null;
+  penaltyAway: number | null;
   elapsedMinutes: number | null;
   statusShort: string;
 };
@@ -153,6 +155,8 @@ export default async function LiveFixturesPage() {
     scoresByFixtureId.set(s.fixtureId, {
       homeGoals: s.homeGoals,
       awayGoals: s.awayGoals,
+      penaltyHome: s.penaltyHome,
+      penaltyAway: s.penaltyAway,
       elapsedMinutes: s.elapsedMinutes,
       statusShort: s.statusShort,
     });

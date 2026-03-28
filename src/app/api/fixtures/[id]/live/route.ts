@@ -54,12 +54,32 @@ function liveBody(
     live: true;
     homeGoals: number;
     awayGoals: number;
+    penaltyHome: number | null;
+    penaltyAway: number | null;
     elapsedMinutes: number | null;
     statusShort: string;
   },
   matchStats: { home: MatchStatsSnapshot; away: MatchStatsSnapshot } | undefined,
 ) {
   return matchStats != null ? { ...base, matchStats } : base;
+}
+
+function liveCacheWritePayload(result: {
+  homeGoals: number;
+  awayGoals: number;
+  penaltyHome: number | null;
+  penaltyAway: number | null;
+  elapsedMinutes: number | null;
+  statusShort: string;
+}) {
+  return {
+    homeGoals: result.homeGoals,
+    awayGoals: result.awayGoals,
+    penaltyHome: result.penaltyHome,
+    penaltyAway: result.penaltyAway,
+    elapsedMinutes: result.elapsedMinutes,
+    statusShort: result.statusShort,
+  };
 }
 
 export async function GET(_request: Request, { params }: RouteParams) {
@@ -96,7 +116,15 @@ export async function GET(_request: Request, { params }: RouteParams) {
       const preMatchStart = new Date(kickoff.getTime() - PRE_MATCH_WINDOW_MS);
       if (now >= preMatchStart) {
         return NextResponse.json(
-          { live: true, homeGoals: 0, awayGoals: 0, elapsedMinutes: null, statusShort: "Pre" },
+          {
+            live: true,
+            homeGoals: 0,
+            awayGoals: 0,
+            penaltyHome: null,
+            penaltyAway: null,
+            elapsedMinutes: null,
+            statusShort: "Pre",
+          },
           { headers: { "Cache-Control": "public, max-age=60" } },
         );
       }
@@ -121,6 +149,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
             live: true,
             homeGoals: cached.homeGoals,
             awayGoals: cached.awayGoals,
+            penaltyHome: cached.penaltyHome ?? null,
+            penaltyAway: cached.penaltyAway ?? null,
             elapsedMinutes: cached.elapsedMinutes,
             statusShort: cached.statusShort,
           },
@@ -140,6 +170,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
             live: true,
             homeGoals: cached.homeGoals,
             awayGoals: cached.awayGoals,
+            penaltyHome: cached.penaltyHome ?? null,
+            penaltyAway: cached.penaltyAway ?? null,
             elapsedMinutes: cached.elapsedMinutes,
             statusShort: cached.statusShort,
           },
@@ -156,6 +188,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
             live: true,
             homeGoals: 0,
             awayGoals: 0,
+            penaltyHome: null,
+            penaltyAway: null,
             elapsedMinutes: null,
             statusShort: "?",
           },
@@ -179,18 +213,12 @@ export async function GET(_request: Request, { params }: RouteParams) {
               where: { fixtureId },
               create: {
                 fixtureId,
-                homeGoals: result.homeGoals,
-                awayGoals: result.awayGoals,
-                elapsedMinutes: result.elapsedMinutes,
-                statusShort: result.statusShort,
                 cachedAt: now,
+                ...liveCacheWritePayload(result),
               },
               update: {
-                homeGoals: result.homeGoals,
-                awayGoals: result.awayGoals,
-                elapsedMinutes: result.elapsedMinutes,
-                statusShort: result.statusShort,
                 cachedAt: now,
+                ...liveCacheWritePayload(result),
               },
             });
             const matchStats = await matchStatsForResponse(fixture, now, true);
@@ -200,6 +228,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
                   live: true,
                   homeGoals: result.homeGoals,
                   awayGoals: result.awayGoals,
+                  penaltyHome: result.penaltyHome,
+                  penaltyAway: result.penaltyAway,
                   elapsedMinutes: result.elapsedMinutes,
                   statusShort: result.statusShort,
                 },
@@ -221,6 +251,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
               live: true,
               homeGoals: cached.homeGoals,
               awayGoals: cached.awayGoals,
+              penaltyHome: cached.penaltyHome ?? null,
+              penaltyAway: cached.penaltyAway ?? null,
               elapsedMinutes: null,
               statusShort: isMatchEnded(cached.statusShort) ? cached.statusShort : "FT",
             },
@@ -237,18 +269,12 @@ export async function GET(_request: Request, { params }: RouteParams) {
             where: { fixtureId },
             create: {
               fixtureId,
-              homeGoals: result.homeGoals,
-              awayGoals: result.awayGoals,
-              elapsedMinutes: result.elapsedMinutes,
-              statusShort: result.statusShort,
               cachedAt: now,
+              ...liveCacheWritePayload(result),
             },
             update: {
-              homeGoals: result.homeGoals,
-              awayGoals: result.awayGoals,
-              elapsedMinutes: result.elapsedMinutes,
-              statusShort: result.statusShort,
               cachedAt: now,
+              ...liveCacheWritePayload(result),
             },
           });
           const matchStats = await matchStatsForResponse(fixture, now, true);
@@ -258,6 +284,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
                 live: true,
                 homeGoals: result.homeGoals,
                 awayGoals: result.awayGoals,
+                penaltyHome: result.penaltyHome,
+                penaltyAway: result.penaltyAway,
                 elapsedMinutes: result.elapsedMinutes,
                 statusShort: result.statusShort,
               },
@@ -275,6 +303,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
             live: true,
             homeGoals: 0,
             awayGoals: 0,
+            penaltyHome: null,
+            penaltyAway: null,
             elapsedMinutes: null,
             statusShort: "FT",
           },
@@ -293,6 +323,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
               live: true,
               homeGoals: 0,
               awayGoals: 0,
+              penaltyHome: null,
+              penaltyAway: null,
               elapsedMinutes: null,
               statusShort: "?",
             },
@@ -306,18 +338,12 @@ export async function GET(_request: Request, { params }: RouteParams) {
         where: { fixtureId },
         create: {
           fixtureId,
-          homeGoals: result.homeGoals,
-          awayGoals: result.awayGoals,
-          elapsedMinutes: result.elapsedMinutes,
-          statusShort: result.statusShort,
           cachedAt: now,
+          ...liveCacheWritePayload(result),
         },
         update: {
-          homeGoals: result.homeGoals,
-          awayGoals: result.awayGoals,
-          elapsedMinutes: result.elapsedMinutes,
-          statusShort: result.statusShort,
           cachedAt: now,
+          ...liveCacheWritePayload(result),
         },
       });
 
@@ -329,6 +355,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
             live: true,
             homeGoals: result.homeGoals,
             awayGoals: result.awayGoals,
+            penaltyHome: result.penaltyHome,
+            penaltyAway: result.penaltyAway,
             elapsedMinutes: result.elapsedMinutes,
             statusShort: result.statusShort,
           },
@@ -346,6 +374,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
               live: true,
               homeGoals: cached.homeGoals,
               awayGoals: cached.awayGoals,
+              penaltyHome: cached.penaltyHome ?? null,
+              penaltyAway: cached.penaltyAway ?? null,
               elapsedMinutes: cached.elapsedMinutes,
               statusShort: cached.statusShort,
             },
@@ -361,6 +391,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
               live: true,
               homeGoals: 0,
               awayGoals: 0,
+              penaltyHome: null,
+              penaltyAway: null,
               elapsedMinutes: null,
               statusShort: "?",
             },

@@ -236,6 +236,9 @@ model LiveScoreCache {
   fixtureId      Int      @id
   homeGoals      Int      @default(0)
   awayGoals      Int      @default(0)
+  /** Shootout score when status is PEN (API-Football `score.penalty`). */
+  penaltyHome    Int?
+  penaltyAway    Int?
   elapsedMinutes Int?
   statusShort    String   @default("?")
   cachedAt       DateTime @default(now())

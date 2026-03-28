@@ -46,6 +46,9 @@ export type PastFixtureScore = {
   homeGoals: number;
   awayGoals: number;
   statusShort: string;
+  /** API-Football `score.penalty` when match ended PEN */
+  penaltyHome?: number | null;
+  penaltyAway?: number | null;
 };
 
 function statusLabel(short: string): string {
@@ -109,13 +112,34 @@ export function PastFixtureView({ fixture, score, stats, matchStats }: Props) {
             </span>
             <TeamCrestOrShirt crestUrl={homeCrest} alt={homeName} />
           </div>
-          <div className="flex shrink-0 items-center justify-center">
+          <div className="flex shrink-0 flex-col items-center justify-center gap-1">
             {score != null ? (
-              <span className="text-center text-2xl font-bold tabular-nums text-neutral-900 dark:text-neutral-50 sm:min-w-[6rem] sm:text-4xl">
-                {score.homeGoals}
-                <span className="mx-1 text-neutral-300 dark:text-neutral-600 sm:mx-1.5">–</span>
-                {score.awayGoals}
-              </span>
+              <>
+                <span className="text-center text-2xl font-bold tabular-nums text-neutral-900 dark:text-neutral-50 sm:min-w-[6rem] sm:text-4xl">
+                  {score.homeGoals}
+                  <span className="mx-1 text-neutral-300 dark:text-neutral-600 sm:mx-1.5">–</span>
+                  {score.awayGoals}
+                </span>
+                {score.statusShort === "PEN" &&
+                score.penaltyHome != null &&
+                score.penaltyAway != null ? (
+                  <p className="max-w-[min(100%,20rem)] text-center text-xs font-medium text-neutral-600 dark:text-neutral-400 sm:text-sm">
+                    Penalties{" "}
+                    <span className="tabular-nums">
+                      {score.penaltyHome}–{score.penaltyAway}
+                    </span>
+                    {score.penaltyHome > score.penaltyAway
+                      ? ` · ${homeName} won`
+                      : score.penaltyAway > score.penaltyHome
+                        ? ` · ${awayName} won`
+                        : ""}
+                  </p>
+                ) : score.statusShort === "PEN" ? (
+                  <p className="text-center text-xs text-neutral-500 dark:text-neutral-400 sm:text-sm">
+                    Decided on penalties (shootout score not available).
+                  </p>
+                ) : null}
+              </>
             ) : (
               <span className="text-center text-xl font-medium tabular-nums text-neutral-400 dark:text-neutral-500 sm:min-w-[6rem] sm:text-2xl">
                 –

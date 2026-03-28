@@ -23,6 +23,8 @@ export type LiveScoreEntry = {
   fixtureId: number;
   homeGoals: number;
   awayGoals: number;
+  penaltyHome: number | null;
+  penaltyAway: number | null;
   elapsedMinutes: number | null;
   statusShort: string;
 };
@@ -75,7 +77,16 @@ export async function getLiveScoresForToday(): Promise<{
   // If we already have fresh cache for every in-window fixture, serve from DB only (no external API).
   const existingCache = await prisma.liveScoreCache.findMany({
     where: { fixtureId: { in: liveFixtureIds } },
-    select: { fixtureId: true, homeGoals: true, awayGoals: true, elapsedMinutes: true, statusShort: true, cachedAt: true },
+    select: {
+      fixtureId: true,
+      homeGoals: true,
+      awayGoals: true,
+      penaltyHome: true,
+      penaltyAway: true,
+      elapsedMinutes: true,
+      statusShort: true,
+      cachedAt: true,
+    },
   });
   const cacheByFixtureId = new Map(existingCache.map((r) => [r.fixtureId, r]));
   const allHaveFreshCache =
@@ -98,6 +109,8 @@ export async function getLiveScoresForToday(): Promise<{
           fixtureId,
           homeGoals: row.homeGoals,
           awayGoals: row.awayGoals,
+          penaltyHome: row.penaltyHome ?? null,
+          penaltyAway: row.penaltyAway ?? null,
           elapsedMinutes: row.elapsedMinutes,
           statusShort: row.statusShort,
         };
@@ -106,7 +119,7 @@ export async function getLiveScoresForToday(): Promise<{
     return { scores };
   }
 
-  let apiLive: { apiId: number; homeGoals: number; awayGoals: number; elapsedMinutes: number | null; statusShort: string }[] = [];
+  let apiLive: Awaited<ReturnType<typeof fetchAllLiveFixtures>> = [];
   try {
     apiLive = await fetchAllLiveFixtures();
   } catch (err) {
@@ -117,6 +130,8 @@ export async function getLiveScoresForToday(): Promise<{
         fixtureId: r.fixtureId,
         homeGoals: r.homeGoals,
         awayGoals: r.awayGoals,
+        penaltyHome: r.penaltyHome ?? null,
+        penaltyAway: r.penaltyAway ?? null,
         elapsedMinutes: r.elapsedMinutes,
         statusShort: r.statusShort,
       }));
@@ -145,6 +160,8 @@ export async function getLiveScoresForToday(): Promise<{
       fixtureId: f.id,
       homeGoals: data.homeGoals,
       awayGoals: data.awayGoals,
+      penaltyHome: data.penaltyHome,
+      penaltyAway: data.penaltyAway,
       elapsedMinutes: data.elapsedMinutes,
       statusShort: data.statusShort,
     });
@@ -161,6 +178,8 @@ export async function getLiveScoresForToday(): Promise<{
             fixtureId,
             homeGoals: data.homeGoals,
             awayGoals: data.awayGoals,
+            penaltyHome: data.penaltyHome,
+            penaltyAway: data.penaltyAway,
             elapsedMinutes: data.elapsedMinutes,
             statusShort: data.statusShort,
             cachedAt: nowDate,
@@ -168,6 +187,8 @@ export async function getLiveScoresForToday(): Promise<{
           update: {
             homeGoals: data.homeGoals,
             awayGoals: data.awayGoals,
+            penaltyHome: data.penaltyHome,
+            penaltyAway: data.penaltyAway,
             elapsedMinutes: data.elapsedMinutes,
             statusShort: data.statusShort,
             cachedAt: nowDate,

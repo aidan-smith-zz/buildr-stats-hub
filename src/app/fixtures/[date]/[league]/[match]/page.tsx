@@ -836,6 +836,8 @@ export default async function FixtureMatchPage({
             homeGoals: fixtureWithScore.liveScoreCache.homeGoals,
             awayGoals: fixtureWithScore.liveScoreCache.awayGoals,
             statusShort: fixtureWithScore.liveScoreCache.statusShort,
+            penaltyHome: fixtureWithScore.liveScoreCache.penaltyHome ?? null,
+            penaltyAway: fixtureWithScore.liveScoreCache.penaltyAway ?? null,
           }
         : null;
     // For past fixtures: fetch final score from API when cache is missing or not finished (e.g. stale live score from during the match).
@@ -853,6 +855,8 @@ export default async function FixtureMatchPage({
               fixtureId: warmedFixture.id,
               homeGoals: result.homeGoals,
               awayGoals: result.awayGoals,
+              penaltyHome: result.penaltyHome,
+              penaltyAway: result.penaltyAway,
               elapsedMinutes: result.elapsedMinutes,
               statusShort: result.statusShort,
               cachedAt: now,
@@ -860,6 +864,8 @@ export default async function FixtureMatchPage({
             update: {
               homeGoals: result.homeGoals,
               awayGoals: result.awayGoals,
+              penaltyHome: result.penaltyHome,
+              penaltyAway: result.penaltyAway,
               elapsedMinutes: result.elapsedMinutes,
               statusShort: result.statusShort,
               cachedAt: now,
@@ -869,6 +875,8 @@ export default async function FixtureMatchPage({
             homeGoals: result.homeGoals,
             awayGoals: result.awayGoals,
             statusShort: result.statusShort,
+            penaltyHome: result.penaltyHome,
+            penaltyAway: result.penaltyAway,
           };
         }
       } catch {

@@ -824,9 +824,24 @@ type ApiFootballFixtureById = {
     status: { short: string; long?: string; elapsed?: number | null };
   };
   goals?: { home: number | null; away: number | null };
+  /** API-Football: halftime, fulltime, extratime, penalty */
+  score?: {
+    penalty?: { home?: number | null; away?: number | null };
+    fulltime?: { home?: number | null; away?: number | null };
+    extratime?: { home?: number | null; away?: number | null };
+  };
   league?: unknown;
   teams?: { home?: { id?: number }; away?: { id?: number } };
 };
+
+function penaltyScoresFromFixture(data: ApiFootballFixtureById): { home: number; away: number } | null {
+  const p = data.score?.penalty;
+  if (p == null) return null;
+  const h = p.home != null ? Number(p.home) : NaN;
+  const a = p.away != null ? Number(p.away) : NaN;
+  if (!Number.isFinite(h) || !Number.isFinite(a)) return null;
+  return { home: h, away: a };
+}
 
 /** Result of fetching a single fixture by id: goals and team ids for computing per-team goals. */
 export type FixtureScoreWithTeams = {
@@ -858,6 +873,9 @@ export async function fetchFixtureScoreWithTeams(
 export type LiveFixtureResult = {
   homeGoals: number;
   awayGoals: number;
+  /** Shootout score when match ended PEN; null if not applicable or API omitted. */
+  penaltyHome: number | null;
+  penaltyAway: number | null;
   elapsedMinutes: number | null;
   statusShort: string;
 };
@@ -893,9 +911,12 @@ export async function fetchLiveFixture(
   const homeGoals = goals?.home != null ? Number(goals.home) : 0;
   const awayGoals = goals?.away != null ? Number(goals.away) : 0;
   const elapsedMinutes = status?.elapsed != null ? Number(status.elapsed) : null;
+  const pens = penaltyScoresFromFixture(data);
   return {
     homeGoals,
     awayGoals,
+    penaltyHome: pens?.home ?? null,
+    penaltyAway: pens?.away ?? null,
     elapsedMinutes,
     statusShort: status?.short ?? "?",
   };
@@ -906,7 +927,15 @@ export async function fetchLiveFixture(
  * GET /fixtures?live=all
  */
 export async function fetchAllLiveFixtures(): Promise<
-  { apiId: number; homeGoals: number; awayGoals: number; elapsedMinutes: number | null; statusShort: string }[]
+  {
+    apiId: number;
+    homeGoals: number;
+    awayGoals: number;
+    penaltyHome: number | null;
+    penaltyAway: number | null;
+    elapsedMinutes: number | null;
+    statusShort: string;
+  }[]
 > {
   const path = "/fixtures";
   const raw = await request<ApiFootballFixtureById>(path, { live: "all" });
@@ -924,10 +953,13 @@ export async function fetchAllLiveFixtures(): Promise<
     const elapsedMinutes = status?.elapsed != null ? Number(status.elapsed) : null;
     const idRaw = data.fixture?.id ?? (data as { id?: number }).id;
     const apiId = idRaw != null ? Number(idRaw) : 0;
+    const pens = penaltyScoresFromFixture(data);
     return {
       apiId,
       homeGoals,
       awayGoals,
+      penaltyHome: pens?.home ?? null,
+      penaltyAway: pens?.away ?? null,
       elapsedMinutes,
       statusShort: status?.short ?? "?",
     };
