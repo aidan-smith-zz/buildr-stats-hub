@@ -38,8 +38,13 @@ function maxOfTwoDates(a: Date | undefined, b: Date | undefined, fallback: Date)
  * - /predictions, /predictions/[date], /predictions/[date]/btts|total-goals|corners|cards (today + next 13 days)
  */
 
-/** Regenerate every request so URLs reflect latest fixtures (literal `0` required for static analysis in Next.js 16+). */
-export const revalidate = 0;
+/**
+ * ISR (seconds): sitemap regenerates at most once per hour unless revalidated.
+ * Reduces Fluid active CPU from bots hammering `/sitemap.xml`. Next.js 16 requires a **numeric literal**
+ * here (not `process.env`); change this value if you want a different TTL, and align `next.config.ts`
+ * `Cache-Control` for `/sitemap.xml` if you adjust duration.
+ */
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
