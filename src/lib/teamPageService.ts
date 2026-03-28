@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { API_SEASON } from "@/lib/footballApi";
@@ -368,12 +369,20 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
   };
 }
 
+/** One findMany per day for all slug resolutions (not one per unique slug on cold cache). */
+const getTeamsMinimalForSlugLookup = unstable_cache(
+  async () =>
+    prisma.team.findMany({
+      select: { id: true, name: true, shortName: true },
+    }),
+  ["teams-minimal-slug-lookup"],
+  { revalidate: 60 * 60 * 24, tags: ["team-page"] },
+);
+
 const resolveTeamIdByNormalizedSlug = unstable_cache(
   async (slug: string) => {
     const slugCandidates = new Set([slug, ...(TEAM_SLUG_ALIASES[slug] ?? [])]);
-    const teams = await prisma.team.findMany({
-      select: { id: true, name: true, shortName: true },
-    });
+    const teams = await getTeamsMinimalForSlugLookup();
     if (!teams.length) return null;
     const matches = teams.filter((team) => {
       const nameSlug = normalizeTeamSlug(makeTeamSlug(team.name));
@@ -388,24 +397,34 @@ const resolveTeamIdByNormalizedSlug = unstable_cache(
   { revalidate: 60 * 60 * 24, tags: ["team-page"] },
 );
 
-/** Resolve team id from URL slug (e.g. "vfb-stuttgart"). Returns null if not found. */
-export async function getTeamIdBySlug(rawSlug: string): Promise<number | null> {
+async function getTeamIdBySlugUncached(rawSlug: string): Promise<number | null> {
   const slug = normalizeTeamSlug(rawSlug);
   if (!slug) return null;
   return resolveTeamIdByNormalizedSlug(slug);
 }
 
+/** Resolve team id from URL slug (e.g. "vfb-stuttgart"). Returns null if not found. */
+export const getTeamIdBySlug = cache(getTeamIdBySlugUncached);
+
+const loadTeamIdentityById = unstable_cache(
+  async (teamId: number) => {
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      select: { id: true, name: true, shortName: true },
+    });
+    if (!team) return null;
+    return {
+      id: team.id,
+      name: team.name,
+      shortName: team.shortName ?? null,
+    };
+  },
+  ["team-identity-by-id"],
+  { revalidate: 60 * 60 * 24, tags: ["team-page"] },
+);
+
 export async function getTeamIdentityById(teamId: number): Promise<TeamIdentity | null> {
-  const team = await prisma.team.findUnique({
-    where: { id: teamId },
-    select: { id: true, name: true, shortName: true },
-  });
-  if (!team) return null;
-  return {
-    id: team.id,
-    name: team.name,
-    shortName: team.shortName ?? null,
-  };
+  return loadTeamIdentityById(teamId);
 }
 
 export const getTeamPageData = unstable_cache(

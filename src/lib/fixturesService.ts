@@ -427,27 +427,32 @@ export async function getTodayFixturesFromDbOnly(now: Date = new Date()): Promis
   return rows.map(mapFixtureToSummary);
 }
 
+async function fetchFixturesForDateFromDb(dateKey: string): Promise<FixtureSummary[]> {
+  const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
+  const rows = await withPoolRetry(() =>
+    prisma.fixture.findMany({
+      where: { date: { gte: dayStart, lte: spilloverEnd } },
+      orderBy: { date: "asc" },
+      include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
+    }),
+  );
+  return rows.map(mapFixtureToSummary);
+}
+
 /**
  * Return fixtures for a given date (YYYY-MM-DD) from DB only. Used to show full stats for
  * warmed upcoming fixtures (e.g. tomorrow after warm-tomorrow). No API calls, no materialization.
- * Cached 60s (stale-while-revalidate) to reduce DB load under traffic.
+ * Cache TTL by bucket: past dates 1h (crawler-heavy, data stable), future 5m, today 60s.
  */
 export async function getFixturesForDateFromDbOnly(dateKey: string): Promise<FixtureSummary[]> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return [];
+  const today = getTodayDateKey();
+  const bucket = dateKey < today ? "past" : dateKey > today ? "future" : "today";
+  const revalidate = bucket === "past" ? 3600 : bucket === "future" ? 300 : 60;
   return unstable_cache(
-    async () => {
-      const { dayStart, spilloverEnd } = dayBoundsUtc(dateKey);
-      const rows = await withPoolRetry(() =>
-        prisma.fixture.findMany({
-          where: { date: { gte: dayStart, lte: spilloverEnd } },
-          orderBy: { date: "asc" },
-          include: { homeTeam: true, awayTeam: true, liveScoreCache: true },
-        }),
-      );
-      return rows.map(mapFixtureToSummary);
-    },
-    ["fixtures-date", dateKey],
-    { revalidate: 60 }
+    async () => fetchFixturesForDateFromDb(dateKey),
+    ["fixtures-date", dateKey, bucket],
+    { revalidate },
   )();
 }
 

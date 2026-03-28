@@ -3,7 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { getTeamIdBySlug, getTeamIdentityById, getTeamPageData, type TeamPageData } from "@/lib/teamPageService";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { LEAGUE_DISPLAY_NAMES, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
-import { getOrRefreshStandings, type StandingsData } from "@/lib/standingsService";
+import { getOrRefreshStandingsForTeamPage, type StandingsData } from "@/lib/standingsService";
 import { makeTeamSlug, normalizeTeamSlug } from "@/lib/teamSlugs";
 import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import { TeamPlayersTable } from "./TeamPlayersTable";
@@ -16,8 +16,8 @@ type RouteParams = {
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
-/** ISR: repeat crawler hits serve from CDN; data layer uses unstable_cache as well. */
-export const revalidate = 3600;
+/** ISR: align with getTeamPageData (24h) so crawlers mostly hit CDN. */
+export const revalidate = 86400;
 
 function leagueSlugForName(name: string): string | null {
   for (const [id, displayName] of Object.entries(LEAGUE_DISPLAY_NAMES)) {
@@ -99,7 +99,7 @@ export default async function TeamPage({ params }: RouteParams) {
   );
   const leagueId = leagueIdEntry ? Number(leagueIdEntry[0]) : undefined;
   const standings: StandingsData | null =
-    leagueId !== undefined ? await getOrRefreshStandings(leagueId) : null;
+    leagueId !== undefined ? await getOrRefreshStandingsForTeamPage(leagueId) : null;
 
   return <TeamPageView data={data} slug={canonicalSlug} standings={standings} />;
 }

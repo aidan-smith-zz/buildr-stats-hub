@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { fetchStandings, API_SEASON, type StandingsResponseItem } from "@/lib/footballApi";
 
@@ -160,3 +161,13 @@ export async function getOrRefreshStandings(
     return null;
   }
 }
+
+/**
+ * Next.js Data Cache layer for team pages: avoids repeated DB parse + getOrRefreshStandings work
+ * on crawler bursts (standings table on team hub). Table page still uses getOrRefreshStandings directly.
+ */
+export const getOrRefreshStandingsForTeamPage = unstable_cache(
+  async (leagueId: number) => getOrRefreshStandings(leagueId, API_SEASON),
+  ["standings-team-page-embed"],
+  { revalidate: 3600, tags: ["standings"] },
+);
