@@ -368,25 +368,31 @@ async function loadTeamPageData(teamId: number): Promise<TeamPageData | null> {
   };
 }
 
+const resolveTeamIdByNormalizedSlug = unstable_cache(
+  async (slug: string) => {
+    const slugCandidates = new Set([slug, ...(TEAM_SLUG_ALIASES[slug] ?? [])]);
+    const teams = await prisma.team.findMany({
+      select: { id: true, name: true, shortName: true },
+    });
+    if (!teams.length) return null;
+    const matches = teams.filter((team) => {
+      const nameSlug = normalizeTeamSlug(makeTeamSlug(team.name));
+      const shortSlug = team.shortName ? normalizeTeamSlug(team.shortName) : null;
+      return slugCandidates.has(nameSlug) || (shortSlug != null && slugCandidates.has(shortSlug));
+    });
+    if (!matches.length) return null;
+    matches.sort((a, b) => a.name.localeCompare(b.name));
+    return matches[0].id;
+  },
+  ["team-id-by-slug"],
+  { revalidate: 60 * 60 * 24, tags: ["team-page"] },
+);
+
 /** Resolve team id from URL slug (e.g. "vfb-stuttgart"). Returns null if not found. */
 export async function getTeamIdBySlug(rawSlug: string): Promise<number | null> {
   const slug = normalizeTeamSlug(rawSlug);
   if (!slug) return null;
-  const slugCandidates = new Set([slug, ...(TEAM_SLUG_ALIASES[slug] ?? [])]);
-
-  const teams = await prisma.team.findMany({
-    select: { id: true, name: true, shortName: true },
-  });
-  if (!teams.length) return null;
-
-  const matches = teams.filter((team) => {
-    const nameSlug = normalizeTeamSlug(makeTeamSlug(team.name));
-    const shortSlug = team.shortName ? normalizeTeamSlug(team.shortName) : null;
-    return slugCandidates.has(nameSlug) || (shortSlug != null && slugCandidates.has(shortSlug));
-  });
-  if (!matches.length) return null;
-  matches.sort((a, b) => a.name.localeCompare(b.name));
-  return matches[0].id;
+  return resolveTeamIdByNormalizedSlug(slug);
 }
 
 export async function getTeamIdentityById(teamId: number): Promise<TeamIdentity | null> {
@@ -421,32 +427,40 @@ export type TeamUpcomingFixture = {
   isHome: boolean;
 };
 
+const loadTeamUpcomingFixtures = unstable_cache(
+  async (teamId: number) => {
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      select: { apiId: true },
+    });
+    if (!team?.apiId) return [];
+    const today = todayDateKey();
+    const rows = await prisma.upcomingFixture.findMany({
+      where: {
+        dateKey: { gte: today },
+        OR: [{ homeTeamApiId: team.apiId }, { awayTeamApiId: team.apiId }],
+      },
+      orderBy: [{ dateKey: "asc" }, { kickoff: "asc" }],
+      take: 5,
+    });
+    return rows.map((r) => {
+      const isHome = r.homeTeamApiId === team.apiId;
+      const opponentName = isHome ? (r.awayTeamShortName ?? r.awayTeamName) : (r.homeTeamShortName ?? r.homeTeamName);
+      return {
+        dateKey: r.dateKey,
+        kickoff: r.kickoff instanceof Date ? r.kickoff.toISOString() : new Date(r.kickoff).toISOString(),
+        league: r.league ?? null,
+        opponentName,
+        isHome,
+      };
+    });
+  },
+  ["team-upcoming-fixtures"],
+  { revalidate: 15 * 60, tags: ["team-page"] },
+);
+
 /** Upcoming fixtures for this team (from UpcomingFixture table, next 14 days). For market pages. */
 export async function getTeamUpcomingFixtures(teamId: number): Promise<TeamUpcomingFixture[]> {
-  const team = await prisma.team.findUnique({
-    where: { id: teamId },
-    select: { apiId: true },
-  });
-  if (!team?.apiId) return [];
-  const today = todayDateKey();
-  const rows = await prisma.upcomingFixture.findMany({
-    where: {
-      dateKey: { gte: today },
-      OR: [{ homeTeamApiId: team.apiId }, { awayTeamApiId: team.apiId }],
-    },
-    orderBy: [{ dateKey: "asc" }, { kickoff: "asc" }],
-    take: 5,
-  });
-  return rows.map((r) => {
-    const isHome = r.homeTeamApiId === team.apiId;
-    const opponentName = isHome ? (r.awayTeamShortName ?? r.awayTeamName) : (r.homeTeamShortName ?? r.homeTeamName);
-    return {
-      dateKey: r.dateKey,
-      kickoff: r.kickoff instanceof Date ? r.kickoff.toISOString() : new Date(r.kickoff).toISOString(),
-      league: r.league ?? null,
-      opponentName,
-      isHome,
-    };
-  });
+  return loadTeamUpcomingFixtures(teamId);
 }
 

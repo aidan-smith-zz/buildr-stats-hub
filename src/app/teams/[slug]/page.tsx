@@ -16,6 +16,9 @@ type RouteParams = {
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
+/** ISR: repeat crawler hits serve from CDN; data layer uses unstable_cache as well. */
+export const revalidate = 3600;
+
 function leagueSlugForName(name: string): string | null {
   for (const [id, displayName] of Object.entries(LEAGUE_DISPLAY_NAMES)) {
     if (displayName === name) {

@@ -9,6 +9,8 @@ import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
+export const revalidate = 3600;
+
 type RouteParams = { params: Promise<{ slug: string }> };
 
 function formatDate(iso: string): string {
