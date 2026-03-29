@@ -7,7 +7,7 @@ import {
   TOP_LEAGUE_IDS,
   standingsSlugToLeagueId,
 } from "@/lib/leagues";
-import { todayDateKey } from "@/lib/slugs";
+import { fixtureDateKey, leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import { getLeagueCrestUrl } from "@/lib/crestsService";
 import { getOrRefreshStandings } from "@/lib/standingsService";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
@@ -119,6 +119,7 @@ type TournamentFixtureCard = {
   awayTeamApiId: string | null;
   kickoff: Date;
   status: string;
+  league: string | null;
   homeTeam: string;
   awayTeam: string;
   homeCrestUrl: string | null;
@@ -140,6 +141,8 @@ type KnockoutSlot = {
   homeGoals: number | null;
   awayGoals: number | null;
   isPlaceholder: boolean;
+  /** Populated fixtures link to the match dashboard. */
+  matchHref: string | null;
 };
 
 type PlayoffPod = {
@@ -221,6 +224,66 @@ function TournamentTeamLine({
   );
 }
 
+function WorldCupKnockoutSlotRow({ slot, title }: { slot: KnockoutSlot; title: string }) {
+  const filled = !slot.isPlaceholder;
+  const shellMuted =
+    "border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500";
+  const shellActive =
+    "border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900";
+  const shellClass = slot.isPlaceholder ? shellMuted : shellActive;
+
+  const body = (
+    <>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{title}</p>
+      {slot.kickoff ? (
+        <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+          {formatTournamentKickoff(slot.kickoff)} · {slot.status}
+        </p>
+      ) : (
+        <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+          Awaiting fixture
+        </p>
+      )}
+      <TournamentTeamLine
+        homeTeam={slot.homeTeam}
+        awayTeam={slot.awayTeam}
+        homeCrestUrl={slot.homeCrestUrl}
+        awayCrestUrl={slot.awayCrestUrl}
+        muted={slot.isPlaceholder}
+      />
+      {slot.homeGoals != null && slot.awayGoals != null ? (
+        <p className="mt-0.5 text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
+          Score: {slot.homeGoals}-{slot.awayGoals}
+        </p>
+      ) : null}
+      {filled && slot.matchHref ? (
+        <p className="mt-1.5 text-[11px] font-semibold text-violet-600 dark:text-violet-400">Open match dashboard →</p>
+      ) : null}
+    </>
+  );
+
+  if (filled && slot.matchHref) {
+    return (
+      <li>
+        <NavLinkWithOverlay
+          href={slot.matchHref}
+          className={`block rounded-md border px-2 py-2 no-underline transition hover:border-violet-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 dark:hover:border-violet-600 ${shellClass}`}
+          message="Opening match…"
+          italic={false}
+        >
+          {body}
+        </NavLinkWithOverlay>
+      </li>
+    );
+  }
+
+  return (
+    <li className={`rounded-md border px-2 py-2 ${shellClass}`}>
+      {body}
+    </li>
+  );
+}
+
 function isCompletedFixtureStatus(status: string | null | undefined): boolean {
   if (!status) return false;
   const s = status.toUpperCase();
@@ -231,6 +294,15 @@ function isLiveFixtureStatus(status: string | null | undefined): boolean {
   if (!status) return false;
   const s = status.toUpperCase();
   return s === "1H" || s === "2H" || s === "HT" || s === "ET" || s === "BT" || s === "P";
+}
+
+function worldCupPlayoffMatchHref(fixture: TournamentFixtureCard): string | null {
+  if (!fixture.kickoff || Number.isNaN(fixture.kickoff.getTime())) return null;
+  const leagueLabel = fixture.league ?? LEAGUE_DISPLAY_NAMES[WORLD_CUP_LEAGUE_ID];
+  const dateKey = fixtureDateKey(fixture.kickoff);
+  const leagueSlug = leagueToSlug(leagueLabel);
+  const m = matchSlug(fixture.homeTeam, fixture.awayTeam);
+  return `/fixtures/${dateKey}/${leagueSlug}/${m}`;
 }
 
 function buildPlayoffPods(fixtures: TournamentFixtureCard[]): PlayoffPod[] {
@@ -254,6 +326,7 @@ function buildPlayoffPods(fixtures: TournamentFixtureCard[]): PlayoffPod[] {
         homeGoals: fixture.homeGoals,
         awayGoals: fixture.awayGoals,
         isPlaceholder: false,
+        matchHref: worldCupPlayoffMatchHref(fixture),
       };
     }
     return {
@@ -269,6 +342,7 @@ function buildPlayoffPods(fixtures: TournamentFixtureCard[]): PlayoffPod[] {
       homeGoals: null,
       awayGoals: null,
       isPlaceholder: true,
+      matchHref: null,
     };
   }
 
@@ -323,6 +397,7 @@ function buildPlayoffPodsFromRoundMap(
         homeGoals: fixture.homeGoals,
         awayGoals: fixture.awayGoals,
         isPlaceholder: false,
+        matchHref: worldCupPlayoffMatchHref(fixture),
       };
     }
     return {
@@ -338,6 +413,7 @@ function buildPlayoffPodsFromRoundMap(
       homeGoals: null,
       awayGoals: null,
       isPlaceholder: true,
+      matchHref: null,
     };
   }
 
@@ -466,6 +542,7 @@ function buildStandardKnockoutRoundsFromStageBuckets(
     homeGoals: null,
     awayGoals: null,
     isPlaceholder: true,
+    matchHref: null,
   });
   const toLeg = (fx: TournamentFixtureCard, id: string): KnockoutSlot => ({
     id,
@@ -480,6 +557,7 @@ function buildStandardKnockoutRoundsFromStageBuckets(
     homeGoals: fx.homeGoals,
     awayGoals: fx.awayGoals,
     isPlaceholder: false,
+    matchHref: null,
   });
 
   function buildTwoLegRound(
@@ -768,6 +846,7 @@ export default async function LeagueStandingsPage({ params }: Props) {
         awayTeamApiId: row.awayTeam.apiId ?? null,
         kickoff: row.date,
         status: row.status,
+        league: row.league ?? null,
         homeTeam: row.homeTeam.shortName ?? row.homeTeam.name,
         awayTeam: row.awayTeam.shortName ?? row.awayTeam.name,
         homeCrestUrl: row.homeTeam.crestUrl ?? null,
@@ -791,6 +870,7 @@ export default async function LeagueStandingsPage({ params }: Props) {
         awayTeamApiId: row.awayTeamApiId,
         kickoff: row.kickoff,
         status: "NS",
+        league: row.league ?? null,
         homeTeam: row.homeTeamShortName ?? row.homeTeamName,
         awayTeam: row.awayTeamShortName ?? row.awayTeamName,
         homeCrestUrl: crestByApiId.get(row.homeTeamApiId) ?? null,
@@ -867,6 +947,29 @@ export default async function LeagueStandingsPage({ params }: Props) {
         knockoutRounds = buildStandardKnockoutRoundsFromRoundMap(tournamentFixtures, roundByApiFixtureId);
       }
     }
+  }
+
+  let worldCupSemiSlots: KnockoutSlot[] = [];
+  let worldCupFinalSlots: KnockoutSlot[] = [];
+  let worldCupHasPopulatedFinal = false;
+  if (isWorldCup && playoffPods.length > 0) {
+    worldCupSemiSlots = playoffPods
+      .flatMap((p) => [p.semi1, p.semi2])
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.kickoff?.getTime() ?? Number.POSITIVE_INFINITY) -
+          (b.kickoff?.getTime() ?? Number.POSITIVE_INFINITY),
+      );
+    worldCupFinalSlots = playoffPods
+      .map((p) => p.final)
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.kickoff?.getTime() ?? Number.POSITIVE_INFINITY) -
+          (b.kickoff?.getTime() ?? Number.POSITIVE_INFINITY),
+      );
+    worldCupHasPopulatedFinal = worldCupFinalSlots.some((s) => !s.isPlaceholder);
   }
 
   return (
@@ -951,129 +1054,55 @@ export default async function LeagueStandingsPage({ params }: Props) {
                     Play-off knockout round
                   </h2>
                   <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                    16 teams are split into 4 mini play-off brackets. Each bracket has Semi 1, Semi 2, then a Final; unknown ties stay greyed out.
+                    {worldCupHasPopulatedFinal
+                      ? "Path finals — winners qualify for the World Cup. Semi-finals are complete; open a fixture below for the full match dashboard."
+                      : "16 teams are split into 4 mini play-off brackets. Each bracket has Semi 1, Semi 2, then a Final; unknown ties stay greyed out."}
                   </p>
                   <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                     Progress updates on refresh based on fixture status (pending, live, complete).
                   </p>
                   <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
-                    Quick view: {playoffPods.flatMap((p) => [p.semi1, p.semi2, p.final]).filter((s) => !s.isPlaceholder).length} known fixtures,{" "}
-                    {playoffPods.flatMap((p) => [p.semi1, p.semi2, p.final]).filter((s) => isCompletedFixtureStatus(s.status)).length} completed.
+                    {worldCupHasPopulatedFinal ? (
+                      <>
+                        Quick view: {worldCupFinalSlots.filter((s) => !s.isPlaceholder).length} finals scheduled,{" "}
+                        {worldCupFinalSlots.filter((s) => isCompletedFixtureStatus(s.status)).length} completed.
+                      </>
+                    ) : (
+                      <>
+                        Quick view: {playoffPods.flatMap((p) => [p.semi1, p.semi2, p.final]).filter((s) => !s.isPlaceholder).length}{" "}
+                        known fixtures,{" "}
+                        {playoffPods.flatMap((p) => [p.semi1, p.semi2, p.final]).filter((s) => isCompletedFixtureStatus(s.status)).length}{" "}
+                        completed.
+                      </>
+                    )}
                   </p>
 
                   <div className="mt-3 space-y-4">
-                    {(() => {
-                      const semiSlots = playoffPods
-                        .flatMap((p) => [p.semi1, p.semi2])
-                        .slice()
-                        .sort(
-                          (a, b) =>
-                            (a.kickoff?.getTime() ?? Number.POSITIVE_INFINITY) -
-                            (b.kickoff?.getTime() ?? Number.POSITIVE_INFINITY),
-                        );
-                      const finalSlots = playoffPods
-                        .map((p) => p.final)
-                        .slice()
-                        .sort(
-                          (a, b) =>
-                            (a.kickoff?.getTime() ?? Number.POSITIVE_INFINITY) -
-                            (b.kickoff?.getTime() ?? Number.POSITIVE_INFINITY),
-                        );
+                    {!worldCupHasPopulatedFinal ? (
+                      <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/40">
+                        <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
+                          Semis
+                        </h3>
+                        <ul className="mt-2 space-y-2">
+                          {worldCupSemiSlots.map((slot, i) => (
+                            <WorldCupKnockoutSlotRow key={slot.id} slot={slot} title={`Semi ${i + 1}`} />
+                          ))}
+                        </ul>
+                      </section>
+                    ) : null}
 
-                      const hasAnyFinalDecided = finalSlots.some((s) => !s.isPlaceholder);
-
-                      return (
-                        <>
-                          <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/40">
-                            <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
-                              Semis
-                            </h3>
-                            <ul className="mt-2 space-y-2">
-                              {semiSlots.map((slot, i) => (
-                                <li
-                                  key={slot.id}
-                                  className={`rounded-md border px-2 py-2 ${
-                                    slot.isPlaceholder
-                                      ? "border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500"
-                                      : "border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
-                                  }`}
-                                >
-                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                                    Semi {i + 1}
-                                  </p>
-                                  {slot.kickoff ? (
-                                    <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
-                                      {formatTournamentKickoff(slot.kickoff)} · {slot.status}
-                                    </p>
-                                  ) : (
-                                    <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                                      Awaiting fixture
-                                    </p>
-                                  )}
-                                  <TournamentTeamLine
-                                    homeTeam={slot.homeTeam}
-                                    awayTeam={slot.awayTeam}
-                                    homeCrestUrl={slot.homeCrestUrl}
-                                    awayCrestUrl={slot.awayCrestUrl}
-                                    muted={slot.isPlaceholder}
-                                  />
-                                  {slot.homeGoals != null && slot.awayGoals != null ? (
-                                    <p className="mt-0.5 text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
-                                      Score: {slot.homeGoals}-{slot.awayGoals}
-                                    </p>
-                                  ) : null}
-                                </li>
-                              ))}
-                            </ul>
-                          </section>
-
-                          {hasAnyFinalDecided ? (
-                            <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/40">
-                              <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
-                                Finals
-                              </h3>
-                              <ul className="mt-2 space-y-2">
-                                {finalSlots.map((slot, i) => (
-                                  <li
-                                    key={slot.id}
-                                    className={`rounded-md border px-2 py-2 ${
-                                      slot.isPlaceholder
-                                        ? "border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500"
-                                        : "border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
-                                    }`}
-                                  >
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                                      Final {i + 1}
-                                    </p>
-                                    {slot.kickoff ? (
-                                      <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
-                                        {formatTournamentKickoff(slot.kickoff)} · {slot.status}
-                                      </p>
-                                    ) : (
-                                      <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                                        Awaiting fixture
-                                      </p>
-                                    )}
-                                    <TournamentTeamLine
-                                      homeTeam={slot.homeTeam}
-                                      awayTeam={slot.awayTeam}
-                                      homeCrestUrl={slot.homeCrestUrl}
-                                      awayCrestUrl={slot.awayCrestUrl}
-                                      muted={slot.isPlaceholder}
-                                    />
-                                    {slot.homeGoals != null && slot.awayGoals != null ? (
-                                      <p className="mt-0.5 text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
-                                        Score: {slot.homeGoals}-{slot.awayGoals}
-                                      </p>
-                                    ) : null}
-                                  </li>
-                                ))}
-                              </ul>
-                            </section>
-                          ) : null}
-                        </>
-                      );
-                    })()}
+                    {worldCupHasPopulatedFinal ? (
+                      <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/40">
+                        <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
+                          Finals
+                        </h3>
+                        <ul className="mt-2 space-y-2">
+                          {worldCupFinalSlots.map((slot, i) => (
+                            <WorldCupKnockoutSlotRow key={slot.id} slot={slot} title={`Final ${i + 1}`} />
+                          ))}
+                        </ul>
+                      </section>
+                    ) : null}
                   </div>
                 </section>
               ) : null}
