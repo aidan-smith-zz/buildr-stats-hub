@@ -1,16 +1,10 @@
+# Scheduled warm jobs are PAUSED — run the npm scripts locally (see package.json) or use
+# "Run workflow" in GitHub Actions (workflow_dispatch). To turn hourly automation back on,
+# restore the `schedule:` block below `on:` (copy from git history or from the comment block
+# at the bottom of this file).
 name: Daily Warm Jobs
 
 on:
-  # Run each UTC hour explicitly so github.event.schedule identifies the intended slot.
-  # We then convert that scheduled UTC hour to Europe/London, so queue delays do not
-  # cause command selection to skip.
-  schedule:
-    - cron: "0 1 * * *"
-    - cron: "0 2 * * *"
-    - cron: "0 3 * * *"
-    - cron: "0 4 * * *"
-    - cron: "0 5 * * *"
-    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -161,3 +155,15 @@ jobs:
         run: |
           echo "Running: ${{ steps.pick.outputs.command }}"
           ${{ steps.pick.outputs.command }}
+
+# --- Restore scheduled runs (paste under `on:` above, before `workflow_dispatch:`) ---
+#   # Run each UTC hour explicitly so github.event.schedule identifies the intended slot.
+#   # We then convert that scheduled UTC hour to Europe/London, so queue delays do not
+#   # cause command selection to skip.
+#   schedule:
+#     - cron: "0 1 * * *"
+#     - cron: "0 2 * * *"
+#     - cron: "0 3 * * *"
+#     - cron: "0 4 * * *"
+#     - cron: "0 5 * * *"
+#     - cron: "0 6 * * *"
