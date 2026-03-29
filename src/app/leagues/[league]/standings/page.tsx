@@ -683,6 +683,105 @@ function buildStandardKnockoutRoundsFromStageBuckets(
   ];
 }
 
+/** Tournament order for column sort (low = earlier round, played sooner). */
+function europeanKnockoutStageRank(label: string): number {
+  if (label === "Final") return 4;
+  if (label === "Semi-finals") return 3;
+  if (label === "Quarter-finals") return 2;
+  if (label === "Round of 16") return 1;
+  return 0;
+}
+
+function isEuropeanKnockoutTieLegComplete(leg: KnockoutSlot): boolean {
+  if (!leg || leg.isPlaceholder) return false;
+  return isCompletedFixtureStatus(leg.status);
+}
+
+/** True when every non-placeholder tie in the round is fully finished (both legs for two-legged ties). */
+function isEuropeanKnockoutRoundFullyPast(round: KnockoutRound): boolean {
+  const realTies = round.ties.filter((t) => !t.isPlaceholder);
+  if (realTies.length === 0) return false;
+  if (!round.twoLegged || round.label === "Final") {
+    const t = realTies[0];
+    return isEuropeanKnockoutTieLegComplete(t.leg1);
+  }
+  return realTies.every((tie) => {
+    if (!tie.leg2) return isEuropeanKnockoutTieLegComplete(tie.leg1);
+    return isEuropeanKnockoutTieLegComplete(tie.leg1) && isEuropeanKnockoutTieLegComplete(tie.leg2);
+  });
+}
+
+/** Drop Round of 16; drop rounds that are fully complete; order QF → SF → Final (next round to play leftmost). */
+function filterAndOrderEuropeanKnockoutRounds(rounds: KnockoutRound[]): KnockoutRound[] {
+  return rounds
+    .filter((r) => r.label !== "Round of 16" && !isEuropeanKnockoutRoundFullyPast(r))
+    .sort((a, b) => europeanKnockoutStageRank(a.label) - europeanKnockoutStageRank(b.label));
+}
+
+/** Leg 2 is always shown as the reverse pairing of leg 1 (second leg at the other club’s ground). */
+function getEuropeanKnockoutLeg2Display(tie: KnockoutRound["ties"][number]): {
+  homeTeam: string;
+  awayTeam: string;
+  homeGoals: number | null;
+  awayGoals: number | null;
+  homeCrestUrl: string | null;
+  awayCrestUrl: string | null;
+} | null {
+  const leg2 = tie.leg2;
+  if (!leg2 || leg2.isPlaceholder) return null;
+  const l1 = tie.leg1;
+  const a = tie.teamA;
+  const b = tie.teamB;
+  if (leg2.homeTeam === b && leg2.awayTeam === a) {
+    return {
+      homeTeam: b,
+      awayTeam: a,
+      homeGoals: leg2.homeGoals,
+      awayGoals: leg2.awayGoals,
+      homeCrestUrl: leg2.homeCrestUrl,
+      awayCrestUrl: leg2.awayCrestUrl,
+    };
+  }
+  if (leg2.homeTeam === a && leg2.awayTeam === b) {
+    return {
+      homeTeam: b,
+      awayTeam: a,
+      homeGoals: leg2.awayGoals,
+      awayGoals: leg2.homeGoals,
+      homeCrestUrl: leg2.awayCrestUrl,
+      awayCrestUrl: leg2.homeCrestUrl,
+    };
+  }
+  if (leg2.homeTeam === l1.awayTeam && leg2.awayTeam === l1.homeTeam) {
+    return {
+      homeTeam: leg2.homeTeam,
+      awayTeam: leg2.awayTeam,
+      homeGoals: leg2.homeGoals,
+      awayGoals: leg2.awayGoals,
+      homeCrestUrl: leg2.homeCrestUrl,
+      awayCrestUrl: leg2.awayCrestUrl,
+    };
+  }
+  if (leg2.homeTeam === l1.homeTeam && leg2.awayTeam === l1.awayTeam) {
+    return {
+      homeTeam: l1.awayTeam,
+      awayTeam: l1.homeTeam,
+      homeGoals: leg2.awayGoals,
+      awayGoals: leg2.homeGoals,
+      homeCrestUrl: leg2.awayCrestUrl,
+      awayCrestUrl: leg2.homeCrestUrl,
+    };
+  }
+  return {
+    homeTeam: leg2.homeTeam,
+    awayTeam: leg2.awayTeam,
+    homeGoals: leg2.homeGoals,
+    awayGoals: leg2.awayGoals,
+    homeCrestUrl: leg2.homeCrestUrl,
+    awayCrestUrl: leg2.awayCrestUrl,
+  };
+}
+
 export default async function LeagueStandingsPage({ params }: Props) {
   const slug = normalizeSlug((await params).league);
   const leagueId = standingsSlugToLeagueId(slug);
@@ -972,6 +1071,10 @@ export default async function LeagueStandingsPage({ params }: Props) {
     worldCupHasPopulatedFinal = worldCupFinalSlots.some((s) => !s.isPlaceholder);
   }
 
+  if (isEuropeanKnockoutLeague && knockoutRounds.length > 0) {
+    knockoutRounds = filterAndOrderEuropeanKnockoutRounds(knockoutRounds);
+  }
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
@@ -1112,88 +1215,100 @@ export default async function LeagueStandingsPage({ params }: Props) {
                     Knockout round tracker
                   </h2>
                   <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                    Knockout ties from Round of 16 to Final. Round of 16, Quarter-finals and Semi-finals show both legs with aggregate score when available.
+                    Active knockout stages only (finished rounds are hidden). Columns run left to right in playing order: the next round to be played first (e.g. quarter-finals), then semi-finals, then the final. Aggregates show when both legs are played. Leg 2 is shown as the reverse fixture of leg 1 (second leg at the other team’s ground).
                   </p>
                   <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                     Updates on refresh from warmed fixture status (pending, live, complete) and scorelines when available.
                   </p>
-                  <div className="mt-3 grid gap-3 lg:grid-cols-4">
-                    {knockoutRounds.map((round) => (
-                      <section
-                        key={round.label}
-                        className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/40"
-                      >
-                        <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
-                          {round.label}
-                        </h3>
-                        <ul className="mt-2 space-y-2">
-                          {round.ties.map((tie) => (
-                            <li
-                              key={tie.id}
-                              className={`rounded-md border px-2 py-2 ${
-                                tie.isPlaceholder
-                                  ? "border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500"
-                                  : "border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
-                              }`}
-                            >
-                              <TournamentTeamLine
-                                homeTeam={tie.teamA}
-                                awayTeam={tie.teamB}
-                                homeCrestUrl={tie.leg1.homeCrestUrl}
-                                awayCrestUrl={tie.leg1.awayCrestUrl}
-                                muted={tie.isPlaceholder}
-                              />
-                              <div className="mt-2 rounded border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[11px] dark:border-neutral-700 dark:bg-neutral-800/60">
-                                <p className="font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                                  Leg 1
-                                </p>
+                  {knockoutRounds.length === 0 ? (
+                    <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
+                      No active knockout stages to show — completed rounds are hidden. Refresh after new fixtures are scheduled.
+                    </p>
+                  ) : (
+                    <div
+                      className={`mt-3 grid gap-3 sm:grid-cols-2 ${knockoutRounds.length >= 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}
+                    >
+                      {knockoutRounds.map((round) => (
+                        <section
+                          key={round.label}
+                          className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/40"
+                        >
+                          <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
+                            {round.label}
+                          </h3>
+                          <ul className="mt-2 space-y-2">
+                            {round.ties.map((tie) => (
+                              <li
+                                key={tie.id}
+                                className={`rounded-md border px-2 py-2 ${
+                                  tie.isPlaceholder
+                                    ? "border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500"
+                                    : "border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
+                                }`}
+                              >
                                 <TournamentTeamLine
-                                  homeTeam={tie.leg1.homeTeam}
-                                  awayTeam={tie.leg1.awayTeam}
+                                  homeTeam={tie.teamA}
+                                  awayTeam={tie.teamB}
                                   homeCrestUrl={tie.leg1.homeCrestUrl}
                                   awayCrestUrl={tie.leg1.awayCrestUrl}
+                                  muted={tie.isPlaceholder}
                                 />
-                                <p className="mt-0.5 font-semibold text-neutral-800 dark:text-neutral-100">
-                                  {tie.leg1.homeGoals != null && tie.leg1.awayGoals != null
-                                    ? `${tie.leg1.homeGoals}-${tie.leg1.awayGoals}`
-                                    : "TBD"}
-                                </p>
-                              </div>
-
-                              {tie.leg2 ? (
-                                <div className="mt-1.5 rounded border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[11px] dark:border-neutral-700 dark:bg-neutral-800/60">
+                                <div className="mt-2 rounded border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[11px] dark:border-neutral-700 dark:bg-neutral-800/60">
                                   <p className="font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                                    Leg 2
+                                    Leg 1
                                   </p>
                                   <TournamentTeamLine
-                                    homeTeam={tie.leg2.homeTeam}
-                                    awayTeam={tie.leg2.awayTeam}
-                                    homeCrestUrl={tie.leg2.homeCrestUrl}
-                                    awayCrestUrl={tie.leg2.awayCrestUrl}
+                                    homeTeam={tie.leg1.homeTeam}
+                                    awayTeam={tie.leg1.awayTeam}
+                                    homeCrestUrl={tie.leg1.homeCrestUrl}
+                                    awayCrestUrl={tie.leg1.awayCrestUrl}
                                   />
                                   <p className="mt-0.5 font-semibold text-neutral-800 dark:text-neutral-100">
-                                    {tie.leg2.homeGoals != null && tie.leg2.awayGoals != null
-                                      ? `${tie.leg2.homeGoals}-${tie.leg2.awayGoals}`
+                                    {tie.leg1.homeGoals != null && tie.leg1.awayGoals != null
+                                      ? `${tie.leg1.homeGoals}-${tie.leg1.awayGoals}`
                                       : "TBD"}
                                   </p>
                                 </div>
-                              ) : null}
 
-                              {tie.aggregate ? (
-                                <p className="mt-2 rounded bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
-                                  {tie.aggregate}
-                                </p>
-                              ) : (
-                                <p className="mt-2 rounded bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
-                                  Aggregate: TBD
-                                </p>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    ))}
-                  </div>
+                                {(() => {
+                                  const leg2Disp = getEuropeanKnockoutLeg2Display(tie);
+                                  if (!leg2Disp) return null;
+                                  return (
+                                    <div className="mt-1.5 rounded border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[11px] dark:border-neutral-700 dark:bg-neutral-800/60">
+                                      <p className="font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                                        Leg 2
+                                      </p>
+                                      <TournamentTeamLine
+                                        homeTeam={leg2Disp.homeTeam}
+                                        awayTeam={leg2Disp.awayTeam}
+                                        homeCrestUrl={leg2Disp.homeCrestUrl}
+                                        awayCrestUrl={leg2Disp.awayCrestUrl}
+                                      />
+                                      <p className="mt-0.5 font-semibold text-neutral-800 dark:text-neutral-100">
+                                        {leg2Disp.homeGoals != null && leg2Disp.awayGoals != null
+                                          ? `${leg2Disp.homeGoals}-${leg2Disp.awayGoals}`
+                                          : "TBD"}
+                                      </p>
+                                    </div>
+                                  );
+                                })()}
+
+                                {tie.aggregate ? (
+                                  <p className="mt-2 rounded bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+                                    {tie.aggregate}
+                                  </p>
+                                ) : (
+                                  <p className="mt-2 rounded bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                                    Aggregate: TBD
+                                  </p>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      ))}
+                    </div>
+                  )}
                 </section>
               ) : null}
 
