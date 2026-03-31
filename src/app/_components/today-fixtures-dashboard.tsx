@@ -6,6 +6,7 @@ import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { MatchStatsBlock } from "@/app/fixtures/[date]/[league]/[match]/match-stats-block";
 import { isFixtureInRequiredLeagues, isTeamStatsOnlyLeague } from "@/lib/leagues";
 import type { MatchStatsSnapshot } from "@/lib/matchStats";
+import { liveFixtureClockLabel } from "@/lib/liveScoreDisplay";
 import { decodeHtmlEntities } from "@/lib/text";
 import { leagueToSlug, matchSlug } from "@/lib/slugs";
 import type { FixtureSummary, FixtureStatsResponse } from "@/lib/statsService";
@@ -170,6 +171,8 @@ export function TodayFixturesDashboard({
     awayGoals: number;
     elapsedMinutes: number | null;
     statusShort: string;
+    penaltyHome: number | null;
+    penaltyAway: number | null;
   } | null>(null);
 
   const onFixtureStatsUpdateRef = useRef(onFixtureStatsUpdate);
@@ -353,6 +356,8 @@ export function TodayFixturesDashboard({
             awayGoals: data.awayGoals,
             elapsedMinutes: data.elapsedMinutes ?? null,
             statusShort: data.statusShort ?? (isEnded ? "FT" : "LIVE"),
+            penaltyHome: data.penaltyHome ?? null,
+            penaltyAway: data.penaltyAway ?? null,
           });
         } else {
           setLiveScore(null);
@@ -531,9 +536,13 @@ export function TodayFixturesDashboard({
           isPreMatch
             ? koTime
             : (isLive || isEnded) && liveScore
-              ? liveScore.elapsedMinutes != null
-                ? `${liveScore.elapsedMinutes}'`
-                : liveScore.statusShort
+              ? liveFixtureClockLabel(
+                  liveScore.statusShort,
+                  liveScore.elapsedMinutes,
+                  liveScore.penaltyHome,
+                  liveScore.penaltyAway,
+                  isEnded,
+                )
               : koTime;
         const scoreLabel =
           isPreMatch

@@ -46,7 +46,7 @@ export type PastFixtureScore = {
   homeGoals: number;
   awayGoals: number;
   statusShort: string;
-  /** API-Football `score.penalty` when match ended PEN */
+  /** API-Football `score.penalty` (often present for AET or PEN when decided on pens) */
   penaltyHome?: number | null;
   penaltyAway?: number | null;
 };
@@ -70,6 +70,17 @@ function statusLabel(short: string): string {
     default:
       return short;
   }
+}
+
+/** API may send AET + score.penalty when decided on pens; surface penalties in the header. */
+function finalScoreKindLabel(score: PastFixtureScore): string {
+  const hasPens = score.penaltyHome != null && score.penaltyAway != null;
+  if (hasPens) {
+    if (score.statusShort === "PEN") return "Penalties";
+    if (score.statusShort === "AET") return "After extra time · Penalties";
+    return "Penalties";
+  }
+  return statusLabel(score.statusShort);
 }
 
 type Props = {
@@ -101,7 +112,7 @@ export function PastFixtureView({ fixture, score, stats, matchStats }: Props) {
           </span>
           {score?.statusShort && (
             <span className="ml-2 text-xs font-medium text-neutral-600 dark:text-neutral-300">
-              · {statusLabel(score.statusShort)}
+              · {finalScoreKindLabel(score)}
             </span>
           )}
         </div>
@@ -120,9 +131,7 @@ export function PastFixtureView({ fixture, score, stats, matchStats }: Props) {
                   <span className="mx-1 text-neutral-300 dark:text-neutral-600 sm:mx-1.5">–</span>
                   {score.awayGoals}
                 </span>
-                {score.statusShort === "PEN" &&
-                score.penaltyHome != null &&
-                score.penaltyAway != null ? (
+                {score.penaltyHome != null && score.penaltyAway != null ? (
                   <p className="max-w-[min(100%,20rem)] text-center text-xs font-medium text-neutral-600 dark:text-neutral-400 sm:text-sm">
                     Penalties{" "}
                     <span className="tabular-nums">

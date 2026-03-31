@@ -7,6 +7,7 @@ import { copyToClipboard } from "@/app/_components/share-url-button";
 import type { MatchStatsSnapshot } from "@/lib/matchStats";
 import type { FixtureSummary } from "@/lib/statsService";
 import type { FixtureStatsResponse } from "@/lib/statsService";
+import { liveFixtureClockLabel } from "@/lib/liveScoreDisplay";
 import { decodeHtmlEntities } from "@/lib/text";
 import { MatchStatsBlock } from "../match-stats-block";
 
@@ -67,6 +68,8 @@ type LiveScore = {
   awayGoals: number;
   elapsedMinutes: number | null;
   statusShort: string;
+  penaltyHome: number | null;
+  penaltyAway: number | null;
 };
 
 type Props = {
@@ -109,6 +112,8 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
             awayGoals: liveJson.awayGoals,
             elapsedMinutes: liveJson.elapsedMinutes ?? null,
             statusShort: liveJson.statusShort ?? "?",
+            penaltyHome: liveJson.penaltyHome ?? null,
+            penaltyAway: liveJson.penaltyAway ?? null,
           });
         }
         const ms = liveJson.matchStats as { home?: MatchStatsSnapshot; away?: MatchStatsSnapshot } | undefined;
@@ -155,9 +160,13 @@ export function InPlayFixtureClient({ fixtureId, dateKey, leagueSlug, matchSlugP
         : null;
   const timeLabel =
     liveScore != null
-      ? liveScore.elapsedMinutes != null
-        ? `${liveScore.elapsedMinutes}'`
-        : liveScore.statusShort
+      ? liveFixtureClockLabel(
+          liveScore.statusShort,
+          liveScore.elapsedMinutes,
+          liveScore.penaltyHome,
+          liveScore.penaltyAway,
+          isEnded,
+        )
       : "–";
 
   const homeCrest = stats?.fixture?.homeTeam?.crestUrl ?? null;

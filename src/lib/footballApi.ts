@@ -873,7 +873,7 @@ export async function fetchFixtureScoreWithTeams(
 export type LiveFixtureResult = {
   homeGoals: number;
   awayGoals: number;
-  /** Shootout score when match ended PEN; null if not applicable or API omitted. */
+  /** Shootout score when API supplies `score.penalty` (AET or PEN); null if omitted. */
   penaltyHome: number | null;
   penaltyAway: number | null;
   elapsedMinutes: number | null;
