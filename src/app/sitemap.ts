@@ -430,33 +430,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           changeFrequency: "daily",
           priority: 0.7,
         });
-        // Team market pages (BTTS, total goals, corners, cards) for teams we have season stats for.
-        entries.push(
-          {
-            url: `${baseUrl}/teams/${slug}/markets/btts`,
-            lastModified: lastmod,
-            changeFrequency: "daily",
-            priority: 0.6,
-          },
-          {
-            url: `${baseUrl}/teams/${slug}/markets/total-goals`,
-            lastModified: lastmod,
-            changeFrequency: "daily",
-            priority: 0.6,
-          },
-          {
-            url: `${baseUrl}/teams/${slug}/markets/corners`,
-            lastModified: lastmod,
-            changeFrequency: "daily",
-            priority: 0.6,
-          },
-          {
-            url: `${baseUrl}/teams/${slug}/markets/cards`,
-            lastModified: lastmod,
-            changeFrequency: "daily",
-            priority: 0.6,
-          },
-        );
+        // Team market pages intentionally excluded from sitemap (phase 1 crawl budget reduction).
       }
     }
   } catch (err) {
