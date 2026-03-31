@@ -93,6 +93,14 @@ function getYear(dateKey: string): string {
   return dateKey.slice(0, 4);
 }
 
+function isPastDateOlderThanDays(dateKey: string, days: number): boolean {
+  const d = new Date(`${dateKey}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  const ageMs = now.getTime() - d.getTime();
+  return ageMs > days * 24 * 60 * 60 * 1000;
+}
+
 /** API-Football statusShort values that mean the match is finished. */
 const FINISHED_STATUS = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);
 
@@ -840,11 +848,13 @@ export default async function FixtureMatchPage({
             penaltyAway: fixtureWithScore.liveScoreCache.penaltyAway ?? null,
           }
         : null;
-    // For past fixtures: fetch final score from API when cache is missing or not finished (e.g. stale live score from during the match).
+    // Older past fixtures are stable: keep this path DB-only to reduce origin CPU under crawler load.
+    const isOlderPastFixture = isPastDateOlderThanDays(dateKey, 2);
+    // For recent past fixtures only: fetch final score from API when cache is missing or not finished.
     const apiId = fixtureWithScore?.apiId ?? null;
     const needsFinalScore =
       apiId != null && (!score || !isMatchEnded(score.statusShort));
-    if (needsFinalScore && apiId != null) {
+    if (!isOlderPastFixture && needsFinalScore && apiId != null) {
       try {
         const result = await fetchLiveFixture(apiId);
         if (result && isMatchEnded(result.statusShort)) {
@@ -892,6 +902,7 @@ export default async function FixtureMatchPage({
       )) ?? null;
     if (
       !matchStats &&
+      !isOlderPastFixture &&
       apiId != null &&
       fixtureWithScore?.homeTeam?.apiId &&
       fixtureWithScore?.awayTeam?.apiId
