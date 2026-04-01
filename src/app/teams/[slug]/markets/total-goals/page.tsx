@@ -419,6 +419,7 @@ export default async function TeamTotalGoalsPage({ params }: RouteParams) {
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
             For more stats and form, see the main team page and use today&apos;s fixtures for live match data. You can also{" "}
             <Link
+              rel="nofollow"
               href={`/teams/${canonicalSlug}/markets/btts`}
               className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
             >
@@ -429,6 +430,7 @@ export default async function TeamTotalGoalsPage({ params }: RouteParams) {
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
             Related markets:{" "}
             <Link
+              rel="nofollow"
               href={`/teams/${canonicalSlug}/markets/btts`}
               className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
             >
@@ -436,6 +438,7 @@ export default async function TeamTotalGoalsPage({ params }: RouteParams) {
             </Link>
             ,{" "}
             <Link
+              rel="nofollow"
               href={`/teams/${canonicalSlug}/markets/corners`}
               className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
             >
@@ -443,6 +446,7 @@ export default async function TeamTotalGoalsPage({ params }: RouteParams) {
             </Link>
             , and{" "}
             <Link
+              rel="nofollow"
               href={`/teams/${canonicalSlug}/markets/cards`}
               className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
             >

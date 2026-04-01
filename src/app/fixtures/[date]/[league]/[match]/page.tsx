@@ -1752,10 +1752,10 @@ function TeamAndLeagueStatsSection({
             </NavLinkWithOverlay>
           </div>
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-neutral-200 pt-2 text-xs dark:border-neutral-700">
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/btts`} className={linkClass} message="Loading…"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/total-goals`} className={linkClass} message="Loading…"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/corners`} className={linkClass} message="Loading…"><span>Corners</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/cards`} className={linkClass} message="Loading…"><span>Cards</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/btts`} className={linkClass} message="Loading…" rel="nofollow"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/total-goals`} className={linkClass} message="Loading…" rel="nofollow"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/corners`} className={linkClass} message="Loading…" rel="nofollow"><span>Corners</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(home)}/markets/cards`} className={linkClass} message="Loading…" rel="nofollow"><span>Cards</span>{arrow}</NavLinkWithOverlay>
           </div>
         </div>
         <div className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-3 dark:border-neutral-800 dark:bg-neutral-800/40 sm:p-4">
@@ -1770,10 +1770,10 @@ function TeamAndLeagueStatsSection({
             </NavLinkWithOverlay>
           </div>
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-neutral-200 pt-2 text-xs dark:border-neutral-700">
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/btts`} className={linkClass} message="Loading…"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/total-goals`} className={linkClass} message="Loading…"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/corners`} className={linkClass} message="Loading…"><span>Corners</span>{arrow}</NavLinkWithOverlay>
-            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/cards`} className={linkClass} message="Loading…"><span>Cards</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/btts`} className={linkClass} message="Loading…" rel="nofollow"><span>BTTS</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/total-goals`} className={linkClass} message="Loading…" rel="nofollow"><span>Total goals</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/corners`} className={linkClass} message="Loading…" rel="nofollow"><span>Corners</span>{arrow}</NavLinkWithOverlay>
+            <NavLinkWithOverlay href={`/teams/${makeTeamSlug(away)}/markets/cards`} className={linkClass} message="Loading…" rel="nofollow"><span>Cards</span>{arrow}</NavLinkWithOverlay>
           </div>
         </div>
         <div className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-3 dark:border-neutral-800 dark:bg-neutral-800/40 sm:p-4">

@@ -321,6 +321,7 @@ export default async function TeamCardsPage({ params }: RouteParams) {
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
             Related markets:{" "}
             <Link
+              rel="nofollow"
               href={`/teams/${canonicalSlug}/markets/btts`}
               className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
             >
@@ -328,6 +329,7 @@ export default async function TeamCardsPage({ params }: RouteParams) {
             </Link>
             ,{" "}
             <Link
+              rel="nofollow"
               href={`/teams/${canonicalSlug}/markets/total-goals`}
               className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
             >
@@ -335,6 +337,7 @@ export default async function TeamCardsPage({ params }: RouteParams) {
             </Link>
             , and{" "}
             <Link
+              rel="nofollow"
               href={`/teams/${canonicalSlug}/markets/corners`}
               className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
             >

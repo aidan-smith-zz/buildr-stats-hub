@@ -371,24 +371,28 @@ function TeamPageView({
           <div className="mt-3 flex flex-wrap gap-2">
             <a
               href={`/teams/${slug}/markets/btts`}
+              rel="nofollow"
               className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-800 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-violet-500 dark:hover:bg-violet-950/40"
             >
               BTTS (Both teams to score)
             </a>
             <a
               href={`/teams/${slug}/markets/total-goals`}
+              rel="nofollow"
               className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-800 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-violet-500 dark:hover:bg-violet-950/40"
             >
               Total goals (over X.5)
             </a>
             <a
               href={`/teams/${slug}/markets/corners`}
+              rel="nofollow"
               className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-800 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-violet-500 dark:hover:bg-violet-950/40"
             >
               Team corners
             </a>
             <a
               href={`/teams/${slug}/markets/cards`}
+              rel="nofollow"
               className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-800 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-violet-500 dark:hover:bg-violet-950/40"
             >
               Team cards

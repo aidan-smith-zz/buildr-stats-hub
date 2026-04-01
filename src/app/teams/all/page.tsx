@@ -291,6 +291,7 @@ export default async function TeamsAllPage() {
                             href={`/teams/${team.slug}/markets/btts`}
                             className="font-medium text-neutral-600 hover:text-violet-600 dark:text-neutral-400 dark:hover:text-violet-400"
                             message="Loading BTTS…"
+                            rel="nofollow"
                           >
                             BTTS
                           </FixtureStatsLink>
@@ -298,6 +299,7 @@ export default async function TeamsAllPage() {
                             href={`/teams/${team.slug}/markets/total-goals`}
                             className="font-medium text-neutral-600 hover:text-violet-600 dark:text-neutral-400 dark:hover:text-violet-400"
                             message="Loading total goals…"
+                            rel="nofollow"
                           >
                             Total goals
                           </FixtureStatsLink>
@@ -305,6 +307,7 @@ export default async function TeamsAllPage() {
                             href={`/teams/${team.slug}/markets/corners`}
                             className="font-medium text-neutral-600 hover:text-violet-600 dark:text-neutral-400 dark:hover:text-violet-400"
                             message="Loading corners…"
+                            rel="nofollow"
                           >
                             Corners
                           </FixtureStatsLink>
@@ -312,6 +315,7 @@ export default async function TeamsAllPage() {
                             href={`/teams/${team.slug}/markets/cards`}
                             className="font-medium text-neutral-600 hover:text-violet-600 dark:text-neutral-400 dark:hover:text-violet-400"
                             message="Loading cards…"
+                            rel="nofollow"
                           >
                             Cards
                           </FixtureStatsLink>

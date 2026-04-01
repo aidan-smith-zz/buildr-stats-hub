@@ -9,11 +9,13 @@ type Props = {
   href: string;
   children: React.ReactNode;
   className?: string;
+  /** e.g. `nofollow` for secondary / noindex targets (team market hubs). */
+  rel?: string;
 };
 
 const DEFAULT_LOADING_MESSAGE = "Building your Stats";
 
-export function FixtureRowLink({ href, children, className }: Props) {
+export function FixtureRowLink({ href, children, className, rel }: Props) {
   const [isNavigating, setIsNavigating] = useState(false);
   const pathname = usePathname();
 
@@ -26,6 +28,7 @@ export function FixtureRowLink({ href, children, className }: Props) {
       <Link
         href={href}
         className={className}
+        rel={rel}
         onClick={() => setIsNavigating(true)}
         aria-busy={isNavigating}
       >
@@ -41,6 +44,7 @@ export function FixtureStatsLink({
   href,
   children,
   className,
+  rel,
   message = DEFAULT_LOADING_MESSAGE,
 }: Props & { message?: string }) {
   const [isNavigating, setIsNavigating] = useState(false);
@@ -55,6 +59,7 @@ export function FixtureStatsLink({
       <Link
         href={href}
         className={className}
+        rel={rel}
         onClick={() => setIsNavigating(true)}
         aria-busy={isNavigating}
       >
@@ -77,6 +82,7 @@ export function NavLinkWithOverlay({
   href,
   children,
   className,
+  rel,
   message = DEFAULT_LOADING_MESSAGE,
   italic = true,
 }: NavLinkWithOverlayProps) {
@@ -92,6 +98,7 @@ export function NavLinkWithOverlay({
       <Link
         href={href}
         className={className}
+        rel={rel}
         onClick={() => setIsNavigating(true)}
         aria-busy={isNavigating}
       >
