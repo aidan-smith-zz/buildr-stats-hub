@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import Image from "next/image";
 import {
@@ -7,7 +6,7 @@ import {
   LEAGUE_GROUP_ORDER,
   TOP_LEAGUE_IDS,
 } from "@/lib/leagues";
-import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
+import { FixtureStatsLink, NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
 import { prisma } from "@/lib/prisma";
 import { API_SEASON } from "@/lib/footballApi";
@@ -288,30 +287,34 @@ export default async function TeamsAllPage() {
                           </div>
                         </NavLinkWithOverlay>
                         <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-neutral-100 pt-3 text-sm dark:border-neutral-800">
-                          <Link
+                          <FixtureStatsLink
                             href={`/teams/${team.slug}/markets/btts`}
                             className="font-medium text-neutral-600 hover:text-violet-600 dark:text-neutral-400 dark:hover:text-violet-400"
+                            message="Loading BTTS…"
                           >
                             BTTS
-                          </Link>
-                          <Link
+                          </FixtureStatsLink>
+                          <FixtureStatsLink
                             href={`/teams/${team.slug}/markets/total-goals`}
                             className="font-medium text-neutral-600 hover:text-violet-600 dark:text-neutral-400 dark:hover:text-violet-400"
+                            message="Loading total goals…"
                           >
                             Total goals
-                          </Link>
-                          <Link
+                          </FixtureStatsLink>
+                          <FixtureStatsLink
                             href={`/teams/${team.slug}/markets/corners`}
                             className="font-medium text-neutral-600 hover:text-violet-600 dark:text-neutral-400 dark:hover:text-violet-400"
+                            message="Loading corners…"
                           >
                             Corners
-                          </Link>
-                          <Link
+                          </FixtureStatsLink>
+                          <FixtureStatsLink
                             href={`/teams/${team.slug}/markets/cards`}
                             className="font-medium text-neutral-600 hover:text-violet-600 dark:text-neutral-400 dark:hover:text-violet-400"
+                            message="Loading cards…"
                           >
                             Cards
-                          </Link>
+                          </FixtureStatsLink>
                         </div>
                       </div>
                     );
