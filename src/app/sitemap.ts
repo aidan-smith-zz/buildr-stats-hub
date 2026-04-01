@@ -337,7 +337,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         entries.push({
           url: `${baseUrl}/teams/${slug}`,
           lastModified: lastmod,
-          changeFrequency: "daily",
+          // Weekly hint: team stats move slower than fixtures; reduces over-frequent recrawl vs "daily".
+          changeFrequency: "weekly",
           priority: 0.7,
         });
         // Team market pages intentionally excluded from sitemap (phase 1 crawl budget reduction).
