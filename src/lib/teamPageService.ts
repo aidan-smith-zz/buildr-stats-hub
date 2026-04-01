@@ -423,11 +423,12 @@ const loadTeamIdentityById = unstable_cache(
   { revalidate: 60 * 60 * 24, tags: ["team-page"] },
 );
 
-export async function getTeamIdentityById(teamId: number): Promise<TeamIdentity | null> {
+/** Same data as `loadTeamIdentityById`; React `cache` dedupes metadata + page in one request. */
+export const getTeamIdentityById = cache(async (teamId: number): Promise<TeamIdentity | null> => {
   return loadTeamIdentityById(teamId);
-}
+});
 
-export const getTeamPageData = unstable_cache(
+const loadTeamPageDataCached = unstable_cache(
   async (teamId: number) => {
     return loadTeamPageData(teamId);
   },
@@ -437,6 +438,11 @@ export const getTeamPageData = unstable_cache(
     tags: ["team-page"],
   },
 );
+
+/** Same 24h `unstable_cache` as before; React `cache` dedupes metadata + page in one request. */
+export const getTeamPageData = cache(async (teamId: number) => {
+  return loadTeamPageDataCached(teamId);
+});
 
 export type TeamUpcomingFixture = {
   dateKey: string;
