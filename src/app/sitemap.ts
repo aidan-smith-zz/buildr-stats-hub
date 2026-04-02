@@ -30,7 +30,7 @@ function maxOfTwoDates(a: Date | undefined, b: Date | undefined, fallback: Date)
  * Sitemap coverage (keep in sync with `src/app` routes):
  * - Home, about, contact
  * - /fixtures (hub redirects — omit; canonical is /fixtures/[date])
- * - /fixtures/[date], /fixtures/[date]/ai-insights|form|matchday-insights (today + near-future only)
+ * - /fixtures/[date] and /fixtures/[date]/ai-insights only today & tomorrow; form|matchday-insights for upcoming horizon
  * - /fixtures/[date]/[league]/[match] intentionally excluded (deep pages are noindex)
  * - /fixtures/past, /fixtures/upcoming, /fixtures/live
  * - /leagues/all; /leagues/[slug]/standings|stats|form|markets/*
@@ -162,20 +162,46 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // skipRefresh so sitemap never triggers 14-day API refresh (would timeout).
   try {
     const upcomingByDate = await getUpcomingFixturesFromDb({ skipRefresh: true });
+    let sawTomorrowHub = false;
     for (const { dateKey: dayKey } of upcomingByDate) {
       const dayLastmod = upcomingLastmodMap.get(dayKey) ?? now;
-      entries.push({
-        url: `${baseUrl}/fixtures/${dayKey}`,
-        lastModified: dayLastmod,
-        changeFrequency: "daily",
-        priority: 0.9,
-      });
+      if (dayKey === tomorrowKey) {
+        sawTomorrowHub = true;
+        entries.push({
+          url: `${baseUrl}/fixtures/${dayKey}`,
+          lastModified: dayLastmod,
+          changeFrequency: "daily",
+          priority: 0.85,
+        });
+        entries.push({
+          url: `${baseUrl}/fixtures/${dayKey}/ai-insights`,
+          lastModified: dayLastmod,
+          changeFrequency: "daily",
+          priority: 0.65,
+        });
+      }
       entries.push(
-        { url: `${baseUrl}/fixtures/${dayKey}/ai-insights`, lastModified: dayLastmod, changeFrequency: "daily", priority: 0.7 },
         { url: `${baseUrl}/fixtures/${dayKey}/form`, lastModified: dayLastmod, changeFrequency: "daily", priority: 0.7 },
         { url: `${baseUrl}/fixtures/${dayKey}/matchday-insights`, lastModified: dayLastmod, changeFrequency: "daily", priority: 0.7 },
       );
       // Deep fixture pages are noindex, so keep them out of sitemap to reduce crawl pressure.
+    }
+    if (!sawTomorrowHub) {
+      const tm = upcomingLastmodMap.get(tomorrowKey) ?? now;
+      entries.push(
+        {
+          url: `${baseUrl}/fixtures/${tomorrowKey}`,
+          lastModified: tm,
+          changeFrequency: "daily",
+          priority: 0.85,
+        },
+        {
+          url: `${baseUrl}/fixtures/${tomorrowKey}/ai-insights`,
+          lastModified: tm,
+          changeFrequency: "daily",
+          priority: 0.65,
+        },
+      );
     }
   } catch (err) {
     console.error("[sitemap] Failed to fetch upcoming fixtures:", err);

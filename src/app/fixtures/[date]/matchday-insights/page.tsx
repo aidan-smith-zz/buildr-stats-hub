@@ -6,6 +6,7 @@ import Image from "next/image";
 import { getMatchdayInsightsData } from "@/lib/matchdayInsightsService";
 import { withPoolRetry } from "@/lib/poolRetry";
 import { toSnippetDescription } from "@/lib/seoMetadata";
+import { aiInsightsListHref, fixturesDateHubHref } from "@/lib/slugs";
 import { MatchdayInsightsClient } from "./matchday-insights-client";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
@@ -76,7 +77,7 @@ export default async function MatchdayInsightsPage({
 
   const data = await withPoolRetry(() => getMatchdayInsightsData(dateKey));
 
-  const fixturesHref = `/fixtures/${dateKey}`;
+  const fixturesHref = fixturesDateHubHref(dateKey);
   const breadcrumbItems = [
     { href: "/", label: "Home" },
     { href: fixturesHref, label: data.displayDate },
@@ -151,7 +152,7 @@ export default async function MatchdayInsightsPage({
           <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50/80 px-4 py-3 text-sm text-violet-900 dark:border-violet-700/50 dark:bg-violet-900/20 dark:text-violet-200">
             Want market-style picks first? See{" "}
             <NavLinkWithOverlay
-              href={`/fixtures/${dateKey}/ai-insights`}
+              href={aiInsightsListHref(dateKey)}
               className="font-semibold text-violet-700 hover:text-violet-600 dark:text-violet-300 dark:hover:text-violet-200"
             >
               AI Top Picks (BTTS, goals, corners and cards)
@@ -224,7 +225,7 @@ export default async function MatchdayInsightsPage({
             </NavLinkWithOverlay>
             ,{" "}
             <NavLinkWithOverlay
-              href={`/fixtures/${dateKey}/ai-insights`}
+              href={aiInsightsListHref(dateKey)}
               className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
             >
               AI football insights

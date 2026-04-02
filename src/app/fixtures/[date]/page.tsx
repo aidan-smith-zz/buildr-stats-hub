@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import {
   getFixturesForDateRequestCached,
   getOrRefreshTodayFixturesRequestCached,
 } from "@/lib/fixturesService";
 import { withPoolRetry } from "@/lib/poolRetry";
-import { fixtureDateKey, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
+import {
+  fixtureDateKey,
+  resolveTodayTomorrowDateParam,
+  todayDateKey,
+  tomorrowDateKey,
+} from "@/lib/slugs";
 import { toSnippetDescription } from "@/lib/seoMetadata";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
 
@@ -13,14 +19,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
-
-function normalizeDateKey(param: string | undefined): string {
-  if (param && /^\d{4}-\d{2}-\d{2}$/.test(param)) {
-    const d = new Date(param + "T12:00:00.000Z");
-    if (!Number.isNaN(d.getTime())) return param;
-  }
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
-}
 
 function formatDisplayDate(dateKey: string): string {
   return new Date(dateKey + "T12:00:00.000Z").toLocaleDateString("en-GB", {
@@ -48,23 +46,19 @@ export async function generateMetadata({
   params: Promise<{ date: string }>;
 }): Promise<Metadata> {
   const { date: dateParam } = await params;
-  const dateKey = normalizeDateKey(dateParam);
+  const dateKey = resolveTodayTomorrowDateParam(dateParam);
+  if (!dateKey) notFound();
   const displayDate = formatDisplayDate(dateKey);
   const shortDate = formatShortDateChip(dateKey);
   const todayKey = todayDateKey();
-  const tomorrowKey = tomorrowDateKey();
   const title =
     dateKey === todayKey
       ? `Football Fixtures Today (${shortDate}) — Schedule, Kick-Offs & Match Stats | statsBuildr`
-      : dateKey === tomorrowKey
-        ? `Football Fixtures Tomorrow (${shortDate}) — Schedule & Previews | statsBuildr`
-        : `Football Fixtures ${shortDate} — Full Schedule & Match Previews | statsBuildr`;
+      : `Football Fixtures Tomorrow (${shortDate}) — Schedule & Previews | statsBuildr`;
   const description = toSnippetDescription([
     dateKey === todayKey
       ? `Today's football schedule (${displayDate}): kick-off times, fixtures list and match previews with team stats.`
-      : dateKey === tomorrowKey
-        ? `Tomorrow's football fixtures (${displayDate}): schedule, kick-offs and previews with goals, xG, corners and cards context.`
-        : `Football fixtures on ${displayDate}: full schedule with kick-off times and previews (goals, xG, corners and cards).`,
+      : `Tomorrow's football fixtures (${displayDate}): schedule, kick-offs and previews with goals, xG, corners and cards context.`,
     "Built for quick scanning before you bet.",
   ]);
   const canonical = `${BASE_URL}/fixtures/${dateKey}`;
@@ -104,17 +98,18 @@ export default async function FixturesDatePage({
   params: Promise<{ date: string }>;
 }) {
   const { date: dateParam } = await params;
-  const dateKey = normalizeDateKey(dateParam);
+  const dateKey = resolveTodayTomorrowDateParam(dateParam);
+  if (!dateKey) notFound();
   const todayKey = todayDateKey();
+  const tomorrowKeyResolved = tomorrowDateKey();
 
   // Today: behave like the homepage – show hero, today + tomorrow tabs.
   if (dateKey === todayKey) {
-    const tomorrowKey = tomorrowDateKey();
     // Sequential to avoid holding 2 connections (prevents pooler "Unable to check out connection" timeout)
     const fixtures = await withPoolRetry(() => getOrRefreshTodayFixturesRequestCached(todayKey));
-    const tomorrowFixtures = await withPoolRetry(() => getFixturesForDateRequestCached(tomorrowKey));
+    const tomorrowFixtures = await withPoolRetry(() => getFixturesForDateRequestCached(tomorrowKeyResolved));
     const todayOnly = fixtures.filter((f) => fixtureDateKey(f.date) === todayKey);
-    const tomorrowOnly = (tomorrowFixtures ?? []).filter((f) => fixtureDateKey(f.date) === tomorrowKey);
+    const tomorrowOnly = (tomorrowFixtures ?? []).filter((f) => fixtureDateKey(f.date) === tomorrowKeyResolved);
     const useLeagueGroupsForToday = todayOnly.length > 15;
     const useLeagueGroupsForTomorrow = tomorrowOnly.length > 15;
     return (
@@ -123,14 +118,14 @@ export default async function FixturesDatePage({
         showHero
         todayKey={todayKey}
         tomorrowFixtures={tomorrowFixtures}
-        tomorrowKey={tomorrowKey}
+        tomorrowKey={tomorrowKeyResolved}
         useLeagueGroupsForToday={useLeagueGroupsForToday}
         useLeagueGroupsForTomorrow={useLeagueGroupsForTomorrow}
       />
     );
   }
 
-  // Other dates: show fixtures for that specific date only (no hero, no tomorrow tab).
+  // Tomorrow (`/fixtures/tomorrow` or tomorrow's YYYY-MM-DD): single-date list (no hero, no second tab).
   const fixtures = await withPoolRetry(() => getFixturesForDateRequestCached(dateKey));
   return (
     <TodayFixturesList

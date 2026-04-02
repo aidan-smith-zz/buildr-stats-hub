@@ -16,7 +16,7 @@ import { withPoolRetry } from "@/lib/poolRetry";
 import { API_SEASON, fetchLiveFixture } from "@/lib/footballApi";
 import { prisma } from "@/lib/prisma";
 import { loadMatchStatsPairFromDb, resolveMatchStatsForFixture } from "@/lib/matchStats";
-import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
+import { aiInsightsListHref, fixturesDateHubHref, leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import { makeTeamSlug } from "@/lib/teamSlugs";
 import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
 import type { RawFixture } from "@/lib/footballApi";
@@ -390,7 +390,7 @@ export default async function FixtureMatchPage({
 
     const breadcrumbItems = [
       { href: "/", label: "Home" },
-      { href: `/fixtures/${dateKey}`, label: formatDisplayDate(dateKey) },
+      { href: fixturesDateHubHref(dateKey), label: formatDisplayDate(dateKey) },
       { href: `/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`, label: `${home} vs ${away}` },
     ];
 
@@ -763,7 +763,7 @@ export default async function FixtureMatchPage({
               </div>
               <section className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-800">
                 <NavLinkWithOverlay
-                  href={`/fixtures/${dateKey}/ai-insights`}
+                  href={aiInsightsListHref(dateKey)}
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300 sm:text-sm"
                   message="Loading insights…"
                   italic={false}
@@ -935,7 +935,7 @@ export default async function FixtureMatchPage({
     const breadcrumbItems = [
       { href: "/", label: "Home" },
       { href: "/fixtures/past", label: "Past fixtures" },
-      { href: `/fixtures/${dateKey}`, label: displayDate },
+      { href: fixturesDateHubHref(dateKey), label: displayDate },
       { href: `/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`, label: `${home} vs ${away}` },
     ];
     const faqEntitiesPast = [
@@ -1049,7 +1049,7 @@ export default async function FixtureMatchPage({
             </div>
             <section className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-800">
               <NavLinkWithOverlay
-                href={`/fixtures/${dateKey}/ai-insights`}
+                href={aiInsightsListHref(dateKey)}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300 sm:text-sm"
                 message="Loading insights…"
                 italic={false}
@@ -1145,7 +1145,7 @@ export default async function FixtureMatchPage({
     };
     const breadcrumbItems = [
       { href: "/", label: "Home" },
-      { href: `/fixtures/${dateKey}`, label: formatDisplayDate(dateKey) },
+      { href: fixturesDateHubHref(dateKey), label: formatDisplayDate(dateKey) },
       { href: `/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`, label: `${home} vs ${away}` },
     ];
     const breadcrumbJsonLd = {
@@ -1485,7 +1485,7 @@ export default async function FixtureMatchPage({
             </div>
             <section className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-800">
               <NavLinkWithOverlay
-                href={`/fixtures/${dateKey}/ai-insights`}
+                href={aiInsightsListHref(dateKey)}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300 sm:text-sm"
                 message="Loading insights…"
                 italic={false}
@@ -1654,7 +1654,7 @@ export default async function FixtureMatchPage({
           </div>
           <section className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-800">
             <NavLinkWithOverlay
-              href={`/fixtures/${dateKey}/ai-insights`}
+              href={aiInsightsListHref(dateKey)}
               className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300 sm:text-sm"
               message="Loading insights…"
               italic={false}
@@ -1874,7 +1874,7 @@ function FixturePreviewContent({
 
   const breadcrumbItems = [
     { href: "/", label: "Home" },
-    { href: `/fixtures/${dateKey}`, label: displayDate },
+    { href: fixturesDateHubHref(dateKey), label: displayDate },
     { href: `/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`, label: `${home} vs ${away}` },
   ];
 

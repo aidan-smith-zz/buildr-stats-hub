@@ -8,7 +8,7 @@ import {
 import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
-import { todayDateKey, tomorrowDateKey } from "@/lib/slugs";
+import { aiInsightsListHref, fixturesDateHubHref, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
 import { toSnippetDescription } from "@/lib/seoMetadata";
 import { FormEdgeSection } from "./form-edge-section";
 import { FormKeyTrends } from "./form-key-trends";
@@ -142,7 +142,7 @@ export default async function FormPage({
       : dateContext === "tomorrow"
         ? "Tomorrow's Key Trends"
         : "Key trends";
-  const fixturesHref = `/fixtures/${dateKey}`;
+  const fixturesHref = fixturesDateHubHref(dateKey);
   const breadcrumbItems = [
     { href: "/", label: "Home" },
     { href: fixturesHref, label: displayDate },
@@ -297,7 +297,7 @@ export default async function FormPage({
               {dateContext === "today" ? "today's fixtures" : dateContext === "tomorrow" ? "tomorrow's fixtures" : "fixtures for this date"}
             </NavLinkWithOverlay>
             ,{" "}
-            <NavLinkWithOverlay href={`/fixtures/${dateKey}/ai-insights`} className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300">
+            <NavLinkWithOverlay href={aiInsightsListHref(dateKey)} className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300">
               AI football insights
             </NavLinkWithOverlay>
             {" "}and{" "}

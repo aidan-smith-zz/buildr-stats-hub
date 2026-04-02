@@ -4,7 +4,7 @@ import {
   getFixturesForDateFromDbOnly,
   getOrRefreshTodayFixtures,
 } from "@/lib/fixturesService";
-import { leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
+import { fixturesDateHubHref, leagueToSlug, matchSlug, todayDateKey } from "@/lib/slugs";
 import type { FixtureSummary } from "@/lib/statsService";
 import { isFixtureInRequiredLeagues } from "@/lib/leagues";
 import { Breadcrumbs } from "@/app/_components/breadcrumbs";
@@ -119,13 +119,13 @@ export default async function LiveFixturePage({
   const fixture = findFixture(fixtures, leagueSlug, matchSlugParam);
 
   if (!fixture) {
-    redirect(`/fixtures/${dateKey}`);
+    redirect(fixturesDateHubHref(dateKey));
   }
 
   const displayDate = formatDisplayDate(dateKey);
   const breadcrumbItems = [
     { href: "/", label: "Home" },
-    { href: `/fixtures/${dateKey}`, label: displayDate },
+    { href: fixturesDateHubHref(dateKey), label: displayDate },
     { href: `/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}`, label: `${fixture.homeTeam.shortName ?? fixture.homeTeam.name} vs ${fixture.awayTeam.shortName ?? fixture.awayTeam.name}` },
     { href: `/fixtures/${dateKey}/${leagueSlug}/${matchSlugParam}/live`, label: "Live" },
   ];

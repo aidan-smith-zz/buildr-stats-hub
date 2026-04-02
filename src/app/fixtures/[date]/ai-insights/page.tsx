@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { ShareUrlButton } from "@/app/_components/share-url-button";
 import { RefreshInsightsButton } from "@/app/_components/refresh-insights-button";
 import { NavLinkWithOverlay } from "@/app/_components/fixture-row-link";
@@ -13,8 +14,8 @@ import {
 } from "@/lib/insightsService";
 import { decodeHtmlEntities } from "@/lib/text";
 import { prisma } from "@/lib/prisma";
-import { buildIntentTitle, toSnippetDescription } from "@/lib/seoMetadata";
-import { leagueToSlug, matchSlug } from "@/lib/slugs";
+import { toSnippetDescription } from "@/lib/seoMetadata";
+import { leagueToSlug, matchSlug, resolveTodayTomorrowDateParam } from "@/lib/slugs";
 import { TopPicksPanel, type TopPick } from "./top-picks-panel";
 
 export const revalidate = 3600;
@@ -23,15 +24,6 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
 
 /** statusShort values that mean the match is finished (we only show these to avoid wrong "live" minutes). */
 const FINISHED_STATUS = new Set(["FT", "AET", "PEN", "ABD", "AWD", "WO", "CAN"]);
-
-/** Validate and normalize date param to YYYY-MM-DD (defaults to today Europe/London). */
-function normalizeDateKey(param: string | undefined): string {
-  if (param && /^\d{4}-\d{2}-\d{2}$/.test(param)) {
-    const d = new Date(param + "T12:00:00.000Z");
-    if (!Number.isNaN(d.getTime())) return param;
-  }
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
-}
 
 function formatDisplayDate(dateKey: string): string {
   return new Date(dateKey + "T12:00:00.000Z").toLocaleDateString("en-GB", {
@@ -49,7 +41,8 @@ export async function generateMetadata({
   params: Promise<{ date: string }>;
 }): Promise<Metadata> {
   const { date: dateParam } = await params;
-  const dateKey = normalizeDateKey(dateParam);
+  const dateKey = resolveTodayTomorrowDateParam(dateParam);
+  if (!dateKey) notFound();
   const displayDate = formatDisplayDate(dateKey);
   const insights = await generateInsights(dateKey);
   const hasContent = insights.length > 0;
@@ -224,7 +217,8 @@ export default async function AIInsightsPage({
   params: Promise<{ date: string }>;
 }) {
   const { date: dateParam } = await params;
-  const dateKey = normalizeDateKey(dateParam);
+  const dateKey = resolveTodayTomorrowDateParam(dateParam);
+  if (!dateKey) notFound();
 
   const [insights, liveScores, fixturesForPicks, last5Rows, seasonRows] = await Promise.all([
     generateInsights(dateKey),

@@ -36,6 +36,36 @@ export function tomorrowDateKey(): string {
   return d.toLocaleDateString("en-CA", { timeZone: FIXTURES_TZ });
 }
 
+/**
+ * `/fixtures/[date]` and `/fixtures/[date]/ai-insights` only serve today and tomorrow (Europe/London).
+ * Accepts aliases `today` / `tomorrow` (case-insensitive) or YYYY-MM-DD when it matches those keys.
+ */
+export function resolveTodayTomorrowDateParam(param: string | undefined): string | null {
+  if (param == null || param === "") return null;
+  const today = todayDateKey();
+  const tomorrow = tomorrowDateKey();
+  const lower = param.toLowerCase();
+  if (lower === "today") return today;
+  if (lower === "tomorrow") return tomorrow;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(param)) return null;
+  const d = new Date(`${param}T12:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  if (param !== today && param !== tomorrow) return null;
+  return param;
+}
+
+/** Nav target for `/fixtures/[date]` from a calendar context: that day if in window, else today's hub. */
+export function fixturesDateHubHref(contextDateKey: string): string {
+  const r = resolveTodayTomorrowDateParam(contextDateKey);
+  return `/fixtures/${r ?? todayDateKey()}`;
+}
+
+/** Nav target for "AI insights" from a fixture-date context: that day if in window, else today's hub. */
+export function aiInsightsListHref(contextDateKey: string): string {
+  const r = resolveTodayTomorrowDateParam(contextDateKey);
+  return `/fixtures/${r ?? todayDateKey()}/ai-insights`;
+}
+
 /** Next N days (YYYY-MM-DD) from tomorrow, in Europe/London. */
 export function nextDateKeys(days: number): string[] {
   const keys: string[] = [];
