@@ -194,7 +194,7 @@ When `getOrRefreshTodayFixturesUncached` runs a full refresh, it does many leagu
 
 Crawlers can open many concurrent connections and starve real users.
 
-- **Where:** Middleware (e.g. `src/middleware.ts`) or a small wrapper in front of heavy routes.
+- **Where:** Proxy (e.g. `src/proxy.ts`) or a small wrapper in front of heavy routes.
 - **Change:** Detect known crawler user-agents (e.g. Googlebot, Bingbot). For those, either: (a) return 429 or 503 after N requests per IP per minute, or (b) serve a lightweight version of the page (e.g. no live scores, or cached-only). Alternatively use Vercel’s bot protection / rate limits if available on your plan.
 - **Effect:** Fewer connections used by bots, so more headroom for real users and fewer P2024s.
 
