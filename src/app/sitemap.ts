@@ -9,7 +9,7 @@ import {
   STANDINGS_LEAGUE_SLUG_BY_ID,
   TOP_LEAGUE_IDS,
 } from "@/lib/leagues";
-import { leagueToSlug, matchSlug, nextDateKeys, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
+import { nextDateKeys, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
 import { prisma } from "@/lib/prisma";
 import { API_SEASON } from "@/lib/footballApi";
 import { makeTeamSlug } from "@/lib/teamSlugs";
@@ -31,7 +31,7 @@ function maxOfTwoDates(a: Date | undefined, b: Date | undefined, fallback: Date)
  * - Home, about, contact
  * - /fixtures (hub redirects — omit; canonical is /fixtures/[date])
  * - /fixtures/[date], /fixtures/[date]/ai-insights|form|matchday-insights (today + near-future only)
- * - /fixtures/[date]/[league]/[match] (no /live URLs in sitemap)
+ * - /fixtures/[date]/[league]/[match] intentionally excluded (deep pages are noindex)
  * - /fixtures/past, /fixtures/upcoming, /fixtures/live
  * - /leagues/all; /leagues/[slug]/standings|stats|form|markets/*
  * - /teams/all; /teams/[slug] and /teams/[slug]/markets/*
@@ -123,7 +123,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     );
 
     let todayLastmod = now;
-    const fixtureLastmodById = new Map<number, Date>();
     if (filtered.length > 0) {
       const fixtureRows = await prisma.fixture.findMany({
         where: { id: { in: filtered.map((f) => f.id) } },
@@ -138,7 +137,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       for (const row of fixtureRows) {
         const scoreCached = row.liveScoreCache?.cachedAt;
         const lastmod = scoreCached && scoreCached > row.updatedAt ? scoreCached : row.updatedAt;
-        fixtureLastmodById.set(row.id, lastmod);
         if (lastmod > todayLastmod) todayLastmod = lastmod;
       }
     }
@@ -155,19 +153,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       { url: `${baseUrl}/fixtures/${dateKey}/matchday-insights`, lastModified: todayLastmod, changeFrequency: "daily", priority: 0.7 },
     );
 
-    for (const f of filtered) {
-      const leagueSlug = leagueToSlug(f.league);
-      const home = f.homeTeam.shortName ?? f.homeTeam.name;
-      const away = f.awayTeam.shortName ?? f.awayTeam.name;
-      const match = matchSlug(home, away);
-      const fixtureLastmod = fixtureLastmodById.get(f.id) ?? todayLastmod;
-      entries.push({
-        url: `${baseUrl}/fixtures/${dateKey}/${leagueSlug}/${match}`,
-        lastModified: fixtureLastmod,
-        changeFrequency: "daily",
-        priority: 0.8,
-      });
-    }
+    // Deep fixture pages are noindex, so keep them out of sitemap to reduce crawl pressure.
   } catch (err) {
     console.error("[sitemap] Failed to fetch today fixtures:", err);
   }
@@ -176,7 +162,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // skipRefresh so sitemap never triggers 14-day API refresh (would timeout).
   try {
     const upcomingByDate = await getUpcomingFixturesFromDb({ skipRefresh: true });
-    for (const { dateKey: dayKey, fixtures: dayFixtures } of upcomingByDate) {
+    for (const { dateKey: dayKey } of upcomingByDate) {
       const dayLastmod = upcomingLastmodMap.get(dayKey) ?? now;
       entries.push({
         url: `${baseUrl}/fixtures/${dayKey}`,
@@ -189,18 +175,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         { url: `${baseUrl}/fixtures/${dayKey}/form`, lastModified: dayLastmod, changeFrequency: "daily", priority: 0.7 },
         { url: `${baseUrl}/fixtures/${dayKey}/matchday-insights`, lastModified: dayLastmod, changeFrequency: "daily", priority: 0.7 },
       );
-      for (const f of dayFixtures) {
-        const leagueSlug = leagueToSlug(f.league ?? null);
-        const home = f.homeTeam.shortName ?? f.homeTeam.name;
-        const away = f.awayTeam.shortName ?? f.awayTeam.name;
-        const match = matchSlug(home, away);
-        entries.push({
-          url: `${baseUrl}/fixtures/${dayKey}/${leagueSlug}/${match}`,
-          lastModified: dayLastmod,
-          changeFrequency: "daily",
-          priority: 0.8,
-        });
-      }
+      // Deep fixture pages are noindex, so keep them out of sitemap to reduce crawl pressure.
     }
   } catch (err) {
     console.error("[sitemap] Failed to fetch upcoming fixtures:", err);

@@ -197,7 +197,8 @@ export async function generateMetadata({
       title,
       description,
       alternates: { canonical },
-      robots: { index: true, follow: true },
+      // Keep fixture hubs indexed, but treat deep match pages as non-SEO to reduce crawler CPU.
+      robots: { index: false, follow: true },
       openGraph: {
         title,
         description,
@@ -252,7 +253,8 @@ export async function generateMetadata({
       title,
       description,
       alternates: { canonical },
-      robots: { index: true, follow: true },
+      // Keep fixture hubs indexed, but treat deep match pages as non-SEO to reduce crawler CPU.
+      robots: { index: false, follow: true },
       openGraph: {
         title,
         description,
@@ -299,7 +301,8 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical },
-    robots: { index: true, follow: true },
+    // Keep fixture hubs indexed, but treat deep match pages as non-SEO to reduce crawler CPU.
+    robots: { index: false, follow: true },
     openGraph: {
       title,
       description,
