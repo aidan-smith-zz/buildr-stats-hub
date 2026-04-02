@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { isDeepFixtureMatchHref } from "@/lib/deepFixtureMatchHref";
 import { NavigationLoadingOverlay } from "./navigation-loading-overlay";
 
 type Props = {
@@ -11,13 +12,21 @@ type Props = {
   className?: string;
   /** e.g. `nofollow` for secondary / noindex targets (team market hubs). */
   rel?: string;
+  /** When omitted, deep fixture match URLs get `prefetch={false}` automatically. */
+  prefetch?: boolean;
 };
 
 const DEFAULT_LOADING_MESSAGE = "Building your Stats";
 
-export function FixtureRowLink({ href, children, className, rel }: Props) {
+export function FixtureRowLink({ href, children, className, rel, prefetch }: Props) {
   const [isNavigating, setIsNavigating] = useState(false);
   const pathname = usePathname();
+  const resolvedPrefetch =
+    prefetch === true || prefetch === false
+      ? prefetch
+      : isDeepFixtureMatchHref(href)
+        ? false
+        : undefined;
 
   useEffect(() => {
     if (pathname) setIsNavigating(false);
@@ -29,6 +38,7 @@ export function FixtureRowLink({ href, children, className, rel }: Props) {
         href={href}
         className={className}
         rel={rel}
+        prefetch={resolvedPrefetch}
         onClick={() => setIsNavigating(true)}
         aria-busy={isNavigating}
       >
@@ -45,10 +55,17 @@ export function FixtureStatsLink({
   children,
   className,
   rel,
+  prefetch,
   message = DEFAULT_LOADING_MESSAGE,
 }: Props & { message?: string }) {
   const [isNavigating, setIsNavigating] = useState(false);
   const pathname = usePathname();
+  const resolvedPrefetch =
+    prefetch === true || prefetch === false
+      ? prefetch
+      : isDeepFixtureMatchHref(href)
+        ? false
+        : undefined;
 
   useEffect(() => {
     if (pathname) setIsNavigating(false);
@@ -60,6 +77,7 @@ export function FixtureStatsLink({
         href={href}
         className={className}
         rel={rel}
+        prefetch={resolvedPrefetch}
         onClick={() => setIsNavigating(true)}
         aria-busy={isNavigating}
       >
@@ -83,11 +101,18 @@ export function NavLinkWithOverlay({
   children,
   className,
   rel,
+  prefetch,
   message = DEFAULT_LOADING_MESSAGE,
   italic = true,
 }: NavLinkWithOverlayProps) {
   const [isNavigating, setIsNavigating] = useState(false);
   const pathname = usePathname();
+  const resolvedPrefetch =
+    prefetch === true || prefetch === false
+      ? prefetch
+      : isDeepFixtureMatchHref(href)
+        ? false
+        : undefined;
 
   useEffect(() => {
     if (pathname) setIsNavigating(false);
@@ -99,6 +124,7 @@ export function NavLinkWithOverlay({
         href={href}
         className={className}
         rel={rel}
+        prefetch={resolvedPrefetch}
         onClick={() => setIsNavigating(true)}
         aria-busy={isNavigating}
       >

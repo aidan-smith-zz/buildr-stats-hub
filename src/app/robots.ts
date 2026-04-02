@@ -15,7 +15,14 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/_next/", "/teams/*/markets/"],
+        disallow: [
+          "/api/",
+          "/_next/",
+          "/teams/*/markets/",
+          // Deep match dashboards (noindex); keep date hubs /fixtures/{date}/… crawlable.
+          "/fixtures/*/*/*",
+          "/fixtures/*/*/*/live",
+        ],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,

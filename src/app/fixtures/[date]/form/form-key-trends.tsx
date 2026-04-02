@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isDeepFixtureMatchHref } from "@/lib/deepFixtureMatchHref";
 import type { KeyTrendsData } from "./form-page-trends";
 
 type Props = {
@@ -55,6 +56,7 @@ export function FormKeyTrends({ trends, sectionTitle }: Props) {
                   <Link
                     key={m.href}
                     href={m.href}
+                    prefetch={isDeepFixtureMatchHref(m.href) ? false : undefined}
                     className="font-medium text-violet-700 underline-offset-2 hover:underline dark:text-violet-300"
                   >
                     {m.label}
