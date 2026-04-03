@@ -3,20 +3,12 @@ import {
   getFixturesForDateFromDbOnly,
   getUpcomingFixturesFromDb,
 } from "@/lib/fixturesService";
-import {
-  LEAGUE_DISPLAY_NAMES,
-  isFixtureInRequiredLeagues,
-  STANDINGS_LEAGUE_SLUG_BY_ID,
-  TOP_LEAGUE_IDS,
-} from "@/lib/leagues";
+import { isFixtureInRequiredLeagues, STANDINGS_LEAGUE_SLUG_BY_ID } from "@/lib/leagues";
 import { nextDateKeys, todayDateKey, tomorrowDateKey } from "@/lib/slugs";
 import { prisma } from "@/lib/prisma";
 import { API_SEASON } from "@/lib/footballApi";
-import { makeTeamSlug } from "@/lib/teamSlugs";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://statsbuildr.com";
-
-const TOP_TEAM_LEAGUE_KEYS = TOP_LEAGUE_IDS.map((id) => LEAGUE_DISPLAY_NAMES[id]);
 
 /** Newest of two optional timestamps (for league hub lastmod). */
 function maxOfTwoDates(a: Date | undefined, b: Date | undefined, fallback: Date): Date {
@@ -34,7 +26,7 @@ function maxOfTwoDates(a: Date | undefined, b: Date | undefined, fallback: Date)
  * - /fixtures/[date]/[league]/[match] intentionally excluded (deep pages are noindex)
  * - /fixtures/past, /fixtures/upcoming, /fixtures/live
  * - /leagues/all; /leagues/[slug]/standings|stats|form|markets/*
- * - /teams/all; /teams/[slug] and /teams/[slug]/markets/*
+ * - /teams/all (team profile /teams/[slug] omitted — noindex / not in sitemap)
  * - /predictions, /predictions/[date], /predictions/[date]/btts|total-goals|corners|cards (today + next 13 days)
  */
 
@@ -299,55 +291,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     );
   }
 
-  // Team pages for top leagues only (teams with season stats in our tracked competitions).
-  // Match teamPageService: include by league name or leagueId so we don't miss "EFL Championship" etc.
-  try {
-    const seasonRows = await prisma.teamSeasonStats.findMany({
-      where: {
-        season: API_SEASON,
-        OR: [
-          { league: { in: TOP_TEAM_LEAGUE_KEYS } },
-          { leagueId: { in: TOP_LEAGUE_IDS as unknown as number[] } },
-        ],
-      },
-      select: { teamId: true, updatedAt: true },
-    });
-
-    const teamIds = Array.from(new Set(seasonRows.map((row) => row.teamId)));
-    const teamLastmodById = new Map<number, Date>();
-    for (const row of seasonRows) {
-      const existing = teamLastmodById.get(row.teamId);
-      if (!existing || row.updatedAt > existing) teamLastmodById.set(row.teamId, row.updatedAt);
-    }
-
-    if (teamIds.length > 0) {
-      const teams = await prisma.team.findMany({
-        where: { id: { in: teamIds } },
-        select: {
-          id: true,
-          name: true,
-          shortName: true,
-        },
-      });
-
-      for (const team of teams) {
-        const displayName = team.shortName ?? team.name;
-        const slug = makeTeamSlug(displayName);
-        const lastmod = teamLastmodById.get(team.id) ?? now;
-
-        entries.push({
-          url: `${baseUrl}/teams/${slug}`,
-          lastModified: lastmod,
-          // Weekly hint: team stats move slower than fixtures; reduces over-frequent recrawl vs "daily".
-          changeFrequency: "weekly",
-          priority: 0.7,
-        });
-        // Team market pages intentionally excluded from sitemap (phase 1 crawl budget reduction).
-      }
-    }
-  } catch (err) {
-    console.error("[sitemap] Failed to fetch team pages:", err);
-  }
+  // /teams/[slug] profile pages are noindex and omitted from sitemap to limit crawler load.
 
   return entries;
 }

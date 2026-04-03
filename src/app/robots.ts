@@ -14,11 +14,12 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: "ClaudeBot", disallow: ["/"] },
       {
         userAgent: "*",
-        allow: "/",
+        allow: ["/", "/teams/all", "/teams/*/markets/"],
         disallow: [
           "/api/",
           "/_next/",
-          "/teams/*/markets/",
+          // Team profile pages only (/teams/[slug]); /teams/all and /teams/*/markets/ allowed above.
+          "/teams/",
           // Deep match dashboards (noindex); keep date hubs /fixtures/{date}/… crawlable.
           "/fixtures/*/*/*",
           "/fixtures/*/*/*/live",

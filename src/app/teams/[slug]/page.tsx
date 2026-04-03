@@ -63,7 +63,7 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
     title,
     description,
     alternates: { canonical },
-    robots: { index: true, follow: true },
+    robots: { index: false, follow: false },
     openGraph: {
       title,
       description,
