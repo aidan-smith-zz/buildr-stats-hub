@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { isDeepFixtureMatchHref } from "@/lib/deepFixtureMatchHref";
+import { isDeepFixtureMatchHref, relWithNofollowForDeepFixtureHref } from "@/lib/deepFixtureMatchHref";
 import { useMemo, useState } from "react";
 import type { Last5TeamSummary } from "@/lib/insightsService";
 
@@ -231,6 +231,7 @@ export function LeagueFormTableClient({ last5, last10 }: Props) {
                       <Link
                         href={t.href}
                         prefetch={isDeepFixtureMatchHref(t.href) ? false : undefined}
+                        rel={relWithNofollowForDeepFixtureHref(t.href)}
                         className="font-medium text-neutral-900 hover:text-violet-600 dark:text-neutral-100 dark:hover:text-violet-400"
                       >
                         {t.teamName}

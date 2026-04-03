@@ -176,7 +176,7 @@ export async function generateMetadata({
     const fixtures = await withPoolRetry(() => getOrRefreshTodayFixturesRequestCached(todayDateKey()));
     const fixture = findTodayFixture(fixtures, leagueSlug, matchSlugParam);
     if (!fixture) {
-      return { title: "Fixture not found", robots: { index: false, follow: true } };
+      return { title: "Fixture not found", robots: { index: false, follow: false } };
     }
     const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
     const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
@@ -197,8 +197,8 @@ export async function generateMetadata({
       title,
       description,
       alternates: { canonical },
-      // Keep fixture hubs indexed, but treat deep match pages as non-SEO to reduce crawler CPU.
-      robots: { index: false, follow: true },
+      // Non-SEO match pages: noindex + nofollow to cut crawl churn from this URL.
+      robots: { index: false, follow: false },
       openGraph: {
         title,
         description,
@@ -253,8 +253,8 @@ export async function generateMetadata({
       title,
       description,
       alternates: { canonical },
-      // Keep fixture hubs indexed, but treat deep match pages as non-SEO to reduce crawler CPU.
-      robots: { index: false, follow: true },
+      // Non-SEO match pages: noindex + nofollow to cut crawl churn from this URL.
+      robots: { index: false, follow: false },
       openGraph: {
         title,
         description,
@@ -278,7 +278,7 @@ export async function generateMetadata({
     return {
       title: "Fixture not found",
       description: "No fixtures scheduled for this date.",
-      robots: { index: false, follow: true },
+      robots: { index: false, follow: false },
     };
   }
 
@@ -301,8 +301,8 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical },
-    // Keep fixture hubs indexed, but treat deep match pages as non-SEO to reduce crawler CPU.
-    robots: { index: false, follow: true },
+    // Non-SEO match pages: noindex + nofollow to cut crawl churn from this URL.
+    robots: { index: false, follow: false },
     openGraph: {
       title,
       description,

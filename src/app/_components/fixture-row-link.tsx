@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { isDeepFixtureMatchHref } from "@/lib/deepFixtureMatchHref";
+import { isDeepFixtureMatchHref, relWithNofollowForDeepFixtureHref } from "@/lib/deepFixtureMatchHref";
 import { NavigationLoadingOverlay } from "./navigation-loading-overlay";
 
 type Props = {
@@ -27,6 +27,7 @@ export function FixtureRowLink({ href, children, className, rel, prefetch }: Pro
       : isDeepFixtureMatchHref(href)
         ? false
         : undefined;
+  const resolvedRel = relWithNofollowForDeepFixtureHref(href, rel);
 
   useEffect(() => {
     if (pathname) setIsNavigating(false);
@@ -37,7 +38,7 @@ export function FixtureRowLink({ href, children, className, rel, prefetch }: Pro
       <Link
         href={href}
         className={className}
-        rel={rel}
+        rel={resolvedRel}
         prefetch={resolvedPrefetch}
         onClick={() => setIsNavigating(true)}
         aria-busy={isNavigating}
@@ -66,6 +67,7 @@ export function FixtureStatsLink({
       : isDeepFixtureMatchHref(href)
         ? false
         : undefined;
+  const resolvedRel = relWithNofollowForDeepFixtureHref(href, rel);
 
   useEffect(() => {
     if (pathname) setIsNavigating(false);
@@ -76,7 +78,7 @@ export function FixtureStatsLink({
       <Link
         href={href}
         className={className}
-        rel={rel}
+        rel={resolvedRel}
         prefetch={resolvedPrefetch}
         onClick={() => setIsNavigating(true)}
         aria-busy={isNavigating}
@@ -113,6 +115,7 @@ export function NavLinkWithOverlay({
       : isDeepFixtureMatchHref(href)
         ? false
         : undefined;
+  const resolvedRel = relWithNofollowForDeepFixtureHref(href, rel);
 
   useEffect(() => {
     if (pathname) setIsNavigating(false);
@@ -123,7 +126,7 @@ export function NavLinkWithOverlay({
       <Link
         href={href}
         className={className}
-        rel={rel}
+        rel={resolvedRel}
         prefetch={resolvedPrefetch}
         onClick={() => setIsNavigating(true)}
         aria-busy={isNavigating}

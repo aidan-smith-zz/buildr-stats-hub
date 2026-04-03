@@ -19,3 +19,15 @@ export function isDeepFixtureMatchHref(href: string): boolean {
   if (!pathname.startsWith("/")) return false;
   return /^\/fixtures\/\d{4}-\d{2}-\d{2}\/[^/]+\/[^/]+(?:\/live)?\/?$/.test(pathname);
 }
+
+/** Ensures `nofollow` on internal links to deep match URLs (crawl-hint); passes through other `rel` tokens. */
+export function relWithNofollowForDeepFixtureHref(href: string, rel?: string): string | undefined {
+  if (!isDeepFixtureMatchHref(href)) {
+    return rel?.trim() || undefined;
+  }
+  const existing = (rel ?? "").trim();
+  if (/\bnofollow\b/i.test(existing)) {
+    return existing || undefined;
+  }
+  return existing ? `${existing} nofollow` : "nofollow";
+}

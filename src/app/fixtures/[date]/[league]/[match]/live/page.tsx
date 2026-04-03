@@ -72,7 +72,7 @@ export async function generateMetadata({
       : await getFixturesForDateFromDbOnly(dateKey);
   const fixture = findFixture(fixtures, leagueSlug, matchSlugParam);
   if (!fixture) {
-    return { title: "Fixture not found", robots: { index: false, follow: true } };
+    return { title: "Fixture not found", robots: { index: false, follow: false } };
   }
   const home = fixture.homeTeam.shortName ?? fixture.homeTeam.name;
   const away = fixture.awayTeam.shortName ?? fixture.awayTeam.name;
@@ -84,7 +84,7 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical },
-    robots: { index: true, follow: true },
+    robots: { index: false, follow: false },
     openGraph: {
       title,
       description,

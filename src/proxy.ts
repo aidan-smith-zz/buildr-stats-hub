@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 /**
- * Returns 429 for known non-search scraper / AI / SEO-tool user agents on expensive routes only.
- * Google crawlers are allowlisted so SEO is unaffected. Real browsers are never blocked.
+ * Returns 429 for crawlers on expensive routes. Deep match URLs: Google + scrapers (non-SEO).
+ * Team market URLs: scrapers only (Google still reaches team hubs). Real browsers are not blocked.
  */
 
 const TEAM_MARKETS_PATH = /^\/teams\/[^/]+\/markets\//i;
@@ -61,24 +61,7 @@ function isBlockedScraperUa(userAgent: string | null): boolean {
   return BLOCKED_UA_SUBSTRINGS.some((s) => ua.includes(s));
 }
 
-function isTargetPath(pathname: string): boolean {
-  if (TEAM_MARKETS_PATH.test(pathname)) return true;
-  if (FIXTURE_MATCH_PATH.test(pathname)) return true;
-  return false;
-}
-
-export function proxy(request: NextRequest) {
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    return NextResponse.next();
-  }
-  const pathname = request.nextUrl.pathname;
-  if (!isTargetPath(pathname)) {
-    return NextResponse.next();
-  }
-  const ua = request.headers.get("user-agent");
-  if (!isBlockedScraperUa(ua)) {
-    return NextResponse.next();
-  }
+function rateLimitResponse(): NextResponse {
   return new NextResponse("Too Many Requests", {
     status: 429,
     headers: {
@@ -86,6 +69,34 @@ export function proxy(request: NextRequest) {
       "Cache-Control": "private, no-store",
     },
   });
+}
+
+/**
+ * Deep match pages: throttle Google and other crawlers (non-SEO); real browsers pass.
+ * Team markets: throttle curated scrapers only — Google still allowed for team hubs.
+ */
+export function proxy(request: NextRequest) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return NextResponse.next();
+  }
+  const pathname = request.nextUrl.pathname;
+  const ua = request.headers.get("user-agent");
+
+  if (FIXTURE_MATCH_PATH.test(pathname)) {
+    if (ua && (isGoogleFamilyCrawler(ua) || isBlockedScraperUa(ua))) {
+      return rateLimitResponse();
+    }
+    return NextResponse.next();
+  }
+
+  if (TEAM_MARKETS_PATH.test(pathname)) {
+    if (ua && isBlockedScraperUa(ua)) {
+      return rateLimitResponse();
+    }
+    return NextResponse.next();
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {

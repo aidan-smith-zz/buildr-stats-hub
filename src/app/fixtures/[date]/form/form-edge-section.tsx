@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { isDeepFixtureMatchHref } from "@/lib/deepFixtureMatchHref";
+import { isDeepFixtureMatchHref, relWithNofollowForDeepFixtureHref } from "@/lib/deepFixtureMatchHref";
 import type { FormEdgeFixture } from "@/lib/insightsService";
 import type { Last5TeamSummary } from "@/lib/insightsService";
 import { LEAGUE_DISPLAY_NAMES, LEAGUE_GROUP_ORDER } from "@/lib/leagues";
@@ -220,6 +220,7 @@ export function FormEdgeSection({ fixtures, last5, last10, season, dateContext =
                                 key={`${fixture.homeTeamId}-${fixture.awayTeamId}`}
                                 href={fixture.href}
                                 prefetch={isDeepFixtureMatchHref(fixture.href) ? false : undefined}
+                                rel={relWithNofollowForDeepFixtureHref(fixture.href)}
                                 className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800/50 dark:hover:bg-neutral-800"
                               >
                                 <span className="font-medium text-neutral-700 dark:text-neutral-300">
@@ -239,6 +240,7 @@ export function FormEdgeSection({ fixtures, last5, last10, season, dateContext =
                           key={`${fixture.homeTeamId}-${fixture.awayTeamId}`}
                           href={fixture.href}
                           prefetch={isDeepFixtureMatchHref(fixture.href) ? false : undefined}
+                          rel={relWithNofollowForDeepFixtureHref(fixture.href)}
                           className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800/50 dark:hover:bg-neutral-800"
                         >
                           <span className="font-medium text-neutral-700 dark:text-neutral-300">
@@ -314,6 +316,7 @@ function renderEdgeBar(
       key={`${fixture.homeTeamId}-${fixture.awayTeamId}`}
       href={fixture.href}
       prefetch={isDeepFixtureMatchHref(fixture.href) ? false : undefined}
+      rel={relWithNofollowForDeepFixtureHref(fixture.href)}
       className="block rounded-lg transition-opacity hover:opacity-90 focus:opacity-90 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-neutral-900"
     >
       <div
