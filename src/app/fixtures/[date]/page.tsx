@@ -13,6 +13,7 @@ import {
 } from "@/lib/slugs";
 import { toSnippetDescription } from "@/lib/seoMetadata";
 import { TodayFixturesList } from "@/app/_components/today-fixtures-list";
+import { isFixtureInRequiredLeagues } from "@/lib/leagues";
 
 export const dynamic = "force-dynamic";
 /** Allow more time for DB/API under load (avoids FUNCTION_INVOCATION_TIMEOUT). */
@@ -110,8 +111,14 @@ export default async function FixturesDatePage({
     const tomorrowFixtures = await withPoolRetry(() => getFixturesForDateRequestCached(tomorrowKeyResolved));
     const todayOnly = fixtures.filter((f) => fixtureDateKey(f.date) === todayKey);
     const tomorrowOnly = (tomorrowFixtures ?? []).filter((f) => fixtureDateKey(f.date) === tomorrowKeyResolved);
-    const useLeagueGroupsForToday = todayOnly.length > 15;
-    const useLeagueGroupsForTomorrow = tomorrowOnly.length > 15;
+    const todayVisible = todayOnly.filter((f) =>
+      isFixtureInRequiredLeagues({ leagueId: f.leagueId ?? null, league: f.league }),
+    );
+    const tomorrowVisible = tomorrowOnly.filter((f) =>
+      isFixtureInRequiredLeagues({ leagueId: f.leagueId ?? null, league: f.league }),
+    );
+    const useLeagueGroupsForToday = todayVisible.length > 15;
+    const useLeagueGroupsForTomorrow = tomorrowVisible.length > 15;
     return (
       <TodayFixturesList
         fixtures={fixtures}

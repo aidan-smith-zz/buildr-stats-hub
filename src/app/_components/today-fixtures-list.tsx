@@ -231,9 +231,10 @@ export function TodayFixturesList({
   const todayOnly = tomorrowKey != null ? fixtures.filter((f) => fixtureOnDateKey(f, todayKey)) : fixtures;
   const sortedFixtures = fixturesByKickOff(todayOnly);
   const timeGroups = groupByKickOffTime(sortedFixtures);
-  const leagueGroups = sortedFixtures.length > 15 ? groupByLeague(sortedFixtures) : null;
   /** Use server-provided decision when available to avoid hydration mismatch; otherwise fall back to local. */
   const useLeagueToday = useLeagueGroupsForToday ?? (sortedFixtures.length > 15);
+  /** Must match `useLeagueToday`: previously `leagueGroups` used only length>15 while the flag could come from the server, causing SSR/client branch mismatch (ul vs li tree). */
+  const leagueGroups = useLeagueToday ? groupByLeague(sortedFixtures) : null;
   const displayDate = formatDisplayDate(todayKey);
 
   /** Show Tomorrow tab whenever we have a tomorrow key (e.g. on homepage); panel can be empty. */
@@ -246,9 +247,8 @@ export function TodayFixturesList({
   const hasTomorrowFixtures = tomorrowOnly.length > 0;
   const sortedTomorrow = fixturesByKickOff(tomorrowOnly);
   const tomorrowTimeGroups = sortedTomorrow.length > 0 ? groupByKickOffTime(sortedTomorrow) : [];
-  const tomorrowLeagueGroups =
-    sortedTomorrow.length > 15 ? groupByLeague(sortedTomorrow) : null;
   const useLeagueTomorrow = useLeagueGroupsForTomorrow ?? (sortedTomorrow.length > 15);
+  const tomorrowLeagueGroups = useLeagueTomorrow ? groupByLeague(sortedTomorrow) : null;
   const tomorrowDisplayDate = showTomorrowTab && tomorrowKey ? formatDisplayDate(tomorrowKey) : "";
 
   return (
