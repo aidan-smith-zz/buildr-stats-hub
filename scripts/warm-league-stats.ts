@@ -1,3 +1,5 @@
+import "./load-env";
+
 /**
  * Warm league season stats for all teams in standings leagues.
  *

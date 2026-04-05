@@ -2,6 +2,7 @@
  * Quick check: do we have any TeamSeasonStats / TeamFixtureCache, and what do today's fixtures look like?
  * Usage: npx tsx scripts/check-team-stats.ts
  */
+import "./load-env";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
